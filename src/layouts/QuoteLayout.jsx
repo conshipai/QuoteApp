@@ -9,14 +9,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Import,
-  Share2,
-  Menu,
-  X
+  Share2
 } from 'lucide-react';
 
 const QuoteLayout = ({ children, userRole, isDarkMode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
   const isForeignAgent = userRole === 'foreign_agent';
 
@@ -82,9 +79,6 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
     const baseClasses = `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200`;
     
     if (isActive) {
-      if (isDarkMode) {
-        return `${baseClasses} bg-conship-purple text-white`;
-      }
       return `${baseClasses} bg-conship-purple text-white`;
     }
     
@@ -96,18 +90,8 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
 
   return (
     <div className="flex h-full">
-      {/* Mobile Menu Button */}
-      <button
-        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        className={`lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg ${
-          isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-white text-gray-700 shadow-md'
-        }`}
-      >
-        {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-      </button>
-
-      {/* Sidebar - Desktop */}
-      <div className={`hidden lg:block transition-all duration-300 ${
+      {/* Sidebar - Always visible, responsive width */}
+      <div className={`transition-all duration-300 flex-shrink-0 ${
         sidebarOpen ? 'w-64' : 'w-20'
       } ${isDarkMode ? 'bg-gray-900' : 'bg-white'} border-r ${
         isDarkMode ? 'border-gray-800' : 'border-gray-200'
@@ -115,7 +99,7 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
         <div className="p-4">
           {/* Sidebar Header */}
           <div className="flex items-center justify-between mb-8">
-            <h2 className={`font-bold text-lg transition-all duration-300 ${
+            <h2 className={`font-bold text-lg transition-all duration-300 overflow-hidden ${
               sidebarOpen ? 'opacity-100' : 'opacity-0 w-0'
             } ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
             style={{ fontFamily: "'Orbitron', monospace" }}>
@@ -123,7 +107,7 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
             </h2>
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className={`p-1.5 rounded-lg transition-colors ${
+              className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${
                 isDarkMode 
                   ? 'hover:bg-gray-800 text-gray-400' 
                   : 'hover:bg-gray-100 text-gray-600'
@@ -146,14 +130,14 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
                   className={getNavItemClasses(item)}
                   title={!sidebarOpen ? item.label : ''}
                 >
-                  <div className="relative">
+                  <div className="relative flex-shrink-0">
                     <Icon className="w-5 h-5" />
                     {SubIcon && (
                       <SubIcon className="w-3 h-3 absolute -bottom-1 -right-1" />
                     )}
                   </div>
                   {sidebarOpen && (
-                    <span className="transition-all duration-300">
+                    <span className="transition-all duration-300 whitespace-nowrap overflow-hidden">
                       {item.label}
                     </span>
                   )}
@@ -182,47 +166,7 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
         </div>
       </div>
 
-      {/* Mobile Sidebar */}
-      {mobileMenuOpen && (
-        <div className={`lg:hidden fixed inset-0 z-40 ${
-          isDarkMode ? 'bg-gray-900' : 'bg-white'
-        }`}>
-          <div className="p-4 pt-16">
-            <h2 className={`font-bold text-lg mb-8 ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}
-            style={{ fontFamily: "'Orbitron', monospace" }}>
-              QUOTES
-            </h2>
-            
-            <nav className="space-y-2">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const SubIcon = item.subIcon;
-                
-                return (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={getNavItemClasses(item)}
-                  >
-                    <div className="relative">
-                      <Icon className="w-5 h-5" />
-                      {SubIcon && (
-                        <SubIcon className="w-3 h-3 absolute -bottom-1 -right-1" />
-                      )}
-                    </div>
-                    <span>{item.label}</span>
-                  </NavLink>
-                );
-              })}
-            </nav>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content */}
+      {/* Main Content - Scrollable */}
       <div className="flex-1 overflow-auto">
         {children}
       </div>
