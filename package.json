@@ -2,14 +2,26 @@
   "name": "@your-org/quoteapp",
   "version": "1.0.0",
   "description": "Quote generation microapp for logistics",
-  "main": "src/QuotesModule.jsx",
   "scripts": {
-    "build": "echo 'Microapp ready - no build required'",
-    "start": "echo 'Microapp started'",
-    "test": "echo 'No tests configured'"
+    "build": "webpack --mode production",
+    "start": "webpack serve --mode development",
+    "serve:dist": "npx serve dist -p 3001"
   },
   "dependencies": {
     "lucide-react": "^0.263.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.22.0",
+    "@babel/preset-react": "^7.22.0",
+    "babel-loader": "^9.1.0",
+    "css-loader": "^6.8.0",
+    "html-webpack-plugin": "^5.5.0",
+    "postcss-loader": "^7.3.0",
+    "serve": "^14.2.0",
+    "style-loader": "^3.3.0",
+    "webpack": "^5.88.0",
+    "webpack-cli": "^5.1.0",
+    "webpack-dev-server": "^4.15.0"
   },
   "peerDependencies": {
     "react": "^18.0.0",
