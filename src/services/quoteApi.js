@@ -1,5 +1,8 @@
 // src/services/quoteApi.js
-const API_BASE = process.env.REACT_APP_API_URL || 'https://api.conship.ai';
+
+// For Module Federation, we can't use process.env directly
+// Use window config or hardcode for now
+const API_BASE = window.REACT_APP_API_URL || 'https://api.conship.ai';
 
 class QuoteAPI {
   // Create quote request and get ID
@@ -35,34 +38,7 @@ class QuoteAPI {
     }
   }
 
-  // Poll for quote results
-  async getQuoteResults(requestId) {
-    try {
-      const response = await fetch(`${API_BASE}/quotes/requests/${requestId}/results`, {
-        headers: {
-          'Authorization': `Bearer ${this.getToken()}`
-        }
-      });
-
-      if (!response.ok) throw new Error('Failed to fetch results');
-      
-      const data = await response.json();
-      return {
-        success: true,
-        status: data.status,
-        costFiles: data.cost_files || [],
-        quotes: data.quotes || []
-      };
-    } catch (error) {
-      console.error('Get quote results error:', error);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  // For development: Mock responses
+  // Mock version for development
   async mockCreateQuoteRequest(formData, serviceType) {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -99,25 +75,27 @@ class QuoteAPI {
         {
           provider: 'STG',
           raw_cost: 485.50,
+          fuel_surcharge: 48.55,
           transit_days: 3,
           markup_percentage: 18,
-          final_price: 572.89, // 485.50 * 1.18
+          final_price: 629.99,
           service_details: {
             carrier: 'STG Logistics',
             service: 'Standard LTL',
-            estimated_delivery: '3-4 business days'
+            guaranteed: false
           }
         },
         {
           provider: 'SEFL',
           raw_cost: 512.25,
+          fuel_surcharge: 51.23,
           transit_days: 2,
           markup_percentage: 25,
-          final_price: 640.31, // 512.25 * 1.25
+          final_price: 704.35,
           service_details: {
             carrier: 'Southeastern Freight Lines',
             service: 'Priority LTL',
-            estimated_delivery: '2-3 business days'
+            guaranteed: true
           }
         }
       ];
@@ -129,27 +107,6 @@ class QuoteAPI {
     }, 3000);
   }
 
-  async mockGetQuoteResults(requestId) {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const request = JSON.parse(localStorage.getItem(`quote_request_${requestId}`) || '{}');
-    
-    if (!request.requestId) {
-      return {
-        success: false,
-        error: 'Request not found'
-      };
-    }
-    
-    return {
-      success: true,
-      status: request.status,
-      costFiles: request.costFiles || [],
-      requestNumber: request.requestNumber
-    };
-  }
-
-  // Add to quoteApi.js
   async mockGetGroundQuoteResults(requestId) {
     await new Promise(resolve => setTimeout(resolve, 500));
     
@@ -157,44 +114,6 @@ class QuoteAPI {
     
     if (!request.requestId) {
       return { success: false, error: 'Request not found' };
-    }
-    
-    // Ground-specific mock data
-    if (!request.costFiles && request.status === 'PROCESSING') {
-      setTimeout(() => {
-        const groundQuotes = [
-          {
-            provider: 'STG',
-            raw_cost: 485.50,
-            fuel_surcharge: 48.55,
-            transit_days: 3,
-            markup_percentage: 18,
-            final_price: 629.99,
-            service_details: {
-              carrier: 'STG Logistics',
-              service: 'Standard LTL',
-              guaranteed: false
-            }
-          },
-          {
-            provider: 'SEFL',
-            raw_cost: 512.25,
-            fuel_surcharge: 51.23,
-            transit_days: 2,
-            markup_percentage: 25,
-            final_price: 704.35,
-            service_details: {
-              carrier: 'Southeastern Freight Lines',
-              service: 'Priority LTL',
-              guaranteed: true
-            }
-          }
-        ];
-        
-        request.status = 'QUOTED';
-        request.costFiles = groundQuotes;
-        localStorage.setItem(`quote_request_${requestId}`, JSON.stringify(request));
-      }, 3000);
     }
     
     return {
