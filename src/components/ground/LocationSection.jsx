@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { MapPin } from 'lucide-react';
 
 const LocationSection = ({ 
-  type, // 'origin' or 'destination'
+  type,
   zip,
   city,
   state,
@@ -10,9 +10,60 @@ const LocationSection = ({
   onCityChange,
   onStateChange,
   isDarkMode,
-  loading
+  loading,
+  onSetLoading
 }) => {
   const title = type === 'origin' ? 'Origin' : 'Destination';
+  const placeholders = {
+    zip: type === 'origin' ? '29201' : '23838',
+    city: type === 'origin' ? 'Columbia' : 'Chesterfield',
+    state: type === 'origin' ? 'SC' : 'VA'
+  };
+
+  // Fetch city/state from ZIP using free API
+  const fetchZipData = async (zipCode) => {
+    if (zipCode.length !== 5 || !/^\d{5}$/.test(zipCode)) return;
+    
+    onSetLoading(true);
+    
+    try {
+      const response = await fetch(`https://api.zippopotam.us/us/${zipCode}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.places && data.places.length > 0) {
+          const place = data.places[0];
+          onCityChange(place['place name']);
+          onStateChange(place['state abbreviation']);
+        }
+      } else if (response.status === 404) {
+        // Invalid ZIP code - clear city/state
+        onCityChange('');
+        onStateChange('');
+        console.log(`Invalid ZIP code: ${zipCode}`);
+      }
+    } catch (error) {
+      console.error('Failed to fetch ZIP data:', error);
+    } finally {
+      onSetLoading(false);
+    }
+  };
+
+  // Handle ZIP input changes
+  const handleZipChange = (value) => {
+    // Only allow numbers
+    const cleanedValue = value.replace(/\D/g, '').slice(0, 5);
+    onZipChange(cleanedValue);
+    
+    if (cleanedValue.length === 5) {
+      fetchZipData(cleanedValue);
+    } else {
+      // Clear city/state if ZIP is incomplete
+      onCityChange('');
+      onStateChange('');
+    }
+  };
   
   return (
     <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
@@ -33,13 +84,13 @@ const LocationSection = ({
               type="text"
               maxLength="5"
               value={zip}
-              onChange={(e) => onZipChange(e.target.value)}
+              onChange={(e) => handleZipChange(e.target.value)}
               className={`w-full px-3 py-2 rounded border ${
                 isDarkMode 
                   ? 'bg-gray-700 border-gray-600 text-white' 
                   : 'bg-white border-gray-300 text-gray-900'
               }`}
-              placeholder={type === 'origin' ? '29201' : '23838'}
+              placeholder={placeholders.zip}
             />
             {loading && (
               <div className="absolute right-2 top-2.5">
@@ -62,8 +113,9 @@ const LocationSection = ({
                 isDarkMode 
                   ? 'bg-gray-700 border-gray-600 text-white' 
                   : 'bg-white border-gray-300 text-gray-900'
-              }`}
-              placeholder={type === 'origin' ? 'Columbia' : 'Chesterfield'}
+              } ${zip.length === 5 && city ? 'bg-opacity-50' : ''}`}
+              placeholder={placeholders.city}
+              readOnly={zip.length === 5 && city !== ''}
             />
           </div>
           
@@ -80,8 +132,9 @@ const LocationSection = ({
                 isDarkMode 
                   ? 'bg-gray-700 border-gray-600 text-white' 
                   : 'bg-white border-gray-300 text-gray-900'
-              }`}
-              placeholder={type === 'origin' ? 'SC' : 'VA'}
+              } ${zip.length === 5 && state ? 'bg-opacity-50' : ''}`}
+              placeholder={placeholders.state}
+              readOnly={zip.length === 5 && state !== ''}
             />
           </div>
         </div>
