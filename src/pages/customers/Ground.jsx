@@ -1,69 +1,41 @@
+// src/pages/customers/Ground.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar } from 'lucide-react';
 import LocationSection from '../../components/ground/LocationSection';
 import CommodityList from '../../components/ground/CommodityList';
 import AccessorialOptions from '../../components/ground/AccessorialOptions';
-import ServiceTypeSelector from '../../components/ground/ServiceTypeSelector'; // ADD THIS
+import ServiceTypeSelector from '../../components/ground/ServiceTypeSelector';
+import GroundQuoteResults from '../../components/ground/QuoteResults';
 import { calculateDensity } from '../../components/ground/constants';
 
 const Ground = ({ isDarkMode, userRole }) => {
   const navigate = useNavigate();
+
+  // UI state
   const [loading, setLoading] = useState(false);
-  const [serviceType, setServiceType] = useState(null); // ADD THIS
+  const [serviceType, setServiceType] = useState(null);
   const [zipLoading, setZipLoading] = useState({ origin: false, dest: false });
-  
+
+  // Results state
+  const [showResults, setShowResults] = useState(false);
+  const [quoteRequest, setQuoteRequest] = useState(null);
+
+  // Form state
   const [formData, setFormData] = useState({
+    // Origin
     originZip: '',
     originCity: '',
     originState: '',
+    // Destination
     destZip: '',
     destCity: '',
     destState: '',
+    // Pickup
     pickupDate: '',
-    commodities: [{
-      unitType: 'Pallets',
-      quantity: '1',
-      weight: '',
-      length: '',
-      width: '',
-      height: '',
-      description: '',
-      calculatedClass: '',
-      overrideClass: '',
-      useOverride: false,
-      density: null,
-      cubicFeet: null
-    }],
-    liftgatePickup: false,
-    liftgateDelivery: false,
-    residentialDelivery: false,
-    insideDelivery: false,
-    limitedAccessPickup: false,
-    limitedAccessDelivery: false
-  });
-
-  const handleCommodityChange = (index, field, value) => {
-    setFormData(prev => {
-      const newCommodities = [...prev.commodities];
-      newCommodities[index][field] = value;
-      
-      if (['weight', 'length', 'width', 'height', 'quantity'].includes(field)) {
-        const densityData = calculateDensity(newCommodities[index]);
-        newCommodities[index] = {
-          ...newCommodities[index],
-          ...densityData
-        };
-      }
-      
-      return { ...prev, commodities: newCommodities };
-    });
-  };
-
-  const addCommodity = () => {
-    setFormData(prev => ({
-      ...prev,
-      commodities: [...prev.commodities, {
+    // Commodities
+    commodities: [
+      {
         unitType: 'Pallets',
         quantity: '1',
         weight: '',
@@ -76,7 +48,52 @@ const Ground = ({ isDarkMode, userRole }) => {
         useOverride: false,
         density: null,
         cubicFeet: null
-      }]
+      }
+    ],
+    // Accessorials
+    liftgatePickup: false,
+    liftgateDelivery: false,
+    residentialDelivery: false,
+    insideDelivery: false,
+    limitedAccessPickup: false,
+    limitedAccessDelivery: false
+  });
+
+  // ----- Handlers -----
+  const handleCommodityChange = (index, field, value) => {
+    setFormData(prev => {
+      const newCommodities = [...prev.commodities];
+      newCommodities[index][field] = value;
+
+      if (['weight', 'length', 'width', 'height', 'quantity'].includes(field)) {
+        const densityData = calculateDensity(newCommodities[index]);
+        newCommodities[index] = { ...newCommodities[index], ...densityData };
+      }
+
+      return { ...prev, commodities: newCommodities };
+    });
+  };
+
+  const addCommodity = () => {
+    setFormData(prev => ({
+      ...prev,
+      commodities: [
+        ...prev.commodities,
+        {
+          unitType: 'Pallets',
+          quantity: '1',
+          weight: '',
+          length: '',
+          width: '',
+          height: '',
+          description: '',
+          calculatedClass: '',
+          overrideClass: '',
+          useOverride: false,
+          density: null,
+          cubicFeet: null
+        }
+      ]
     }));
   };
 
@@ -114,40 +131,61 @@ const Ground = ({ isDarkMode, userRole }) => {
     if (!formData.destCity) errors.push('Destination city required');
     if (!formData.destState) errors.push('Destination state required');
     if (!formData.pickupDate) errors.push('Pickup date required');
-    
+
     formData.commodities.forEach((item, index) => {
       if (!item.weight) errors.push(`Item ${index + 1}: Weight required`);
       if (!item.length || !item.width || !item.height) {
         errors.push(`Item ${index + 1}: All dimensions required`);
       }
     });
-    
+
     if (errors.length > 0) {
       alert('Please fix:\n' + errors.join('\n'));
       return;
     }
-    
+
+    // Mock submit -> show results view
     setLoading(true);
-    console.log('Submitting LTL Quote:', formData);
-    
-    // Mock API call
     setTimeout(() => {
       setLoading(false);
-      alert('Quote submitted successfully!\n\nThis is a mock response.\nIn production, this would call your quote API.');
-    }, 1500);
+      setQuoteRequest({
+        requestId: `REQ-${Date.now()}`,
+        requestNumber: `QR-2025-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`
+      });
+      setShowResults(true);
+    }, 1200);
   };
 
-  // ✅ If no service type selected, show selector first
+  // ----- Early returns -----
+
+  // 1) No service type selected: show selector
   if (!serviceType) {
     return (
-      <ServiceTypeSelector 
+      <ServiceTypeSelector
         onSelect={setServiceType}
         isDarkMode={isDarkMode}
       />
     );
   }
 
-  // ✅ Main screen after selecting service type
+  // 2) Show results page (GroundQuoteResults)
+  if (showResults && quoteRequest) {
+    return (
+      <GroundQuoteResults
+        requestId={quoteRequest.requestId}
+        requestNumber={quoteRequest.requestNumber}
+        serviceType={serviceType}
+        formData={formData}
+        onBack={() => {
+          setShowResults(false);
+          setQuoteRequest(null);
+        }}
+        isDarkMode={isDarkMode}
+      />
+    );
+  }
+
+  // 3) Main screen (form)
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="max-w-7xl mx-auto p-6">
@@ -160,8 +198,8 @@ const Ground = ({ isDarkMode, userRole }) => {
             <button
               onClick={() => setServiceType(null)}
               className={`text-sm px-3 py-1 rounded ${
-                isDarkMode 
-                  ? 'text-gray-400 hover:text-white hover:bg-gray-800' 
+                isDarkMode
+                  ? 'text-gray-400 hover:text-white hover:bg-gray-800'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
               }`}
             >
@@ -187,7 +225,7 @@ const Ground = ({ isDarkMode, userRole }) => {
             loading={zipLoading.origin}
             onSetLoading={(loading) => setZipLoading(prev => ({ ...prev, origin: loading }))}
           />
-          
+
           <LocationSection
             type="destination"
             zip={formData.destZip}
@@ -210,15 +248,15 @@ const Ground = ({ isDarkMode, userRole }) => {
               Pickup Date
             </h2>
           </div>
-          
+
           <input
             type="date"
             value={formData.pickupDate}
             onChange={(e) => setFormData(prev => ({ ...prev, pickupDate: e.target.value }))}
             min={new Date().toISOString().split('T')[0]}
             className={`px-3 py-2 rounded border ${
-              isDarkMode 
-                ? 'bg-gray-700 border-gray-600 text-white' 
+              isDarkMode
+                ? 'bg-gray-700 border-gray-600 text-white'
                 : 'bg-white border-gray-300 text-gray-900'
             }`}
           />
@@ -246,8 +284,8 @@ const Ground = ({ isDarkMode, userRole }) => {
           <button
             onClick={() => navigate('/app/quotes')}
             className={`px-6 py-2 rounded font-medium ${
-              isDarkMode 
-                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+              isDarkMode
+                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
           >
@@ -259,8 +297,8 @@ const Ground = ({ isDarkMode, userRole }) => {
             className={`px-6 py-2 rounded font-medium ${
               loading
                 ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                : isDarkMode 
-                  ? 'bg-conship-orange text-white hover:bg-orange-600' 
+                : isDarkMode
+                  ? 'bg-conship-orange text-white hover:bg-orange-600'
                   : 'bg-conship-purple text-white hover:bg-purple-700'
             }`}
           >
