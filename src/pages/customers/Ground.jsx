@@ -99,7 +99,11 @@ const Ground = ({ isDarkMode, userRole }) => {
   const handleSubmit = async () => {
     const errors = [];
     if (!formData.originZip) errors.push('Origin ZIP required');
+    if (!formData.originCity) errors.push('Origin city required');
+    if (!formData.originState) errors.push('Origin state required');
     if (!formData.destZip) errors.push('Destination ZIP required');
+    if (!formData.destCity) errors.push('Destination city required');
+    if (!formData.destState) errors.push('Destination state required');
     if (!formData.pickupDate) errors.push('Pickup date required');
     
     formData.commodities.forEach((item, index) => {
@@ -116,9 +120,13 @@ const Ground = ({ isDarkMode, userRole }) => {
     
     setLoading(true);
     console.log('Submitting LTL Quote:', formData);
+    
+    // Mock API call
     setTimeout(() => {
       setLoading(false);
-      alert('Quote submitted! (Mock response)');
+      alert('Quote submitted successfully!\n\nThis is a mock response.\nIn production, this would call your quote API.');
+      // Optionally navigate back to dashboard
+      // navigate('/app/quotes');
     }, 1500);
   };
 
@@ -131,7 +139,7 @@ const Ground = ({ isDarkMode, userRole }) => {
             LTL Freight Quote
           </h1>
           <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            Density-based pricing with dimension requirements
+            Enter 5-digit ZIP codes for automatic city/state lookup
           </p>
         </div>
 
@@ -147,6 +155,7 @@ const Ground = ({ isDarkMode, userRole }) => {
             onStateChange={(value) => setFormData({...formData, originState: value})}
             isDarkMode={isDarkMode}
             loading={zipLoading.origin}
+            onSetLoading={(loading) => setZipLoading(prev => ({...prev, origin: loading}))}
           />
           
           <LocationSection
@@ -159,6 +168,7 @@ const Ground = ({ isDarkMode, userRole }) => {
             onStateChange={(value) => setFormData({...formData, destState: value})}
             isDarkMode={isDarkMode}
             loading={zipLoading.dest}
+            onSetLoading={(loading) => setZipLoading(prev => ({...prev, dest: loading}))}
           />
         </div>
 
@@ -175,6 +185,7 @@ const Ground = ({ isDarkMode, userRole }) => {
             type="date"
             value={formData.pickupDate}
             onChange={(e) => setFormData({...formData, pickupDate: e.target.value})}
+            min={new Date().toISOString().split('T')[0]} // Can't pick past dates
             className={`px-3 py-2 rounded border ${
               isDarkMode 
                 ? 'bg-gray-700 border-gray-600 text-white' 
