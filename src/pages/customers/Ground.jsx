@@ -231,7 +231,7 @@ const Ground = ({ isDarkMode, userRole }) => {
           <input
             type="date"
             value={formData.pickupDate}
-            onChange={(e) => setFormData(prev => ({ ...prev, pickupDate: e.target.value }))} {/* functional */}
+            onChange={(e) => setFormData(prev => ({ ...prev, pickupDate: e.target.value }))} 
             min={new Date().toISOString().split('T')[0]}
             className={`px-3 py-2 rounded border ${
               isDarkMode 
