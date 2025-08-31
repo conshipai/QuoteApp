@@ -73,25 +73,28 @@ const Ground = ({ isDarkMode, userRole }) => {
     console.log('🚀 userRole:', userRole);
   }, []);
 
+  // ✅ Functional updates everywhere below
   const handleCommodityChange = (index, field, value) => {
-    const newCommodities = [...formData.commodities];
-    newCommodities[index][field] = value;
-    
-    if (['weight', 'length', 'width', 'height', 'quantity'].includes(field)) {
-      const densityData = calculateDensity(newCommodities[index]);
-      newCommodities[index] = {
-        ...newCommodities[index],
-        ...densityData
-      };
-    }
-    
-    setFormData({ ...formData, commodities: newCommodities });
+    setFormData(prev => {
+      const newCommodities = [...prev.commodities];
+      newCommodities[index][field] = value;
+
+      if (['weight', 'length', 'width', 'height', 'quantity'].includes(field)) {
+        const densityData = calculateDensity(newCommodities[index]);
+        newCommodities[index] = {
+          ...newCommodities[index],
+          ...densityData
+        };
+      }
+
+      return { ...prev, commodities: newCommodities };
+    });
   };
 
   const addCommodity = () => {
-    setFormData({
-      ...formData,
-      commodities: [...formData.commodities, {
+    setFormData(prev => ({
+      ...prev,
+      commodities: [...prev.commodities, {
         unitType: 'Pallets',
         quantity: '1',
         weight: '',
@@ -105,27 +108,32 @@ const Ground = ({ isDarkMode, userRole }) => {
         density: null,
         cubicFeet: null
       }]
-    });
+    }));
   };
 
   const removeCommodity = (index) => {
-    if (formData.commodities.length > 1) {
-      const newCommodities = formData.commodities.filter((_, i) => i !== index);
-      setFormData({ ...formData, commodities: newCommodities });
-    }
+    setFormData(prev => {
+      if (prev.commodities.length > 1) {
+        const newCommodities = prev.commodities.filter((_, i) => i !== index);
+        return { ...prev, commodities: newCommodities };
+      }
+      return prev;
+    });
   };
 
   const toggleClassOverride = (index) => {
-    const newCommodities = [...formData.commodities];
-    newCommodities[index].useOverride = !newCommodities[index].useOverride;
-    if (!newCommodities[index].useOverride) {
-      newCommodities[index].overrideClass = '';
-    }
-    setFormData({ ...formData, commodities: newCommodities });
+    setFormData(prev => {
+      const newCommodities = [...prev.commodities];
+      newCommodities[index].useOverride = !newCommodities[index].useOverride;
+      if (!newCommodities[index].useOverride) {
+        newCommodities[index].overrideClass = '';
+      }
+      return { ...prev, commodities: newCommodities };
+    });
   };
 
   const handleAccessorialChange = (key, value) => {
-    setFormData({ ...formData, [key]: value });
+    setFormData(prev => ({ ...prev, [key]: value }));
   };
 
   const handleSubmit = async () => {
@@ -157,7 +165,6 @@ const Ground = ({ isDarkMode, userRole }) => {
     setTimeout(() => {
       setLoading(false);
       alert('Quote submitted successfully!\n\nThis is a mock response.\nIn production, this would call your quote API.');
-      // Optionally navigate back to dashboard
       // navigate('/app/quotes');
     }, 1500);
   };
@@ -183,16 +190,15 @@ const Ground = ({ isDarkMode, userRole }) => {
             city={formData.originCity}
             state={formData.originState}
             onZipChange={(value) => {
-              // DEBUG: Log the ZIP change attempt
               console.log('📍 Origin ZIP change attempted:', value);
               console.log('📍 Current originZip before change:', formData.originZip);
-              setFormData({...formData, originZip: value});
+              setFormData(prev => ({ ...prev, originZip: value }));
             }}
-            onCityChange={(value) => setFormData({...formData, originCity: value})}
-            onStateChange={(value) => setFormData({...formData, originState: value})}
+            onCityChange={(value) => setFormData(prev => ({ ...prev, originCity: value }))}
+            onStateChange={(value) => setFormData(prev => ({ ...prev, originState: value }))}
             isDarkMode={isDarkMode}
             loading={zipLoading.origin}
-            onSetLoading={(loading) => setZipLoading(prev => ({...prev, origin: loading}))}
+            onSetLoading={(loading) => setZipLoading(prev => ({ ...prev, origin: loading }))}
           />
           
           <LocationSection
@@ -201,16 +207,15 @@ const Ground = ({ isDarkMode, userRole }) => {
             city={formData.destCity}
             state={formData.destState}
             onZipChange={(value) => {
-              // DEBUG: Log the ZIP change attempt
               console.log('📍 Dest ZIP change attempted:', value);
               console.log('📍 Current destZip before change:', formData.destZip);
-              setFormData({...formData, destZip: value});
+              setFormData(prev => ({ ...prev, destZip: value }));
             }}
-            onCityChange={(value) => setFormData({...formData, destCity: value})}
-            onStateChange={(value) => setFormData({...formData, destState: value})}
+            onCityChange={(value) => setFormData(prev => ({ ...prev, destCity: value }))}
+            onStateChange={(value) => setFormData(prev => ({ ...prev, destState: value }))}
             isDarkMode={isDarkMode}
             loading={zipLoading.dest}
-            onSetLoading={(loading) => setZipLoading(prev => ({...prev, dest: loading}))}
+            onSetLoading={(loading) => setZipLoading(prev => ({ ...prev, dest: loading }))}
           />
         </div>
 
@@ -226,8 +231,8 @@ const Ground = ({ isDarkMode, userRole }) => {
           <input
             type="date"
             value={formData.pickupDate}
-            onChange={(e) => setFormData({...formData, pickupDate: e.target.value})}
-            min={new Date().toISOString().split('T')[0]} // Can't pick past dates
+            onChange={(e) => setFormData(prev => ({ ...prev, pickupDate: e.target.value }))} {/* functional */}
+            min={new Date().toISOString().split('T')[0]}
             className={`px-3 py-2 rounded border ${
               isDarkMode 
                 ? 'bg-gray-700 border-gray-600 text-white' 
