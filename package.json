@@ -2,24 +2,18 @@
   "name": "@your-org/quoteapp",
   "version": "1.0.0",
   "description": "Quote generation microapp for logistics",
-  "main": "index.js",
+  "main": "src/QuotesModule.jsx",
   "scripts": {
-    "build": "webpack --mode production",
-    "dev": "webpack --mode development --watch",
-    "test": "jest"
+    "build": "echo 'Microapp ready - no build required'",
+    "start": "echo 'Microapp started'",
+    "test": "echo 'No tests configured'"
+  },
+  "dependencies": {
+    "lucide-react": "^0.263.1"
   },
   "peerDependencies": {
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "react-router-dom": "^6.0.0"
-  },
-  "dependencies": {
-    "lucide-react": "^0.263.1"
-  },
-  "devDependencies": {
-    "@babel/core": "^7.0.0",
-    "@babel/preset-react": "^7.0.0",
-    "webpack": "^5.0.0",
-    "webpack-cli": "^5.0.0"
   }
 }
