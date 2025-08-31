@@ -5,17 +5,9 @@ import useUserRole from './hooks/useUserRole';
 
 // Lazy load pages
 const QuoteDashboard = lazy(() => import('./pages/QuoteDashboard'));
-const AirImport = lazy(() => import('./pages/shared/AirImport'));
-const AirExport = lazy(() => import('./pages/customers/AirExport'));
-const OceanImport = lazy(() => import('./pages/shared/OceanImport'));
-const OceanExport = lazy(() => import('./pages/customers/OceanExport'));
-const Ground = lazy(() => import('./pages/customers/Ground'));
-const Project = lazy(() => import('./pages/customers/Project'));
 
 const QuotesModule = ({ shellContext, basename }) => {
-  // Use shell context if provided, otherwise fall back to props
   const { user, isDarkMode, token } = shellContext || {};
-  
   const userRole = useUserRole({ user });
   
   if (!userRole) {
@@ -39,4 +31,11 @@ const QuotesModule = ({ shellContext, basename }) => {
       }>
         <Routes>
           <Route path="/" element={<QuoteDashboard isDarkMode={isDarkMode} userRole={userRole} />} />
-          <Route path="/air-import" element={<AirImport isDarkMode={isDarkMode} userRole={userRole} apiClient={apiClient} />} /
+          <Route path="/*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    </QuoteLayout>
+  );
+};
+
+export default QuotesModule;
