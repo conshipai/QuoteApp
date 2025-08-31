@@ -12,8 +12,11 @@ const OceanExport = lazy(() => import('./pages/customers/OceanExport'));
 const Ground = lazy(() => import('./pages/customers/Ground'));
 const Project = lazy(() => import('./pages/customers/Project'));
 
-const QuotesModule = ({ user, isDarkMode, apiClient, ...props }) => {
-  const userRole = useUserRole({ user, ...props });
+const QuotesModule = ({ shellContext, basename }) => {
+  // Use shell context if provided, otherwise fall back to props
+  const { user, isDarkMode, token } = shellContext || {};
+  
+  const userRole = useUserRole({ user });
   
   if (!userRole) {
     return (
