@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { MapPin } from 'lucide-react';
 
 const LocationSection = ({ 
@@ -50,18 +50,22 @@ const LocationSection = ({
     }
   };
 
-  // Handle ZIP input changes
-  const handleZipChange = (value) => {
-    // Only allow numbers
-    const cleanedValue = value.replace(/\D/g, '').slice(0, 5);
-    onZipChange(cleanedValue);
+  // Handle ZIP input changes - FIXED VERSION
+  const handleZipChange = (e) => {
+    const value = e.target.value;
     
-    if (cleanedValue.length === 5) {
-      fetchZipData(cleanedValue);
-    } else {
-      // Clear city/state if ZIP is incomplete
-      onCityChange('');
-      onStateChange('');
+    // Only allow numbers and limit to 5 characters
+    if (value === '' || /^\d{0,5}$/.test(value)) {
+      onZipChange(value);
+      
+      // Trigger API call when we have exactly 5 digits
+      if (value.length === 5) {
+        fetchZipData(value);
+      } else {
+        // Clear city/state if ZIP is incomplete
+        onCityChange('');
+        onStateChange('');
+      }
     }
   };
   
@@ -84,7 +88,7 @@ const LocationSection = ({
               type="text"
               maxLength="5"
               value={zip}
-              onChange={(e) => handleZipChange(e.target.value)}
+              onChange={handleZipChange}  {/* Changed this line */}
               className={`w-full px-3 py-2 rounded border ${
                 isDarkMode 
                   ? 'bg-gray-700 border-gray-600 text-white' 
