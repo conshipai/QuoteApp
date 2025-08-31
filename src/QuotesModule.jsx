@@ -5,6 +5,9 @@ import useUserRole from './hooks/useUserRole';
 
 // Lazy load pages
 const QuoteDashboard = lazy(() => import('./pages/QuoteDashboard'));
+const AirImport = lazy(() => import('./pages/shared/AirImport'));
+// We'll create this Ground component next
+const Ground = lazy(() => import('./pages/customers/Ground'));
 
 const QuotesModule = ({ shellContext, basename }) => {
   const { user, isDarkMode, token } = shellContext || {};
@@ -31,7 +34,10 @@ const QuotesModule = ({ shellContext, basename }) => {
       }>
         <Routes>
           <Route path="/" element={<QuoteDashboard isDarkMode={isDarkMode} userRole={userRole} />} />
-          <Route path="/*" element={<Navigate to="/" replace />} />
+          <Route path="/air-import" element={<AirImport isDarkMode={isDarkMode} userRole={userRole} />} />
+          <Route path="/ground" element={<Ground isDarkMode={isDarkMode} userRole={userRole} />} />
+          {/* Add more routes as needed */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
     </QuoteLayout>
