@@ -4,11 +4,13 @@ import { Calendar } from 'lucide-react';
 import LocationSection from '../../components/ground/LocationSection';
 import CommodityList from '../../components/ground/CommodityList';
 import AccessorialOptions from '../../components/ground/AccessorialOptions';
+import ServiceTypeSelector from '../../components/ground/ServiceTypeSelector'; // ADD THIS
 import { calculateDensity } from '../../components/ground/constants';
 
 const Ground = ({ isDarkMode, userRole }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [serviceType, setServiceType] = useState(null); // ADD THIS
   const [zipLoading, setZipLoading] = useState({ origin: false, dest: false });
   
   const [formData, setFormData] = useState({
@@ -135,14 +137,37 @@ const Ground = ({ isDarkMode, userRole }) => {
     }, 1500);
   };
 
+  // ✅ If no service type selected, show selector first
+  if (!serviceType) {
+    return (
+      <ServiceTypeSelector 
+        onSelect={setServiceType}
+        isDarkMode={isDarkMode}
+      />
+    );
+  }
+
+  // ✅ Main screen after selecting service type
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-6">
-          <h1 className={`text-2xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            LTL Freight Quote
-          </h1>
+          <div className="flex items-center justify-between mb-2">
+            <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              {serviceType.toUpperCase()} Freight Quote
+            </h1>
+            <button
+              onClick={() => setServiceType(null)}
+              className={`text-sm px-3 py-1 rounded ${
+                isDarkMode 
+                  ? 'text-gray-400 hover:text-white hover:bg-gray-800' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+            >
+              ← Change Service Type
+            </button>
+          </div>
           <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
             Enter 5-digit ZIP codes for automatic city/state lookup
           </p>
