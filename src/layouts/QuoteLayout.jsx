@@ -20,14 +20,14 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
   // Navigation items based on user role
   const navItems = [
     {
-      path: '/quotes',
+      path: '/app/quotes',
       label: 'Dashboard',
       icon: Home,
       color: 'purple',
       available: true
     },
     {
-      path: './air-import',
+      path: '/app/quotes/air-import',
       label: 'Air Import',
       icon: Plane,
       subIcon: Import,
@@ -35,7 +35,7 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
       available: true
     },
     {
-      path: './air-export',
+      path: '/app/quotes/air-export',
       label: 'Air Export',
       icon: Plane,
       subIcon: Share2,
@@ -43,7 +43,7 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
       available: !isForeignAgent
     },
     {
-      path: './ocean-import',
+      path: '/app/quotes/ocean-import',
       label: 'Ocean Import',
       icon: Ship,
       subIcon: Import,
@@ -51,7 +51,7 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
       available: true
     },
     {
-      path: './ocean-export',
+      path: '/app/quotes/ocean-export',
       label: 'Ocean Export',
       icon: Ship,
       subIcon: Share2,
@@ -59,14 +59,14 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
       available: !isForeignAgent
     },
     {
-      path: './ground',
+      path: '/app/quotes/ground',
       label: 'Ground Domestic',
       icon: Truck,
       color: 'green',
       available: !isForeignAgent
     },
     {
-      path: './project',
+      path: '/app/quotes/project',
       label: 'Project Cargo',
       icon: Package,
       color: 'orange',
