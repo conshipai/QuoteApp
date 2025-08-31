@@ -19,6 +19,14 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
 
   // Navigation items based on user role
   const navItems = [
+    // ✅ New Bookings link (visible to everyone)
+    {
+      path: '/bookings',
+      label: 'Bookings',
+      icon: Package,
+      color: 'indigo',
+      available: true
+    },
     {
       path: '/app/quotes',
       label: 'Dashboard',
@@ -75,7 +83,8 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
   ].filter(item => item.available);
 
   const getNavItemClasses = (item) => {
-    const isActive = location.pathname === item.path;
+    // highlight for exact path and nested routes
+    const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
     const baseClasses = `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200`;
     
     if (isActive) {
