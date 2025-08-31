@@ -1,19 +1,22 @@
-const ModuleFederationPlugin = require('webpack/lib/container/ModuleFederationPlugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const ModuleFederationPlugin = require('webpack/lib/container/ModuleFederationPlugin');
 const path = require('path');
 
 module.exports = {
-  mode: process.env.NODE_ENV || 'production',
+  mode: 'production',
   entry: './src/index.js',
   output: {
-    publicPath: 'https://quotes.gcc.conship.ai/',
+    filename: '[name].js',
     path: path.resolve(__dirname, 'dist'),
-    clean: true
+    publicPath: 'https://quotes.gcc.conship.ai/',
+  },
+  resolve: {
+    extensions: ['.jsx', '.js'],
   },
   module: {
     rules: [
       {
-        test: /\.(js|jsx)$/,
+        test: /\.jsx?$/,
         exclude: /node_modules/,
         use: {
           loader: 'babel-loader',
@@ -21,27 +24,28 @@ module.exports = {
             presets: ['@babel/preset-react']
           }
         }
+      },
+      {
+        test: /\.css$/,
+        use: ['style-loader', 'css-loader']
       }
     ]
   },
   plugins: [
     new ModuleFederationPlugin({
-      name: 'quotes',  // Match the id in your registry
+      name: 'quotes',
       filename: 'remoteEntry.js',
       exposes: {
         './App': './src/QuotesModule'
       },
       shared: {
-        react: { singleton: true, requiredVersion: '^18.0.0' },
-        'react-dom': { singleton: true, requiredVersion: '^18.0.0' },
-        'react-router-dom': { singleton: true, requiredVersion: '^6.0.0' }
+        react: { singleton: true },
+        'react-dom': { singleton: true },
+        'react-router-dom': { singleton: true }
       }
     }),
     new HtmlWebpackPlugin({
       template: './public/index.html'
     })
-  ],
-  resolve: {
-    extensions: ['.js', '.jsx']
-  }
+  ]
 };
