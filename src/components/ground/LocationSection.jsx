@@ -50,7 +50,7 @@ const LocationSection = ({
     }
   };
 
-  // Handle ZIP input changes - FIXED VERSION
+  // Handle ZIP input changes
   const handleZipChange = (e) => {
     const value = e.target.value;
     
@@ -88,7 +88,7 @@ const LocationSection = ({
               type="text"
               maxLength="5"
               value={zip}
-              onChange={handleZipChange}  {/* Changed this line */}
+              onChange={handleZipChange}
               className={`w-full px-3 py-2 rounded border ${
                 isDarkMode 
                   ? 'bg-gray-700 border-gray-600 text-white' 
