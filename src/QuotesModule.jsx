@@ -49,8 +49,9 @@ const QuotesModule = ({ shellContext, basename }) => {
       }>
         <Routes>
           <Route path="/" element={<QuoteDashboard isDarkMode={isDarkMode} userRole={userRole} />} />
-          <Route path="/air-import" element={<AirImport isDarkMode={isDarkMode} userRole={userRole} />} />
-          <Route path="/ground" element={<Ground isDarkMode={isDarkMode} userRole={userRole} />} />
+          <Route path="/quotes" element={<QuoteDashboard isDarkMode={isDarkMode} userRole={userRole} />} />
+          <Route path="/quotes/air-import" element={<AirImport isDarkMode={isDarkMode} userRole={userRole} />} />
+          <Route path="/quotes/ground" element={<Ground isDarkMode={isDarkMode} userRole={userRole} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
