@@ -39,11 +39,20 @@ module.exports = {
         './App': './src/QuotesModule'
       },
       shared: {
-        react: { singleton: true },
-        'react-dom': { singleton: true },
-        'react-router-dom': { singleton: true }
+      react: { 
+        singleton: true,
+        requiredVersion: '^18.0.0'  // Add this
+      },
+      'react-dom': { 
+        singleton: true,
+        requiredVersion: '^18.0.0'  // Add this
+      },
+      'react-router-dom': { 
+        singleton: true,
+        requiredVersion: '^6.0.0'   // Add this
       }
-    }),
+    }
+  }),
     new HtmlWebpackPlugin({
       template: './public/index.html'
     })
