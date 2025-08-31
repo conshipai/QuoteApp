@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // DEBUG: Added useEffect
 import { useNavigate } from 'react-router-dom';
 import { Calendar } from 'lucide-react';
 import LocationSection from '../../components/ground/LocationSection';
@@ -40,6 +40,38 @@ const Ground = ({ isDarkMode, userRole }) => {
     limitedAccessPickup: false,
     limitedAccessDelivery: false
   });
+
+  // DEBUG: Track all state changes
+  useEffect(() => {
+    console.log('🔍 FormData updated:', formData);
+    console.log('🔍 Origin ZIP:', formData.originZip);
+    console.log('🔍 Dest ZIP:', formData.destZip);
+  }, [formData]);
+
+  // DEBUG: Test if setState works at all
+  useEffect(() => {
+    const testTimer = setTimeout(() => {
+      console.log('🧪 Testing setState - Will set origin ZIP to 12345...');
+      setFormData(prev => {
+        console.log('🧪 Previous state:', prev);
+        const newState = {
+          ...prev,
+          originZip: '12345'
+        };
+        console.log('🧪 New state will be:', newState);
+        return newState;
+      });
+    }, 3000);
+    return () => clearTimeout(testTimer);
+  }, []);
+
+  // DEBUG: Log when component mounts
+  useEffect(() => {
+    console.log('🚀 Ground component mounted');
+    console.log('🚀 Initial formData:', formData);
+    console.log('🚀 isDarkMode:', isDarkMode);
+    console.log('🚀 userRole:', userRole);
+  }, []);
 
   const handleCommodityChange = (index, field, value) => {
     const newCommodities = [...formData.commodities];
@@ -150,7 +182,12 @@ const Ground = ({ isDarkMode, userRole }) => {
             zip={formData.originZip}
             city={formData.originCity}
             state={formData.originState}
-            onZipChange={(value) => setFormData({...formData, originZip: value})}
+            onZipChange={(value) => {
+              // DEBUG: Log the ZIP change attempt
+              console.log('📍 Origin ZIP change attempted:', value);
+              console.log('📍 Current originZip before change:', formData.originZip);
+              setFormData({...formData, originZip: value});
+            }}
             onCityChange={(value) => setFormData({...formData, originCity: value})}
             onStateChange={(value) => setFormData({...formData, originState: value})}
             isDarkMode={isDarkMode}
@@ -163,7 +200,12 @@ const Ground = ({ isDarkMode, userRole }) => {
             zip={formData.destZip}
             city={formData.destCity}
             state={formData.destState}
-            onZipChange={(value) => setFormData({...formData, destZip: value})}
+            onZipChange={(value) => {
+              // DEBUG: Log the ZIP change attempt
+              console.log('📍 Dest ZIP change attempted:', value);
+              console.log('📍 Current destZip before change:', formData.destZip);
+              setFormData({...formData, destZip: value});
+            }}
             onCityChange={(value) => setFormData({...formData, destCity: value})}
             onStateChange={(value) => setFormData({...formData, destState: value})}
             isDarkMode={isDarkMode}
