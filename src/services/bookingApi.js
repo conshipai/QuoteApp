@@ -9,7 +9,13 @@ class BookingAPI {
   }
 
   async mockCreateBooking(quoteData, requestId) {
+    // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    // Get the original request data from localStorage
+    const originalRequest = JSON.parse(
+      localStorage.getItem(`quote_request_${requestId}`) || '{}'
+    );
     
     const booking = {
       bookingId: `BK-${Date.now()}`,
@@ -20,9 +26,10 @@ class BookingAPI {
       price: quoteData.final_price,
       pickupNumber: `PU-${String(Math.floor(Math.random() * 1000000)).padStart(7, '0')}`,
       createdAt: new Date().toISOString(),
-      shipmentData: JSON.parse(localStorage.getItem(`quote_request_${requestId}`))
+      shipmentData: originalRequest
     };
     
+    // Save booking to localStorage
     localStorage.setItem(`booking_${booking.bookingId}`, JSON.stringify(booking));
     
     return {
@@ -32,11 +39,17 @@ class BookingAPI {
   }
 
   async getBooking(bookingId) {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
     const booking = localStorage.getItem(`booking_${bookingId}`);
     if (!booking) {
       return { success: false, error: 'Booking not found' };
     }
-    return { success: true, booking: JSON.parse(booking) };
+    
+    return { 
+      success: true, 
+      booking: JSON.parse(booking) 
+    };
   }
 }
 
