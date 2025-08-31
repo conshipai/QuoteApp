@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'; // DEBUG: Added useEffect
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar } from 'lucide-react';
 import LocationSection from '../../components/ground/LocationSection';
@@ -41,44 +41,11 @@ const Ground = ({ isDarkMode, userRole }) => {
     limitedAccessDelivery: false
   });
 
-  // DEBUG: Track all state changes
-  useEffect(() => {
-    console.log('🔍 FormData updated:', formData);
-    console.log('🔍 Origin ZIP:', formData.originZip);
-    console.log('🔍 Dest ZIP:', formData.destZip);
-  }, [formData]);
-
-  // DEBUG: Test if setState works at all
-  useEffect(() => {
-    const testTimer = setTimeout(() => {
-      console.log('🧪 Testing setState - Will set origin ZIP to 12345...');
-      setFormData(prev => {
-        console.log('🧪 Previous state:', prev);
-        const newState = {
-          ...prev,
-          originZip: '12345'
-        };
-        console.log('🧪 New state will be:', newState);
-        return newState;
-      });
-    }, 3000);
-    return () => clearTimeout(testTimer);
-  }, []);
-
-  // DEBUG: Log when component mounts
-  useEffect(() => {
-    console.log('🚀 Ground component mounted');
-    console.log('🚀 Initial formData:', formData);
-    console.log('🚀 isDarkMode:', isDarkMode);
-    console.log('🚀 userRole:', userRole);
-  }, []);
-
-  // ✅ Functional updates everywhere below
   const handleCommodityChange = (index, field, value) => {
     setFormData(prev => {
       const newCommodities = [...prev.commodities];
       newCommodities[index][field] = value;
-
+      
       if (['weight', 'length', 'width', 'height', 'quantity'].includes(field)) {
         const densityData = calculateDensity(newCommodities[index]);
         newCommodities[index] = {
@@ -86,7 +53,7 @@ const Ground = ({ isDarkMode, userRole }) => {
           ...densityData
         };
       }
-
+      
       return { ...prev, commodities: newCommodities };
     });
   };
@@ -165,7 +132,6 @@ const Ground = ({ isDarkMode, userRole }) => {
     setTimeout(() => {
       setLoading(false);
       alert('Quote submitted successfully!\n\nThis is a mock response.\nIn production, this would call your quote API.');
-      // navigate('/app/quotes');
     }, 1500);
   };
 
@@ -189,11 +155,7 @@ const Ground = ({ isDarkMode, userRole }) => {
             zip={formData.originZip}
             city={formData.originCity}
             state={formData.originState}
-            onZipChange={(value) => {
-              console.log('📍 Origin ZIP change attempted:', value);
-              console.log('📍 Current originZip before change:', formData.originZip);
-              setFormData(prev => ({ ...prev, originZip: value }));
-            }}
+            onZipChange={(value) => setFormData(prev => ({ ...prev, originZip: value }))}
             onCityChange={(value) => setFormData(prev => ({ ...prev, originCity: value }))}
             onStateChange={(value) => setFormData(prev => ({ ...prev, originState: value }))}
             isDarkMode={isDarkMode}
@@ -206,11 +168,7 @@ const Ground = ({ isDarkMode, userRole }) => {
             zip={formData.destZip}
             city={formData.destCity}
             state={formData.destState}
-            onZipChange={(value) => {
-              console.log('📍 Dest ZIP change attempted:', value);
-              console.log('📍 Current destZip before change:', formData.destZip);
-              setFormData(prev => ({ ...prev, destZip: value }));
-            }}
+            onZipChange={(value) => setFormData(prev => ({ ...prev, destZip: value }))}
             onCityChange={(value) => setFormData(prev => ({ ...prev, destCity: value }))}
             onStateChange={(value) => setFormData(prev => ({ ...prev, destState: value }))}
             isDarkMode={isDarkMode}
@@ -231,7 +189,7 @@ const Ground = ({ isDarkMode, userRole }) => {
           <input
             type="date"
             value={formData.pickupDate}
-            onChange={(e) => setFormData(prev => ({ ...prev, pickupDate: e.target.value }))} 
+            onChange={(e) => setFormData(prev => ({ ...prev, pickupDate: e.target.value }))}
             min={new Date().toISOString().split('T')[0]}
             className={`px-3 py-2 rounded border ${
               isDarkMode 
