@@ -27,7 +27,7 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
       available: true
     },
     {
-      path: '/quotes/air-import',
+      path: './air-import',
       label: 'Air Import',
       icon: Plane,
       subIcon: Import,
@@ -35,7 +35,7 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
       available: true
     },
     {
-      path: '/quotes/air-export',
+      path: './air-export',
       label: 'Air Export',
       icon: Plane,
       subIcon: Share2,
@@ -43,7 +43,7 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
       available: !isForeignAgent
     },
     {
-      path: '/quotes/ocean-import',
+      path: './ocean-import',
       label: 'Ocean Import',
       icon: Ship,
       subIcon: Import,
@@ -51,7 +51,7 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
       available: true
     },
     {
-      path: '/quotes/ocean-export',
+      path: './ocean-export',
       label: 'Ocean Export',
       icon: Ship,
       subIcon: Share2,
@@ -59,14 +59,14 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
       available: !isForeignAgent
     },
     {
-      path: '/quotes/ground',
+      path: './ground',
       label: 'Ground Domestic',
       icon: Truck,
       color: 'green',
       available: !isForeignAgent
     },
     {
-      path: '/quotes/project',
+      path: './project',
       label: 'Project Cargo',
       icon: Package,
       color: 'orange',
