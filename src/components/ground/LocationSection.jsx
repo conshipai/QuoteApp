@@ -1,17 +1,18 @@
+// src/components/ground/LocationSection.jsx
 import React from 'react';
 import { MapPin } from 'lucide-react';
 
 const LocationSection = ({ 
   type,
-  zip,
-  city,
-  state,
+  zip = '',  // Default to empty string
+  city = '',
+  state = '',
   onZipChange,
   onCityChange,
   onStateChange,
   isDarkMode,
-  loading,
-  onSetLoading
+  loading = false,
+  onSetLoading = () => {}  // Default no-op function
 }) => {
   const title = type === 'origin' ? 'Origin' : 'Destination';
   const placeholders = {
@@ -20,10 +21,11 @@ const LocationSection = ({
     state: type === 'origin' ? 'SC' : 'VA'
   };
 
-  // Fetch city/state from ZIP using free API
+  // Fetch city/state from ZIP
   const fetchZipData = async (zipCode) => {
     if (zipCode.length !== 5 || !/^\d{5}$/.test(zipCode)) return;
     
+    // Safe to call even if not provided
     onSetLoading(true);
     
     try {
@@ -38,36 +40,41 @@ const LocationSection = ({
           onStateChange(place['state abbreviation']);
         }
       } else if (response.status === 404) {
-        // Invalid ZIP code - clear city/state
         onCityChange('');
         onStateChange('');
-        console.log(`Invalid ZIP code: ${zipCode}`);
       }
     } catch (error) {
       console.error('Failed to fetch ZIP data:', error);
+      // Clear fields on error
+      onCityChange('');
+      onStateChange('');
     } finally {
       onSetLoading(false);
     }
   };
 
-  // Handle ZIP input changes
+  // Simplified handler
   const handleZipChange = (e) => {
     const value = e.target.value;
     
-    // Only allow numbers and limit to 5 characters
-    if (value === '' || /^\d{0,5}$/.test(value)) {
-      onZipChange(value);
-      
-      // Trigger API call when we have exactly 5 digits
-      if (value.length === 5) {
-        fetchZipData(value);
-      } else {
-        // Clear city/state if ZIP is incomplete
-        onCityChange('');
-        onStateChange('');
-      }
+    // Strip non-digits and limit to 5
+    const cleanValue = value.replace(/\D/g, '').slice(0, 5);
+    
+    // Always update the value
+    onZipChange(cleanValue);
+    
+    // Fetch when we have 5 digits
+    if (cleanValue.length === 5) {
+      fetchZipData(cleanValue);
+    } else {
+      // Clear city/state for incomplete ZIPs
+      onCityChange('');
+      onStateChange('');
     }
   };
+
+  // Debug helper - remove after testing
+  console.log(`LocationSection ${type} - zip value:`, zip, typeof zip);
   
   return (
     <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
@@ -86,7 +93,6 @@ const LocationSection = ({
           <div className="relative">
             <input
               type="text"
-              maxLength="5"
               value={zip}
               onChange={handleZipChange}
               className={`w-full px-3 py-2 rounded border ${
