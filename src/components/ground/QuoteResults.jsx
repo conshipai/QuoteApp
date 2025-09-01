@@ -20,6 +20,7 @@ const GroundQuoteResults = ({ requestId, requestNumber, serviceType, formData, o
   useEffect(() => {
     const fetchResults = async () => {
       const result = await quoteApi.getGroundQuoteResults(requestId);
+    console.log('📊 Quote Results from backend:', result);
       if (result.success) {
         setStatus(result.status);
         if (result.status === 'QUOTED') {
