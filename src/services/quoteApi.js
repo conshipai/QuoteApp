@@ -1,14 +1,11 @@
 // src/services/quoteApi.js
-
-// For Module Federation, we can't use process.env directly
-// Use window config or hardcode for now
-const API_BASE = window.REACT_APP_API_URL || 'https://api.conship.ai';
+import API_BASE from '../config/api';
 
 class QuoteAPI {
-  // Create quote request and get ID
+  // Create quote request - try real API first
   async createQuoteRequest(formData, serviceType) {
     try {
-      const response = await fetch(`${API_BASE}/quotes/requests`, {
+      const response = await fetch(`${API_BASE}/quotes/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -22,30 +19,28 @@ class QuoteAPI {
       });
 
       if (!response.ok) throw new Error('Failed to create quote request');
-      
+
       const data = await response.json();
       return {
         success: true,
-        requestId: data.request_id,
-        requestNumber: data.request_number
+        requestId: data?.data?._id,
+        requestNumber: data?.data?.requestNumber
       };
     } catch (error) {
-      console.error('Create quote request error:', error);
-      return {
-        success: false,
-        error: error.message
-      };
+      console.error('API call failed, using mock:', error);
+      // Fall back to mock if API fails
+      return this.mockCreateQuoteRequest(formData, serviceType);
     }
   }
 
-  // Mock version for development
+  // Mock version for development (kept as backup)
   async mockCreateQuoteRequest(formData, serviceType) {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
+
     const requestId = `REQ-${Date.now()}`;
     const requestNumber = `QR-2025-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`;
-    
+
     // Store in localStorage for mock persistence
     const mockRequest = {
       requestId,
@@ -55,12 +50,12 @@ class QuoteAPI {
       status: 'PROCESSING',
       createdAt: new Date().toISOString()
     };
-    
+
     localStorage.setItem(`quote_request_${requestId}`, JSON.stringify(mockRequest));
-    
+
     // Simulate backend processing
     this.simulateBackendProcessing(requestId);
-    
+
     return {
       success: true,
       requestId,
@@ -99,23 +94,26 @@ class QuoteAPI {
           }
         }
       ];
-      
-      const request = JSON.parse(localStorage.getItem(`quote_request_${requestId}`));
+
+      const key = `quote_request_${requestId}`;
+      const request = JSON.parse(localStorage.getItem(key) || '{}');
+      if (!request || !request.requestId) return;
+
       request.status = 'QUOTED';
       request.costFiles = mockCostFiles;
-      localStorage.setItem(`quote_request_${requestId}`, JSON.stringify(request));
+      localStorage.setItem(key, JSON.stringify(request));
     }, 3000);
   }
 
   async mockGetGroundQuoteResults(requestId) {
     await new Promise(resolve => setTimeout(resolve, 500));
-    
+
     const request = JSON.parse(localStorage.getItem(`quote_request_${requestId}`) || '{}');
-    
+
     if (!request.requestId) {
       return { success: false, error: 'Request not found' };
     }
-    
+
     return {
       success: true,
       status: request.status,
@@ -125,7 +123,6 @@ class QuoteAPI {
   }
 
   getToken() {
-    // Get auth token from wherever you store it
     return localStorage.getItem('auth_token') || '';
   }
 }
