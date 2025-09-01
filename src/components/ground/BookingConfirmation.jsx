@@ -103,14 +103,14 @@ const BookingConfirmation = ({ booking, onCreateBOL, isDarkMode }) => {
           </button>
           
           <button
-            onClick={() => navigate('/app/quotes')}
+            onClick={() => navigate('/app/quotes/bookings')}
             className={`px-6 py-3 rounded font-medium ${
               isDarkMode 
                 ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
           >
-            Dashboard
+            View Bookings
           </button>
         </div>
       </div>
