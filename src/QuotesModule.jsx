@@ -7,6 +7,7 @@ import useUserRole from './hooks/useUserRole';
 const QuoteDashboard = lazy(() => import('./pages/QuoteDashboard'));
 const AirImport = lazy(() => import('./pages/shared/AirImport'));
 const Ground = lazy(() => import('./pages/customers/Ground'));
+const BookingsManagement = lazy(() => import('./pages/BookingsManagement'));
 
 // Create placeholder components for routes that don't have pages yet
 const Placeholder = ({ title, isDarkMode }) => (
@@ -45,6 +46,7 @@ const QuotesModule = ({ shellContext, basename }) => {
       }>
         <Routes>
           {/* All routes WITHOUT leading slashes - relative to basename */}
+          <Route path="bookings" element={<BookingsManagement isDarkMode={isDarkMode} userRole={userRole} />} />
           <Route index element={<QuoteDashboard isDarkMode={isDarkMode} userRole={userRole} />} />
           <Route path="ground" element={<Ground isDarkMode={isDarkMode} userRole={userRole} />} />
           <Route path="air-import" element={<AirImport isDarkMode={isDarkMode} userRole={userRole} />} />
