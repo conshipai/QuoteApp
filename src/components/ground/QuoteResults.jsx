@@ -19,7 +19,7 @@ const GroundQuoteResults = ({ requestId, requestNumber, serviceType, formData, o
 
   useEffect(() => {
     const fetchResults = async () => {
-      const result = await quoteApi.mockGetGroundQuoteResults(requestId);
+      const result = await quoteApi.getGroundQuoteResults(requestId);
       if (result.success) {
         setStatus(result.status);
         if (result.status === 'QUOTED') {
