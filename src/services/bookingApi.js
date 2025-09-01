@@ -2,7 +2,7 @@
 import API_BASE from '../config/api';
 
 class BookingAPI {
-  async createBooking(quoteData, requestId) {
+  async createBooking(bookingData) {
     try {
       const response = await fetch(`${API_BASE}/bookings`, {
         method: 'POST',
@@ -10,7 +10,8 @@ class BookingAPI {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.getToken()}`
         },
-        body: JSON.stringify({ quoteData, requestId })
+        // Pass the whole object
+        body: JSON.stringify(bookingData)
       });
 
       if (!response.ok) throw new Error('Failed to create booking');
@@ -20,7 +21,11 @@ class BookingAPI {
     } catch (error) {
       console.error('API call failed, using mock:', error);
       // Fall back to mock
-      return this.mockCreateBooking(quoteData, requestId);
+      return this.mockCreateBooking(
+        bookingData?.quoteData,
+        bookingData?.requestId,
+        bookingData?.shipmentData
+      );
     }
   }
 
@@ -45,14 +50,13 @@ class BookingAPI {
   // ---------------------------
   // Mock implementations (kept)
   // ---------------------------
-  async mockCreateBooking(quoteData, requestId) {
+  async mockCreateBooking(quoteData, requestId, shipmentData) {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Get the original request data from localStorage
-    const originalRequest = JSON.parse(
-      localStorage.getItem(`quote_request_${requestId}`) || '{}'
-    );
+    // Try to pull original request from localStorage as a fallback/context
+    const originalRequest =
+      JSON.parse(localStorage.getItem(`quote_request_${requestId}`) || '{}');
 
     const booking = {
       bookingId: `BK-${Date.now()}`,
@@ -63,7 +67,9 @@ class BookingAPI {
       price: quoteData?.final_price,
       pickupNumber: `PU-${String(Math.floor(Math.random() * 1000000)).padStart(7, '0')}`,
       createdAt: new Date().toISOString(),
-      shipmentData: originalRequest
+
+      // Include shipmentData; default to originalRequest or empty shape
+      shipmentData: shipmentData || originalRequest || { formData: {} }
     };
 
     // Save booking to localStorage
@@ -98,6 +104,7 @@ class BookingAPI {
       const key = localStorage.key(i);
       if (key.startsWith('booking_')) {
         const booking = JSON.parse(localStorage.getItem(key));
+
         // Add mode based on service type
         booking.mode =
           booking.shipmentData?.serviceType === 'ltl'
