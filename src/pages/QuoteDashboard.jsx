@@ -1,3 +1,4 @@
+// src/pages/quotes/QuoteDashboard.jsx (or your path)
 import React from 'react';
 import { 
   TrendingUp, 
@@ -11,7 +12,26 @@ import {
 
 const QuoteDashboard = ({ isDarkMode, userRole }) => {
   const isForeignAgent = userRole === 'foreign_agent';
-  
+
+  // Test connection to api.gcc.conship.ai
+  const testBackendConnection = async () => {
+    console.log('Testing connection to api.gcc.conship.ai...');
+    try {
+      const response = await fetch('https://api.gcc.conship.ai/health');
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Backend connected!', data);
+        alert('SUCCESS! Connected to api.gcc.conship.ai');
+      } else {
+        console.log('❌ Backend responded with:', response.status);
+        alert(`Backend responded with status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('❌ Connection error:', error);
+      alert('Failed to connect to api.gcc.conship.ai');
+    }
+  };
+
   // Widget placeholders - these will be replaced with actual widgets later
   const widgets = [
     {
@@ -93,21 +113,31 @@ const QuoteDashboard = ({ isDarkMode, userRole }) => {
   return (
     <div className="p-6 lg:p-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 
-          className={`text-2xl font-bold tracking-wider mb-2 ${
-            isDarkMode ? 'text-gray-100' : 'text-gray-900'
-          }`}
-          style={{ fontFamily: "'Orbitron', monospace" }}
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 
+            className={`text-2xl font-bold tracking-wider mb-2 ${
+              isDarkMode ? 'text-gray-100' : 'text-gray-900'
+            }`}
+            style={{ fontFamily: "'Orbitron', monospace" }}
+          >
+            QUOTE COMMAND CENTER
+          </h1>
+          <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            {isForeignAgent 
+              ? 'Manage import quotes for your buyers' 
+              : 'Create and manage freight quotes'
+            }
+          </p>
+        </div>
+
+        {/* Test API Connection Button */}
+        <button 
+          onClick={testBackendConnection}
+          className="px-4 py-2 h-10 self-center bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
         >
-          QUOTE COMMAND CENTER
-        </h1>
-        <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-          {isForeignAgent 
-            ? 'Manage import quotes for your buyers' 
-            : 'Create and manage freight quotes'
-          }
-        </p>
+          Test API Connection
+        </button>
       </div>
 
       {/* Widgets Grid */}
