@@ -54,6 +54,9 @@ class QuoteAPI {
       // Parse JSON even on non-2xx
       const data = await response.json().catch(() => ({}));
 
+      // ADD THIS LINE to see the raw response:
+    console.log('🔍 Raw backend response for results:', data);
+
       if (!response.ok || !data?.success) {
         throw new Error(data?.error || `Failed to fetch results (HTTP ${response.status})`);
       }
