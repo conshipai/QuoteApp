@@ -122,46 +122,48 @@ const Ground = ({ isDarkMode, userRole }) => {
   const handleAccessorialChange = (key, value) => {
     setFormData(prev => ({ ...prev, [key]: value }));
   };
-// Replace your current handleSubmit with this:
-const handleSubmit = async () => {
-  const errors = [];
-  if (!formData.originZip) errors.push('Origin ZIP required');
-  if (!formData.originCity) errors.push('Origin city required');
-  if (!formData.originState) errors.push('Origin state required');
-  if (!formData.destZip) errors.push('Destination ZIP required');
-  if (!formData.destCity) errors.push('Destination city required');
-  if (!formData.destState) errors.push('Destination state required');
-  if (!formData.pickupDate) errors.push('Pickup date required');
 
-  formData.commodities.forEach((item, index) => {
-    if (!item.weight) errors.push(`Item ${index + 1}: Weight required`);
-    if (!item.length || !item.width || !item.height) {
-      errors.push(`Item ${index + 1}: All dimensions required`);
-    }
-  });
+  // ===== Updated handleSubmit to use real API method =====
+  const handleSubmit = async () => {
+    const errors = [];
+    if (!formData.originZip) errors.push('Origin ZIP required');
+    if (!formData.originCity) errors.push('Origin city required');
+    if (!formData.originState) errors.push('Origin state required');
+    if (!formData.destZip) errors.push('Destination ZIP required');
+    if (!formData.destCity) errors.push('Destination city required');
+    if (!formData.destState) errors.push('Destination state required');
+    if (!formData.pickupDate) errors.push('Pickup date required');
 
-  if (errors.length > 0) {
-    alert('Please fix:\n' + errors.join('\n'));
-    return;
-  }
-
-  setLoading(true);
-  
-  // USE THE API SERVICE HERE
-  const result = await quoteApi.mockCreateQuoteRequest(formData, serviceType);
-  
-  if (result.success) {
-    setQuoteRequest({
-      requestId: result.requestId,
-      requestNumber: result.requestNumber
+    formData.commodities.forEach((item, index) => {
+      if (!item.weight) errors.push(`Item ${index + 1}: Weight required`);
+      if (!item.length || !item.width || !item.height) {
+        errors.push(`Item ${index + 1}: All dimensions required`);
+      }
     });
-    setShowResults(true);
-  } else {
-    alert('Failed to create quote request: ' + result.error);
-  }
-  
-  setLoading(false);
-};
+
+    if (errors.length > 0) {
+      alert('Please fix:\n' + errors.join('\n'));
+      return;
+    }
+
+    setLoading(true);
+
+    // USE THE NEW API METHOD
+    const result = await quoteApi.createGroundQuoteRequest(formData, serviceType);
+
+    if (result.success) {
+      setQuoteRequest({
+        requestId: result.requestId,
+        requestNumber: result.requestNumber
+      });
+      setShowResults(true);
+    } else {
+      alert('Failed to create quote request: ' + (result.error || 'Unknown error'));
+    }
+
+    setLoading(false);
+  };
+
   // ----- Early returns -----
 
   // 1) No service type selected: show selector
