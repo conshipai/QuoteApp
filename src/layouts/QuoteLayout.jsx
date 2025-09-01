@@ -21,7 +21,7 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
   const navItems = [
     // ✅ New Bookings link (visible to everyone)
     {
-      path: '/bookings',
+      path: '/app/quotes/bookings',
       label: 'Bookings',
       icon: Package,
       color: 'indigo',
