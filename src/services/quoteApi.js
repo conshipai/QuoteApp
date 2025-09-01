@@ -2,36 +2,72 @@
 import API_BASE from '../config/api';
 
 class QuoteAPI {
-  // Create quote request - try real API first
-  async createQuoteRequest(formData, serviceType) {
+  // ===== Real API methods =====
+
+  // Create GROUND quote request - UPDATED
+  async createGroundQuoteRequest(formData, serviceType) {
     try {
-      const response = await fetch(`${API_BASE}/quotes/create`, {
+      console.log('📤 Sending to backend:', { serviceType, formData });
+
+      const response = await fetch(`${API_BASE}/ground-quotes/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.getToken()}`
         },
         body: JSON.stringify({
-          service_type: serviceType,
-          form_data: formData,
-          timestamp: new Date().toISOString()
+          serviceType,
+          formData
         })
       });
 
-      if (!response.ok) throw new Error('Failed to create quote request');
+      // Attempt to parse JSON even on non-2xx for more useful errors
+      const data = await response.json().catch(() => ({}));
+      console.log('📥 Backend response:', data);
 
-      const data = await response.json();
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || `Failed to create quote (HTTP ${response.status})`);
+      }
+
       return {
         success: true,
-        requestId: data?.data?._id,
-        requestNumber: data?.data?.requestNumber
+        requestId: data.data?._id,
+        requestNumber: data.data?.requestNumber
       };
     } catch (error) {
-      console.error('API call failed, using mock:', error);
-      // Fall back to mock if API fails
+      console.error('❌ API error (createGroundQuoteRequest):', error);
+
+      // Fallback to mock behavior
       return this.mockCreateQuoteRequest(formData, serviceType);
     }
   }
+
+  // Get ground quote results - NEW
+  async getGroundQuoteResults(requestId) {
+    try {
+      const response = await fetch(`${API_BASE}/ground-quotes/results/${encodeURIComponent(requestId)}`, {
+        headers: {
+          'Authorization': `Bearer ${this.getToken()}`
+        }
+      });
+
+      // Parse JSON even on non-2xx
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || `Failed to fetch results (HTTP ${response.status})`);
+      }
+
+      return data; // keep shape from backend
+    } catch (error) {
+      console.error('❌ API error (getGroundQuoteResults):', error);
+
+      // Fallback to mock behavior
+      return this.mockGetGroundQuoteResults(requestId);
+    }
+  }
+
+  // ===== Mock methods (fallbacks) =====
 
   // Mock version for development (kept as backup)
   async mockCreateQuoteRequest(formData, serviceType) {
@@ -53,7 +89,7 @@ class QuoteAPI {
 
     localStorage.setItem(`quote_request_${requestId}`, JSON.stringify(mockRequest));
 
-    // Simulate backend processing
+    // Simulate backend processing that will later populate results
     this.simulateBackendProcessing(requestId);
 
     return {
@@ -106,14 +142,16 @@ class QuoteAPI {
   }
 
   async mockGetGroundQuoteResults(requestId) {
+    // Simulate small delay
     await new Promise(resolve => setTimeout(resolve, 500));
 
     const request = JSON.parse(localStorage.getItem(`quote_request_${requestId}`) || '{}');
 
-    if (!request.requestId) {
+    if (!request?.requestId) {
       return { success: false, error: 'Request not found' };
     }
 
+    // Return data in a shape that mirrors your real endpoint as closely as possible
     return {
       success: true,
       status: request.status,
@@ -121,6 +159,8 @@ class QuoteAPI {
       requestNumber: request.requestNumber
     };
   }
+
+  // ===== Utilities =====
 
   getToken() {
     return localStorage.getItem('auth_token') || '';
