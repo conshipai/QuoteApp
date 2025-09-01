@@ -46,9 +46,22 @@ const GroundQuoteResults = ({ requestId, requestNumber, serviceType, formData, o
   const handleBookShipment = async () => {
     if (selectedQuote === null) return;
     setBookingLoading(true);
+
     const selected = quotes[selectedQuote];
+
     try {
-      const result = await bookingApi.createBooking(selected, requestId);
+      // Pass the formData as shipmentData!
+      const bookingPayload = {
+        quoteData: selected,
+        requestId: requestId,
+        shipmentData: {
+          formData: formData,      // <-- ADDED
+          serviceType: serviceType // <-- ADDED
+        }
+      };
+
+      const result = await bookingApi.createBooking(bookingPayload);
+
       if (result.success) {
         setBookingData(result.booking);
       } else {
@@ -268,8 +281,8 @@ const GroundQuoteResults = ({ requestId, requestNumber, serviceType, formData, o
           </button>
 
           <button
-            onClick={handleBookShipment} // UPDATED
-            disabled={selectedQuote === null || bookingLoading} // UPDATED
+            onClick={handleBookShipment}
+            disabled={selectedQuote === null || bookingLoading}
             className={`px-6 py-2 rounded font-medium ${
               selectedQuote === null || bookingLoading
                 ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
@@ -278,7 +291,7 @@ const GroundQuoteResults = ({ requestId, requestNumber, serviceType, formData, o
                 : 'bg-conship-purple text-white hover:bg-purple-700'
             }`}
           >
-            {bookingLoading ? 'Booking...' : 'Book Shipment'} {/* LOADING STATE */}
+            {bookingLoading ? 'Booking...' : 'Book Shipment'}
           </button>
         </div>
       </div>
