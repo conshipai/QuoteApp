@@ -41,14 +41,23 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
     poNumber: ''
   });
 
+  // ✅ Clean, React-safe print that relies on @media print CSS
   const handlePrint = () => {
+    const node = document.getElementById('bol-template');
+    if (!node) {
+      alert('BOL content is not ready to print.');
+      return;
+    }
+    // Optional: Set a helpful print title (some browsers use it in headers)
+    const prevTitle = document.title;
+    document.title = bolData.bolNumber || 'Bill of Lading';
     window.print();
+    document.title = prevTitle;
   };
 
   const handleSave = async () => {
     setGenerating(true);
     try {
-      // Save to backend
       const result = await bolApi.createBOL({
         bookingId: booking.bookingId,
         bolNumber: bolNumber,
@@ -67,8 +76,8 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="max-w-7xl mx-auto p-6">
-        {/* Header Controls */}
-        <div className="mb-6 flex justify-between items-center">
+        {/* Header Controls (hidden in print) */}
+        <div className="mb-6 flex justify-between items-center print:hidden">
           <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             Bill of Lading Generator
           </h1>
@@ -83,7 +92,7 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
             <button
               onClick={handleSave}
               disabled={generating}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2"
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2 disabled:opacity-60"
             >
               <Save className="w-4 h-4" />
               {generating ? 'Saving...' : 'Save BOL'}
@@ -91,34 +100,50 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
           </div>
         </div>
 
-        {/* Form Fields for editing */}
-        {/* Add form inputs here for editing shipper/consignee if needed */}
+        {/* Form Fields for editing (add as needed) */}
+        {/* ... */}
 
-        {/* BOL Preview */}
-        <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-          <div ref={bolRef}>
+        {/* BOL Preview (this is the ONLY thing printed) */}
+        <div className="bg-white shadow-lg rounded-lg overflow-hidden print:shadow-none print:rounded-none">
+          <div id="bol-template" ref={bolRef} className="print:bg-white">
             <BOLTemplate 
               bolData={bolData}
               booking={booking}
-              isDarkMode={false}
+              isDarkMode={false}  // Force white for print
             />
           </div>
         </div>
       </div>
 
       {/* Print Styles */}
-      <style jsx>{`
+      <style>{`
         @media print {
+          /* Ensure colors/logos render nicely */
+          body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            background: white !important;
+          }
+
+          /* Hide everything that's not the template */
           body * {
             visibility: hidden;
           }
           #bol-template, #bol-template * {
             visibility: visible;
           }
+
+          /* Position at the top-left and use full width for the page */
           #bol-template {
             position: absolute;
             left: 0;
             top: 0;
+            width: 100%;
+          }
+
+          /* Remove default margins some browsers add */
+          @page {
+            margin: 12mm;
           }
         }
       `}</style>
