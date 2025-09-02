@@ -8,7 +8,6 @@ const useUserRole = ({ user }) => {
       // Map shell roles to quote module roles
      if (user.role === 'partner_admin' || user.role === 'partner_user') {
         setUserRole('partner');  // or 'customer' - we need to know which one the quotes app expects
-      }
       } else if (user.role === 'system_admin' || user.role === 'conship_employee') {
         setUserRole('admin');
       } else {
