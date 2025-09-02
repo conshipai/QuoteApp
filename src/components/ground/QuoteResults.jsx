@@ -54,7 +54,7 @@ useEffect(() => {
   };
 
   const interval = setInterval(() => {
-    if (status === 'PROCESSING') {
+     if (status === 'PROCESSING' || status === 'PENDING') {
       fetchResults();
     }
   }, 1000);
