@@ -82,15 +82,18 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
     }
   ].filter(item => item.available);
 
+  // Issue 1: Fix Navigation Highlighting
   const getNavItemClasses = (item) => {
-    // highlight for exact path and nested routes
-    const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+    // Exact match for dashboard; prefix match for others
+    const isActive = item.path === '/app/quotes'
+      ? location.pathname === item.path
+      : location.pathname.startsWith(item.path);
+
     const baseClasses = `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200`;
-    
+
     if (isActive) {
       return `${baseClasses} bg-conship-purple text-white`;
     }
-    
     if (isDarkMode) {
       return `${baseClasses} text-gray-300 hover:bg-gray-800 hover:text-white`;
     }
@@ -108,10 +111,12 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
         <div className="p-4">
           {/* Sidebar Header */}
           <div className="flex items-center justify-between mb-8">
-            <h2 className={`font-bold text-lg transition-all duration-300 overflow-hidden ${
-              sidebarOpen ? 'opacity-100' : 'opacity-0 w-0'
-            } ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
-            style={{ fontFamily: "'Orbitron', monospace" }}>
+            <h2
+              className={`font-bold text-lg transition-all duration-300 overflow-hidden ${
+                sidebarOpen ? 'opacity-100' : 'opacity-0 w-0'
+              } ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
+              style={{ fontFamily: "'Orbitron', monospace" }}
+            >
               QUOTES
             </h2>
             <button
@@ -131,7 +136,7 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
             {navItems.map((item) => {
               const Icon = item.icon;
               const SubIcon = item.subIcon;
-              
+
               return (
                 <NavLink
                   key={item.path}
@@ -155,7 +160,7 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
             })}
           </nav>
 
-          {/* User Role Indicator */}
+          {/* Issue 2: Fix User Role Display */}
           {sidebarOpen && (
             <div className={`mt-8 p-3 rounded-lg ${
               isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
@@ -168,7 +173,9 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
               <p className={`text-sm font-bold mt-1 ${
                 isDarkMode ? 'text-conship-orange' : 'text-conship-purple'
               }`}>
-                {isForeignAgent ? 'Foreign Agent' : 'Customer'}
+                {userRole === 'system_admin' ? 'System Admin' :
+                 userRole === 'conship_employee' ? 'Conship Employee' :
+                 isForeignAgent ? 'Foreign Agent' : 'Customer'}
               </p>
             </div>
           )}
