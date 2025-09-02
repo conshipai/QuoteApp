@@ -28,6 +28,14 @@ module.exports = {
       {
         test: /\.css$/,
         use: ['style-loader', 'css-loader']
+      },
+      // ADD THIS RULE FOR IMAGES
+      {
+        test: /\.(png|jpg|jpeg|gif|svg|webp|ico)$/i,
+        type: 'asset/resource',
+        generator: {
+          filename: 'images/[name].[hash][ext]'
+        }
       }
     ]
   },
@@ -39,20 +47,20 @@ module.exports = {
         './App': './src/QuotesModule'
       },
       shared: {
-      react: { 
-        singleton: true,
-        requiredVersion: '^18.0.0'  // Add this
-      },
-      'react-dom': { 
-        singleton: true,
-        requiredVersion: '^18.0.0'  // Add this
-      },
-      'react-router-dom': { 
-        singleton: true,
-        requiredVersion: '^6.0.0'   // Add this
+        react: { 
+          singleton: true,
+          requiredVersion: '^18.0.0'
+        },
+        'react-dom': { 
+          singleton: true,
+          requiredVersion: '^18.0.0'
+        },
+        'react-router-dom': { 
+          singleton: true,
+          requiredVersion: '^6.0.0'
+        }
       }
-    }
-  }),
+    }),
     new HtmlWebpackPlugin({
       template: './public/index.html'
     })
