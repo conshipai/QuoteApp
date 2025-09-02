@@ -5,7 +5,7 @@ import bookingApi from '../../services/bookingApi';  // ADDED
 import BookingConfirmation from './BookingConfirmation';  // ADDED
 import BOLBuilder from '../bol/BOLBuilder';  // ADDED
 
-const GroundQuoteResults = ({ requestId, requestNumber, serviceType, formData, onBack, isDarkMode }) => {
+const GroundQuoteResults = ({ requestId, requestNumber, serviceType, formData = {}, onBack, isDarkMode }) => {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('PROCESSING');
   const [quotes, setQuotes] = useState([]);
@@ -17,51 +17,79 @@ const GroundQuoteResults = ({ requestId, requestNumber, serviceType, formData, o
   const [bookingData, setBookingData] = useState(null);
   const [showBOL, setShowBOL] = useState(false);
 
-useEffect(() => {
-  const fetchResults = async () => {
-    const result = await quoteApi.getGroundQuoteResults(requestId);
-    console.log('📊 Quote Results from backend:', result);
-    
-    if (result.success) {
-      // Backend sends lowercase 'quoted', frontend uses uppercase
-      const backendStatus = result.status?.toUpperCase() || 'PROCESSING';
-      setStatus(backendStatus);
-      
-      if (result.status === 'quoted' && result.quotes) {
-        // Map backend format to what the component expects
-        const mappedQuotes = result.quotes.map(q => ({
-          quoteId: q.quoteId,
-          service_details: {
-            carrier: q.carrier,
-            service: q.service,
-            guaranteed: q.guaranteed
-          },
-          raw_cost: q.rawCost || q.price, // Fallback to price if no rawCost
-          final_price: q.price,
-          markup_percentage: q.markup || 0,
-          transit_days: q.transitDays,
-          additional_fees: q.additionalFees || [],
-          fuel_surcharge: 0 // Backend doesn't separate this
-        }));
-        
-        setQuotes(mappedQuotes);
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchResults = async () => {
+      try {
+        const result = await quoteApi.getGroundQuoteResults(requestId);
+        console.log('📊 Quote Results from backend:', result);
+
+        if (!isMounted) return;
+
+        if (result.success) {
+          // Backend sends lowercase statuses; UI state uses uppercase
+          const backendStatus = (result.status || 'processing').toUpperCase();
+          setStatus(backendStatus);
+
+          if (result.status === 'quoted' && Array.isArray(result.quotes)) {
+            // Map backend format to what the component expects
+            const mappedQuotes = result.quotes.map((q) => ({
+              quoteId: q.quoteId,
+              service_details: {
+                carrier: q.carrier,
+                service: q.service,
+                guaranteed: q.guaranteed
+              },
+              raw_cost: q.rawCost ?? q.price ?? 0, // fallback to price if rawCost missing
+              final_price: q.price ?? 0,
+              markup_percentage: q.markup ?? 0,
+              transit_days: q.transitDays ?? q.transit_days ?? 0,
+              additional_fees: q.additionalFees || [],
+              fuel_surcharge: 0 // backend doesn't separate this in current payload
+            }));
+
+            setQuotes(mappedQuotes);
+            setLoading(false);
+          } else if (result.status === 'failed') {
+            // Stop polling and show error
+            setError(result.error || 'Unable to retrieve quotes. Please try again or contact support.');
+            setLoading(false);
+          } else if (result.status === 'pending' || result.status === 'processing') {
+            // Keep polling
+            setLoading(true);
+          } else {
+            // Any other status -> stop loading but keep UI stable
+            setLoading(false);
+          }
+        } else {
+          setError(result.error || 'Unknown error');
+          setLoading(false);
+        }
+      } catch (e) {
+        if (!isMounted) return;
+        console.error('Error fetching quote results:', e);
+        setError('Failed to retrieve quotes. Please try again.');
         setLoading(false);
       }
-    } else {
-      setError(result.error || 'Unknown error');
-      setLoading(false);
-    }
-  };
+    };
 
-  const interval = setInterval(() => {
-     if (status === 'PROCESSING' || status === 'PENDING') {
-      fetchResults();
-    }
-  }, 1000);
+    // Poll every second while processing/pending
+    const interval = setInterval(() => {
+      if (status === 'PROCESSING' || status === 'PENDING') {
+        fetchResults();
+      }
+    }, 1000);
 
-  fetchResults();
-  return () => clearInterval(interval);
-}, [requestId, status]);
+    // Initial fetch
+    fetchResults();
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [requestId, status]);
+
   // --- BOOKING: create booking from selected quote ---
   const handleBookShipment = async () => {
     if (selectedQuote === null) return;
@@ -70,13 +98,13 @@ useEffect(() => {
     const selected = quotes[selectedQuote];
 
     try {
-      // Pass the formData as shipmentData!
+      // Pass the formData as shipmentData (as per your backend expectation)
       const bookingPayload = {
         quoteData: selected,
         requestId: requestId,
         shipmentData: {
-          formData: formData,      // <-- ADDED
-          serviceType: serviceType // <-- ADDED
+          formData: formData,
+          serviceType: serviceType
         }
       };
 
@@ -120,7 +148,7 @@ useEffect(() => {
               className="animate-spin h-12 w-12 border-4 border-t-transparent rounded-full mx-auto mb-4"
               style={{ borderColor: isDarkMode ? '#f97316' : '#7c3aed', borderTopColor: 'transparent' }}
             />
-            <h2 className="text-2xl font-bold mb-2">Getting {serviceType.toUpperCase()} Quotes...</h2>
+            <h2 className="text-2xl font-bold mb-2">Getting {String(serviceType || '').toUpperCase()} Quotes...</h2>
             <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Request #{requestNumber}</p>
             <div className={`mt-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
               <p>Contacting carriers...</p>
@@ -160,6 +188,10 @@ useEffect(() => {
     );
   }
 
+  const commodities = Array.isArray(formData.commodities) ? formData.commodities : [];
+  const totalUnits = commodities.reduce((sum, c) => sum + parseInt(c.quantity || 0, 10), 0);
+  const totalWeight = commodities.reduce((sum, c) => sum + parseInt(c.weight || 0, 10), 0);
+
   // --- MAIN RESULTS VIEW ---
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
@@ -169,7 +201,7 @@ useEffect(() => {
           <div className="flex items-center justify-between mb-2">
             <div>
               <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {serviceType.toUpperCase()} Quote Results
+                {String(serviceType || '').toUpperCase()} Quote Results
               </h1>
               <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Request #{requestNumber}</p>
             </div>
@@ -205,8 +237,7 @@ useEffect(() => {
             <div className="flex items-center gap-2">
               <Package className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
               <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                {formData.commodities.reduce((sum, c) => sum + parseInt(c.quantity || 0, 10), 0)} units,{' '}
-                {formData.commodities.reduce((sum, c) => sum + parseInt(c.weight || 0, 10), 0)} lbs
+                {totalUnits} units, {totalWeight} lbs
               </span>
             </div>
           </div>
@@ -253,7 +284,11 @@ useEffect(() => {
                 </div>
                 <div className={`text-xs mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                   Base: ${Number(quote.raw_cost || 0).toFixed(2)} | Fuel:{' '}
-                  ${typeof quote.fuel_surcharge === 'number' ? quote.fuel_surcharge.toFixed(2) : (quote.fuel_surcharge || '0.00')}{' '}
+                  ${
+                    typeof quote.fuel_surcharge === 'number'
+                      ? quote.fuel_surcharge.toFixed(2)
+                      : (quote.fuel_surcharge || '0.00')
+                  }{' '}
                   | +{quote.markup_percentage}%
                 </div>
               </div>
@@ -289,7 +324,7 @@ useEffect(() => {
               console.log('Saving quote:', {
                 requestId,
                 carrier: selected?.service_details?.carrier,
-                price: selected?.final_price,
+                price: selected?.final_price
               });
               alert('Quote saved!');
             }}
