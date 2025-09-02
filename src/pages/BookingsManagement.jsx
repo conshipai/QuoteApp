@@ -97,8 +97,10 @@ const BookingsManagement = ({ isDarkMode }) => {
     return (
       <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} flex items-center justify-center`}>
         <div className="text-center">
-          <div className="animate-spin h-12 w-12 border-4 border-t-transparent rounded-full mx-auto mb-4"
-               style={{borderColor: isDarkMode ? '#f97316' : '#7c3aed', borderTopColor: 'transparent'}}></div>
+          <div
+            className="animate-spin h-12 w-12 border-4 border-t-transparent rounded-full mx-auto mb-4"
+            style={{borderColor: isDarkMode ? '#f97316' : '#7c3aed', borderTopColor: 'transparent'}}
+          />
           <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Loading bookings...</p>
         </div>
       </div>
@@ -250,25 +252,25 @@ const BookingsManagement = ({ isDarkMode }) => {
                       </div>
                     </div>
                     
-                    {/* Document Actions */}
+                    {/* Document Actions (disabled / placeholder) */}
                     <div className="flex gap-2">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          downloadDocument(booking.bookingId, 'BOL');
+                          alert('Document download coming soon');
                         }}
-                        className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700`}
-                        title="Download BOL"
+                        className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                        title="Download BOL (coming soon)"
                       >
                         <FileText className="w-4 h-4" />
                       </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          downloadDocument(booking.bookingId, 'INVOICE');
+                          alert('Document download coming soon');
                         }}
-                        className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700`}
-                        title="Download Invoice"
+                        className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                        title="Download Invoice (coming soon)"
                       >
                         <Download className="w-4 h-4" />
                       </button>
@@ -325,33 +327,16 @@ const BookingsManagement = ({ isDarkMode }) => {
                         Actions
                       </h4>
                       <div className="space-y-2">
+                        {/* Only show working features */}
                         <button
+                          onClick={() => alert('BOL viewing coming soon')}
                           className={`w-full px-3 py-1 rounded text-sm ${
                             isDarkMode 
                               ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
                               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                           }`}
                         >
-                          Track Shipment
-                        </button>
-                        <button
-                          className={`w-full px-3 py-1 rounded text-sm ${
-                            isDarkMode 
-                              ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          Create New BOL
-                        </button>
-                        <button
-                          className={`w-full px-3 py-1 rounded text-sm ${
-                            booking.status === 'CONFIRMED'
-                              ? 'bg-red-600 text-white hover:bg-red-700' 
-                              : 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                          }`}
-                          disabled={booking.status !== 'CONFIRMED'}
-                        >
-                          Cancel Booking
+                          View BOL
                         </button>
                       </div>
                     </div>
