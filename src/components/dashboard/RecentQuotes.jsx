@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'; 
 import { useNavigate } from 'react-router-dom';
-import { Clock, Truck, MapPin, DollarSign, ChevronRight } from 'lucide-react';
+import { Clock, Truck, MapPin, ChevronRight } from 'lucide-react';
 
 const RecentQuotes = ({ isDarkMode }) => {
   const navigate = useNavigate();
@@ -9,11 +9,12 @@ const RecentQuotes = ({ isDarkMode }) => {
 
   useEffect(() => {
     loadRecentQuotes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Step 24: Use real API + map backend format to component format
   const loadRecentQuotes = async () => {
     try {
-      // For now, get from MongoDB via API or localStorage
       const response = await fetch('https://api.gcc.conship.ai/api/ground-quotes/recent', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
@@ -22,31 +23,79 @@ const RecentQuotes = ({ isDarkMode }) => {
       
       if (response.ok) {
         const data = await response.json();
-        setQuotes(data.requests || []);
+        if (data.success && data.requests) {
+          const mappedQuotes = data.requests.map((req) => ({
+            requestId: req._id,
+            requestNumber: req.requestNumber,
+            status: req.status,
+            serviceType: req.serviceType,
+            formData: {
+              originCity: req.origin?.city,
+              originState: req.origin?.state,
+              originZip: req.origin?.zipCode,
+              destCity: req.destination?.city,
+              destState: req.destination?.state,
+              destZip: req.destination?.zipCode,
+              pickupDate: req.pickupDate,
+              commodities: req.ltlDetails?.commodities || []
+            },
+            createdAt: req.createdAt,
+            quoteCount: req.quoteCount || 0
+          }));
+
+          setQuotes(mappedQuotes);
+          setLoading(false);
+          return;
+        }
       }
+
+      // If response not ok or structure not as expected, fallback to mock
+      loadMockQuotes();
     } catch (error) {
       console.error('Failed to load quotes:', error);
-      // Fallback to localStorage for testing
       loadMockQuotes();
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
+  // Fallback to localStorage for testing/dev
   const loadMockQuotes = () => {
-    // Load from localStorage for testing
-    const mockQuotes = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key.startsWith('quote_request_')) {
-        const quote = JSON.parse(localStorage.getItem(key));
-        mockQuotes.push(quote);
+    try {
+      const mockQuotes = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('quote_request_')) {
+          const raw = localStorage.getItem(key);
+          if (!raw) continue;
+          const parsed = JSON.parse(raw);
+          // Ensure minimal shape for component
+          mockQuotes.push({
+            requestId: parsed.requestId || parsed._id || key,
+            requestNumber: parsed.requestNumber || 'REQ-LOCAL',
+            status: parsed.status || 'pending',
+            serviceType: parsed.serviceType || 'ltl',
+            formData: parsed.formData || {
+              originCity: parsed.originCity,
+              originState: parsed.originState,
+              destCity: parsed.destCity,
+              destState: parsed.destState,
+              pickupDate: parsed.pickupDate
+            },
+            createdAt: parsed.createdAt || new Date().toISOString(),
+            quoteCount: parsed.quoteCount || 0
+          });
+        }
       }
+      mockQuotes.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setQuotes(mockQuotes);
+    } catch (e) {
+      console.error('Failed to load mock quotes:', e);
+      setQuotes([]);
     }
-    setQuotes(mockQuotes.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
   };
 
   const handleQuoteClick = (quote) => {
-    // Navigate to results page with the quote data
     navigate(`/app/quotes/ground/results/${quote.requestId}`, {
       state: {
         requestId: quote.requestId,
@@ -111,13 +160,15 @@ const RecentQuotes = ({ isDarkMode }) => {
                     <span className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                       {quote.requestNumber}
                     </span>
-                    <span className={`text-xs px-2 py-0.5 rounded ${
-                      quote.status === 'quoted' 
-                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                        : quote.status === 'pending'
-                        ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                        : 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'
-                    }`}>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded ${
+                        quote.status === 'quoted'
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                          : quote.status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'
+                      }`}
+                    >
                       {quote.status?.toUpperCase()}
                     </span>
                   </div>
@@ -126,8 +177,7 @@ const RecentQuotes = ({ isDarkMode }) => {
                     <div className="flex items-center gap-4">
                       <span className="flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
-                        {quote.formData?.originCity}, {quote.formData?.originState} → 
-                        {quote.formData?.destCity}, {quote.formData?.destState}
+                        {quote.formData?.originCity}, {quote.formData?.originState} → {quote.formData?.destCity}, {quote.formData?.destState}
                       </span>
                       <span className="flex items-center gap-1">
                         <Truck className="w-3 h-3" />
