@@ -17,31 +17,52 @@ const GroundQuoteResults = ({ requestId, requestNumber, serviceType, formData, o
   const [bookingData, setBookingData] = useState(null);
   const [showBOL, setShowBOL] = useState(false);
 
-  useEffect(() => {
-    const fetchResults = async () => {
-      const result = await quoteApi.getGroundQuoteResults(requestId);
+useEffect(() => {
+  const fetchResults = async () => {
+    const result = await quoteApi.getGroundQuoteResults(requestId);
     console.log('📊 Quote Results from backend:', result);
-      if (result.success) {
-        setStatus(result.status);
-        if (result.status === 'QUOTED') {
-          setQuotes(result.costFiles || []);
-          setLoading(false);
-        }
-      } else {
-        setError(result.error || 'Unknown error');
+    
+    if (result.success) {
+      setStatus(result.status.toUpperCase()); // Convert to uppercase
+      
+      if (result.status === 'quoted') { // Backend uses lowercase
+        // Map backend format to frontend format
+        const mappedQuotes = result.quotes.map(q => ({
+          // Keep the backend ID
+          quoteId: q.quoteId,
+          // Map fields to what the component expects
+          service_details: {
+            carrier: q.carrier,
+            service: q.service,
+            guaranteed: q.guaranteed
+          },
+          raw_cost: q.rawCost,
+          final_price: q.price,
+          markup_percentage: q.markup,
+          transit_days: q.transitDays,
+          additional_fees: q.additionalFees || [],
+          // Add any missing fields
+          fuel_surcharge: 0 // Backend doesn't separate this
+        }));
+        
+        setQuotes(mappedQuotes);
         setLoading(false);
       }
-    };
+    } else {
+      setError(result.error || 'Unknown error');
+      setLoading(false);
+    }
+  };
 
-    const interval = setInterval(() => {
-      if (status === 'PROCESSING') {
-        fetchResults();
-      }
-    }, 1000);
+  const interval = setInterval(() => {
+    if (status === 'PROCESSING') {
+      fetchResults();
+    }
+  }, 1000);
 
-    fetchResults();
-    return () => clearInterval(interval);
-  }, [requestId, status]);
+  fetchResults();
+  return () => clearInterval(interval);
+}, [requestId, status]);
 
   // --- BOOKING: create booking from selected quote ---
   const handleBookShipment = async () => {
