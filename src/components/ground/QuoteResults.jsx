@@ -23,25 +23,24 @@ useEffect(() => {
     console.log('📊 Quote Results from backend:', result);
     
     if (result.success) {
-      setStatus(result.status.toUpperCase()); // Convert to uppercase
+      // Backend sends lowercase 'quoted', frontend uses uppercase
+      const backendStatus = result.status?.toUpperCase() || 'PROCESSING';
+      setStatus(backendStatus);
       
-      if (result.status === 'quoted') { // Backend uses lowercase
-        // Map backend format to frontend format
+      if (result.status === 'quoted' && result.quotes) {
+        // Map backend format to what the component expects
         const mappedQuotes = result.quotes.map(q => ({
-          // Keep the backend ID
           quoteId: q.quoteId,
-          // Map fields to what the component expects
           service_details: {
             carrier: q.carrier,
             service: q.service,
             guaranteed: q.guaranteed
           },
-          raw_cost: q.rawCost,
+          raw_cost: q.rawCost || q.price, // Fallback to price if no rawCost
           final_price: q.price,
-          markup_percentage: q.markup,
+          markup_percentage: q.markup || 0,
           transit_days: q.transitDays,
           additional_fees: q.additionalFees || [],
-          // Add any missing fields
           fuel_surcharge: 0 // Backend doesn't separate this
         }));
         
@@ -63,7 +62,6 @@ useEffect(() => {
   fetchResults();
   return () => clearInterval(interval);
 }, [requestId, status]);
-
   // --- BOOKING: create booking from selected quote ---
   const handleBookShipment = async () => {
     if (selectedQuote === null) return;
