@@ -1,5 +1,5 @@
 import React from 'react';
-
+import conshipLogo from '../../assets/images/conship-logo.png';
 const BOLTemplate = ({ bolData, booking, isDarkMode }) => {
   // Extract data
   const { 
@@ -36,27 +36,29 @@ const BOLTemplate = ({ bolData, booking, isDarkMode }) => {
   };
 
   return (
-    <div className="w-[8.5in] min-h-[11in] bg-white text-black p-8 print:p-4" style={{ fontFamily: 'Arial, sans-serif' }}>
-      {/* Header with Logo */}
-      <div className="border-b-2 border-black pb-4 mb-4">
-        <div className="flex justify-between items-start">
-          <div>
-            {/* Logo placeholder - replace with actual logo */}
-            <div className="text-3xl font-bold" style={{ fontFamily: 'Orbitron, monospace' }}>
-              CONSHIP AI
-            </div>
-            <div className="text-sm text-gray-600 mt-1">Freight Intelligence Platform</div>
-          </div>
-          
-          <div className="text-right">
-            <h1 className="text-2xl font-bold">BILL OF LADING</h1>
-            <div className="text-sm mt-2 space-y-1">
-              <div><span className="font-semibold">BOL #:</span> {bolNumber || 'PENDING'}</div>
-              <div><span className="font-semibold">Date:</span> {new Date().toLocaleDateString()}</div>
-            </div>
-          </div>
-        </div>
+   <div className="border-b-2 border-black pb-4 mb-4">
+  <div className="flex justify-between items-start">
+    {/* Left side logo */}
+    <div>
+      <img 
+        src={conshipLogo} 
+        alt="Conship AI" 
+        className="h-12 w-auto"
+        style={{ maxWidth: '200px' }}
+      />
+      <div className="text-sm text-gray-600 mt-1">Freight Intelligence Platform</div>
+    </div>
+
+    {/* Right side BOL heading */}
+    <div className="text-right">
+      <h1 className="text-2xl font-bold">BILL OF LADING</h1>
+      <div className="text-sm mt-2 space-y-1">
+        <div><span className="font-semibold">BOL #:</span> {bolNumber || 'PENDING'}</div>
+        <div><span className="font-semibold">Date:</span> {new Date().toLocaleDateString()}</div>
       </div>
+    </div>
+  </div>
+</div>
 
       {/* Reference Numbers */}
       <div className="grid grid-cols-3 gap-4 mb-4 p-3 bg-gray-100">
