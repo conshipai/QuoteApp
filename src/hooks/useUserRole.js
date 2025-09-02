@@ -6,8 +6,10 @@ const useUserRole = ({ user }) => {
   useEffect(() => {
     if (user?.role) {
       // Map shell roles to quote module roles
-      if (user.role === 'partner_master' || user.role === 'partner_user') {
+      if (user.role === 'partner_admin' || user.role === 'partner_user') {
         setUserRole('foreign_agent');
+      } else if (user.role === 'system_admin' || user.role === 'conship_employee') {
+        setUserRole('admin');
       } else {
         setUserRole('customer');
       }
