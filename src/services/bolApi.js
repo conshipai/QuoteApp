@@ -41,7 +41,7 @@ class BolAPI {
     // Generate BOL ID
     const bolId = `BOL-${Date.now()}`;
     
-    // Store BOL data in localStorage
+    // Create the BOL object
     const bol = {
       bolId,
       bookingId,
@@ -52,20 +52,44 @@ class BolAPI {
       createdBy: localStorage.getItem('user_email') || 'user@example.com'
     };
     
-    // Get existing BOLs
+    // Get existing BOLs or initialize empty array
     const existingBOLs = JSON.parse(localStorage.getItem('bols') || '[]');
-    existingBOLs.push(bol);
-    localStorage.setItem('bols', JSON.stringify(existingBOLs));
     
-    // Also update the booking to indicate it has a BOL
+    // Check if a BOL already exists for this booking and remove it (update case)
+    const filteredBOLs = existingBOLs.filter(b => b.bookingId !== bookingId);
+    
+    // Add the new BOL
+    filteredBOLs.push(bol);
+    localStorage.setItem('bols', JSON.stringify(filteredBOLs));
+    
+    // IMPORTANT: Update ALL places where the booking might be stored
+    
+    // 1. Update the specific booking entry
     const bookingKey = `booking_${bookingId}`;
-    const booking = JSON.parse(localStorage.getItem(bookingKey) || '{}');
-    if (booking.bookingId) {
+    const bookingData = localStorage.getItem(bookingKey);
+    if (bookingData) {
+      const booking = JSON.parse(bookingData);
       booking.hasBOL = true;
       booking.bolId = bolId;
       booking.bolNumber = bolNumber;
       localStorage.setItem(bookingKey, JSON.stringify(booking));
     }
+    
+    // 2. Also update in any "all bookings" cache if it exists
+    const allBookingsKey = 'all_bookings_cache';
+    const allBookingsData = localStorage.getItem(allBookingsKey);
+    if (allBookingsData) {
+      const allBookings = JSON.parse(allBookingsData);
+      const bookingIndex = allBookings.findIndex(b => b.bookingId === bookingId);
+      if (bookingIndex !== -1) {
+        allBookings[bookingIndex].hasBOL = true;
+        allBookings[bookingIndex].bolId = bolId;
+        allBookings[bookingIndex].bolNumber = bolNumber;
+        localStorage.setItem(allBookingsKey, JSON.stringify(allBookings));
+      }
+    }
+    
+    console.log('BOL created successfully:', { bolId, bookingId, bolNumber });
     
     return {
       success: true,
@@ -105,9 +129,11 @@ class BolAPI {
     const bol = bols.find(b => b.bookingId === bookingId);
     
     if (!bol) {
+      console.log('No BOL found for booking:', bookingId);
       return { success: false, error: 'BOL not found' };
     }
     
+    console.log('BOL found for booking:', bookingId, bol.bolNumber);
     return {
       success: true,
       bol
@@ -129,8 +155,25 @@ class BolAPI {
 
   async deleteBOL(bolId) {
     const bols = JSON.parse(localStorage.getItem('bols') || '[]');
-    const filtered = bols.filter(b => b.bolId !== bolId);
-    localStorage.setItem('bols', JSON.stringify(filtered));
+    const bol = bols.find(b => b.bolId === bolId);
+    
+    if (bol) {
+      // Remove BOL from list
+      const filtered = bols.filter(b => b.bolId !== bolId);
+      localStorage.setItem('bols', JSON.stringify(filtered));
+      
+      // Update the booking to remove BOL reference
+      const bookingKey = `booking_${bol.bookingId}`;
+      const bookingData = localStorage.getItem(bookingKey);
+      if (bookingData) {
+        const booking = JSON.parse(bookingData);
+        delete booking.hasBOL;
+        delete booking.bolId;
+        delete booking.bolNumber;
+        localStorage.setItem(bookingKey, JSON.stringify(booking));
+      }
+    }
+    
     return { success: true };
   }
 
@@ -144,6 +187,26 @@ class BolAPI {
 
   getToken() {
     return localStorage.getItem('auth_token') || '';
+  }
+
+  // Utility method to check BOL status for debugging
+  debugBOLStatus(bookingId) {
+    console.log('=== BOL Debug Info ===');
+    console.log('Checking for booking:', bookingId);
+    
+    // Check BOLs array
+    const bols = JSON.parse(localStorage.getItem('bols') || '[]');
+    const bol = bols.find(b => b.bookingId === bookingId);
+    console.log('BOL found in bols array:', bol ? 'Yes' : 'No', bol);
+    
+    // Check booking record
+    const bookingKey = `booking_${bookingId}`;
+    const booking = JSON.parse(localStorage.getItem(bookingKey) || '{}');
+    console.log('Booking record:', booking);
+    console.log('Booking hasBOL flag:', booking.hasBOL);
+    console.log('Booking bolNumber:', booking.bolNumber);
+    
+    return { bol, booking };
   }
 }
 
