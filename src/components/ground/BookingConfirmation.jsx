@@ -11,16 +11,22 @@ const BookingConfirmation = ({ booking, onCreateBOL, isDarkMode }) => {
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="max-w-4xl mx-auto p-6">
         {/* Success Banner */}
-        <div className="mb-6 p-6 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+        <div className={`mb-6 p-6 rounded-lg border ${
+          isDarkMode 
+            ? 'bg-green-900/20 border-green-800' 
+            : 'bg-green-50 border-green-200'
+        }`}>
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
               <Check className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-green-900 dark:text-green-100">
+              <h2 className={`text-xl font-bold ${
+                isDarkMode ? 'text-green-100' : 'text-green-900'
+              }`}>
                 Booking Confirmed!
               </h2>
-              <p className="text-green-700 dark:text-green-300">
+              <p className={isDarkMode ? 'text-green-300' : 'text-green-700'}>
                 Confirmation: {confirmationNumber}
               </p>
             </div>
@@ -28,36 +34,54 @@ const BookingConfirmation = ({ booking, onCreateBOL, isDarkMode }) => {
         </div>
 
         {/* Booking Details */}
-        <div className={`mb-6 p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
-          <h3 className={`text-lg font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+        <div className={`mb-6 p-6 rounded-lg shadow-sm ${
+          isDarkMode ? 'bg-gray-800' : 'bg-white'
+        }`}>
+          <h3 className={`text-lg font-bold mb-4 ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>
             Shipment Details
           </h3>
           
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Carrier</p>
-              <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{carrier}</p>
+              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Carrier
+              </p>
+              <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                {carrier}
+              </p>
             </div>
             <div>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Pickup Number</p>
-              <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{pickupNumber}</p>
+              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Pickup Number
+              </p>
+              <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                {pickupNumber}
+              </p>
             </div>
             <div>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Cost</p>
-              <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>${price.toFixed(2)}</p>
+              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Total Cost
+              </p>
+              <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                ${price.toFixed(2)}
+              </p>
             </div>
             <div>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Pickup Date</p>
+              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Pickup Date
+              </p>
               <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {new Date(formData.pickupDate).toLocaleDateString()}
               </p>
             </div>
           </div>
 
-          <div className="mt-4 pt-4 border-t dark:border-gray-700">
+          <div className={`mt-4 pt-4 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-gray-500" />
+                <MapPin className={`w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
                 <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                   {formData.originCity}, {formData.originState} → {formData.destCity}, {formData.destState}
                 </span>
@@ -67,8 +91,12 @@ const BookingConfirmation = ({ booking, onCreateBOL, isDarkMode }) => {
         </div>
 
         {/* Next Steps */}
-        <div className={`mb-6 p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
-          <h3 className={`text-lg font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+        <div className={`mb-6 p-6 rounded-lg shadow-sm ${
+          isDarkMode ? 'bg-gray-800' : 'bg-white'
+        }`}>
+          <h3 className={`text-lg font-bold mb-4 ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>
             Next Steps
           </h3>
           
