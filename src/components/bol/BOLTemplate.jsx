@@ -1,10 +1,9 @@
 // src/components/bol/BOLTemplate.jsx
 import React from 'react';
-import logo from '../assets/images/logo.png';
-const BOLTemplate = ({ bolData = {}, booking = {} }) => {
-  // ───────────────────────────────────────────────────────────
-  // Extract data safely with defaults
-  // ───────────────────────────────────────────────────────────
+import logo from '../../assets/images/logo.png'; 
+
+const BOLTemplate = ({ bolData, booking }) => {
+  // Extract data
   const { 
     bolNumber, 
     shipper, 
@@ -14,21 +13,17 @@ const BOLTemplate = ({ bolData = {}, booking = {} }) => {
     pickupInstructions,
     deliveryInstructions,
     referenceNumbers = []
-  } = bolData;
+  } = bolData || {};
 
   const {
     carrier,
     pickupNumber,
     confirmationNumber,
     quoteNumber,
-    shipmentData,
-    accountType,
-    price // optional; used only if present
-  } = booking;
+    shipmentData
+  } = booking || {};
 
-  // ───────────────────────────────────────────────────────────
-  // Carrier phone directory (could be moved to backend later)
-  // ───────────────────────────────────────────────────────────
+  // Carrier phone database (in production, this would come from your backend)
   const carrierPhones = {
     'STG Logistics': '800-637-7335',
     'Southeastern Freight Lines': '800-637-7335',
@@ -39,20 +34,19 @@ const BOLTemplate = ({ bolData = {}, booking = {} }) => {
     'Old Dominion': '800-235-5569',
     'Estes Express': '866-378-3748'
   };
+
   const carrierPhone = carrierPhones[carrier] || '800-XXX-XXXX';
 
-  // ───────────────────────────────────────────────────────────
-  // Billing party based on account type
-  // ───────────────────────────────────────────────────────────
-  const isCustomerAccount = accountType === 'customer';
+  // Determine billing party based on account type
+  const isCustomerAccount = booking?.accountType === 'customer';
   const billingParty = isCustomerAccount
     ? {
         name: shipper?.name || 'Customer Account',
-        address: shipper?.address || '',
-        city: shipper?.city || '',
-        state: shipper?.state || '',
-        zip: shipper?.zip || '',
-        phone: shipper?.phone || ''
+        address: shipper?.address,
+        city: shipper?.city,
+        state: shipper?.state,
+        zip: shipper?.zip,
+        phone: shipper?.phone
       }
     : {
         name: 'Conship AI',
@@ -63,29 +57,20 @@ const BOLTemplate = ({ bolData = {}, booking = {} }) => {
         phone: '(833) 266-7447'
       };
 
-  // ───────────────────────────────────────────────────────────
-  // References & totals
-  // ───────────────────────────────────────────────────────────
-  const validReferences = Array.isArray(referenceNumbers)
-    ? referenceNumbers.filter(r => r?.value && String(r.value).trim() !== '')
-    : [];
+  // Get ALL reference numbers
+  const validReferences = referenceNumbers.filter(r => r.value && r.value.trim() !== '');
 
-  const totalWeight = items.reduce((sum, item) => sum + (parseInt(item?.weight, 10) || 0), 0);
-  const totalPieces = items.reduce((sum, item) => sum + (parseInt(item?.quantity, 10) || 0), 0);
-  const anyHazmat = items.some(i => !!i?.hazmat);
+  // Calculate total weight
+  const totalWeight = items.reduce((sum, item) => sum + (parseInt(item.weight) || 0), 0);
+  const totalPieces = items.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
 
-  // ───────────────────────────────────────────────────────────
-  // Notes
-  // ───────────────────────────────────────────────────────────
+  // Combine all instructions
   const allNotes = [
     specialInstructions,
     pickupInstructions && `Pickup: ${pickupInstructions}`,
     deliveryInstructions && `Delivery: ${deliveryInstructions}`
   ].filter(Boolean).join(' || ');
 
-  // ───────────────────────────────────────────────────────────
-  // Render
-  // ───────────────────────────────────────────────────────────
   return (
     <div
       id="bol-template"
@@ -94,23 +79,32 @@ const BOLTemplate = ({ bolData = {}, booking = {} }) => {
         fontFamily: 'Arial, sans-serif',
         fontSize: '10px',
         lineHeight: '1.2',
-        backgroundColor: 'white',
-        color: 'black'
+        backgroundColor: 'white !important',
+        color: 'black !important'
       }}
     >
       {/* Header with Logo and Reference Numbers */}
       <div className="flex justify-between items-start mb-3">
         {/* Left: Logo and Title stacked */}
         <div className="flex flex-col">
+          {/* Logo - Recommended size: 200px x 60px for landscape logo */}
+          {/* Place your logo file at: src/assets/images/logo.png */}
           <div className="mb-2">
-            <div 
-              className="bg-gradient-to-r from-purple-600 to-orange-500 text-white px-4 py-2 rounded"
-              style={{ maxWidth: '200px' }}
-            >
-              <div className="text-2xl font-bold tracking-wider">CONSHIP</div>
-              <div className="text-[8px] tracking-widest">FREIGHT INTELLIGENCE</div>
-            </div>
+           <img 
+              src={logo} 
+              alt="Company Logo"
+              style={{ maxWidth: '200px', height: 'auto', maxHeight: '60px' }}
+            />
+            {/* If you have an image logo, use this instead:
+            <img 
+              src="/path/to/your/logo.png" 
+              alt="Company Logo" 
+              style={{ maxWidth: '200px', height: 'auto', maxHeight: '60px' }}
+            />
+            */}
           </div>
+          
+          {/* Title below logo */}
           <h1 className="text-xl font-bold">Bill Of Lading</h1>
         </div>
 
@@ -130,17 +124,15 @@ const BOLTemplate = ({ bolData = {}, booking = {} }) => {
                 <td className="border-b border-black px-2 py-1 bg-gray-100 font-semibold">Ship Date</td>
                 <td className="border-b border-black px-2 py-1">{shipmentData?.formData?.pickupDate || ''}</td>
               </tr>
-
-              {/* Display all reference numbers */}
+              {/* Display ALL reference numbers */}
               {validReferences.map((ref, idx) => (
                 <tr key={idx}>
                   <td className="border-b border-black px-2 py-1 bg-gray-100 font-semibold">
-                    {ref.type === 'Custom' ? (ref.customLabel || 'Reference') : (ref.type || 'Reference')}
+                    {ref.type === 'Custom' ? (ref.customLabel || 'Reference') : ref.type}
                   </td>
                   <td className="border-b border-black px-2 py-1">{ref.value}</td>
                 </tr>
               ))}
-
               <tr>
                 <td className="px-2 py-1 bg-gray-100 font-semibold">Freight Charges</td>
                 <td className="px-2 py-1">Prepaid</td>
@@ -260,22 +252,22 @@ const BOLTemplate = ({ bolData = {}, booking = {} }) => {
               <>
                 {items.map((item, idx) => (
                   <tr key={idx}>
-                    <td className="border border-black px-1 py-1 text-center">{item?.quantity}</td>
+                    <td className="border border-black px-1 py-1 text-center">{item.quantity}</td>
                     <td className="border border-black px-1 py-1">
-                      {item?.description || 'General Freight'}
-                      {(item?.length && item?.width && item?.height)
-                        ? ` ${item?.quantity}@ ${item?.length}*${item?.width}*${item?.height}`
-                        : ''}
+                      {item.description || 'General Freight'}
+                      {item.length && item.width && item.height && 
+                        ` ${item.quantity}@ ${item.length}*${item.width}*${item.height}`
+                      }
                     </td>
-                    <td className="border border-black px-1 py-1 text-center">{item?.weight}</td>
+                    <td className="border border-black px-1 py-1 text-center">{item.weight}</td>
                     <td className="border border-black px-1 py-1 text-center">
-                      {item?.unitType === 'Pallets' ? 'PLT' : item?.unitType}
+                      {item.unitType === 'Pallets' ? 'PLT' : item.unitType}
                     </td>
-                    <td className="border border-black px-1 py-1 text-center">{item?.nmfc || ''}</td>
+                    <td className="border border-black px-1 py-1 text-center">{item.nmfc || ''}</td>
                     <td className="border border-black px-1 py-1 text-center">
-                      {item?.hazmat ? 'X' : ''}
+                      {item.hazmat ? 'X' : ''}
                     </td>
-                    <td className="border border-black px-1 py-1 text-center">{item?.class}</td>
+                    <td className="border border-black px-1 py-1 text-center">{item.class}</td>
                   </tr>
                 ))}
                 {/* Add empty rows to fill space */}
@@ -298,13 +290,13 @@ const BOLTemplate = ({ bolData = {}, booking = {} }) => {
               <td className="border border-black px-1 py-1 font-semibold">
                 Total Pieces<br />{totalPieces}
               </td>
-              <td className="border border-black px-1 py-1" colSpan={1}></td>
-              <td className="border border-black px-1 py-1 text-center font-semibold" colSpan={2}>
+              <td className="border border-black px-1 py-1" colSpan="1"></td>
+              <td className="border border-black px-1 py-1 text-center font-semibold" colSpan="2">
                 Total Weight<br />{totalWeight} LBS.
               </td>
-              <td className="border border-black px-1 py-1 text-center" colSpan={3} style={{ fontSize: '8px' }}>
+              <td className="border border-black px-1 py-1 text-center" colSpan="3" style={{ fontSize: '8px' }}>
                 Emergency Response Phone<br />
-                {anyHazmat ? '1-800-424-9300' : ''}
+                {items.some(i => i.hazmat) ? '1-800-424-9300' : ''}
               </td>
             </tr>
           </tbody>
@@ -320,7 +312,7 @@ const BOLTemplate = ({ bolData = {}, booking = {} }) => {
           {bolNumber && <div style={{ fontSize: '8px' }} className="mt-1">BOL #: {bolNumber}</div>}
         </div>
 
-        {/* Right: C.O.D. Information */}
+        {/* Right: C.O.D. Information (NO Declared Value) */}
         <div className="border border-black">
           <div className="border-b border-black px-2 py-1" style={{ fontSize: '9px' }}>
             C.O.D. Amount: $0.00
@@ -328,12 +320,6 @@ const BOLTemplate = ({ bolData = {}, booking = {} }) => {
           <div className="border-b border-black px-2 py-1" style={{ fontSize: '9px' }}>
             C.O.D. Fee: Prepaid
           </div>
-          {/* Optional declared value if price provided */}
-          {typeof price === 'number' && (
-            <div className="px-2 py-1" style={{ fontSize: '9px' }}>
-              Declared Value: ${price.toFixed(2)}
-            </div>
-          )}
           <div className="px-2 py-2 text-center" style={{ fontSize: '8px', marginTop: '10px' }}>
             If at consignor's risk, write or stamp here
           </div>
