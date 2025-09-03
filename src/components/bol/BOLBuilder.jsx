@@ -649,25 +649,32 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
       {/* Print Styles */}
       <style>{`
         @media print {
+          @page {
+            size: letter;
+            margin: 0.5in;
+          }
+          
           body {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
             background: white !important;
           }
+          
           body * {
             visibility: hidden;
           }
+          
           #bol-template, #bol-template * {
             visibility: visible;
           }
+          
           #bol-template {
             position: absolute;
             left: 0;
             top: 0;
             width: 100%;
-          }
-          @page {
-            margin: 12mm;
+            page-break-after: avoid;
+            page-break-inside: avoid;
           }
         }
       `}</style>
