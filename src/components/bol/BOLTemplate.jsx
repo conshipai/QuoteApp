@@ -1,6 +1,6 @@
 // src/components/bol/BOLTemplate.jsx
 import React from 'react';
-
+import logo from '../assets/images/logo.png';
 const BOLTemplate = ({ bolData = {}, booking = {} }) => {
   // ───────────────────────────────────────────────────────────
   // Extract data safely with defaults
