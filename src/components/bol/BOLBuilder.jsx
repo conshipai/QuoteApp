@@ -164,14 +164,24 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
 
     setGenerating(true);
     try {
+      // Capture the BOL HTML content
+      const bolElement = document.getElementById('bol-template');
+      let htmlContent = '';
+      if (bolElement) {
+        // Clone the element to avoid modifying the original
+        const clonedElement = bolElement.cloneNode(true);
+        htmlContent = clonedElement.outerHTML;
+      }
+
       const result = await bolApi.createBOL({
         bookingId: booking.bookingId,
         bolNumber: bolNumber,
-        bolData: bolData
+        bolData: bolData,
+        htmlContent: htmlContent // Include the HTML content
       });
       
       if (result.success) {
-        alert(`BOL ${bolNumber} saved successfully!`);
+        alert(`BOL ${bolNumber} saved successfully!\n\nYou can view this BOL anytime from the Bookings page.`);
         
         // Optionally save addresses if they're new
         if (window.confirm('Would you like to save these addresses for future use?')) {
