@@ -197,10 +197,23 @@ const Ground = ({ isDarkMode, userRole }) => {
 
     setLoading(true);
 
-    // USE THE NEW API METHOD
-    const result = await quoteApi.createGroundQuoteRequest(formData, serviceType);
+    // Include ALL form data including company/address info
+    const completeFormData = {
+      ...formData,
+      // Ensure all address fields are included
+      originCompany: formData.originCompany || '',
+      originAddress: formData.originAddress || '',
+      destCompany: formData.destCompany || '',
+      destAddress: formData.destAddress || ''
+    };
+
+    // USE THE NEW API METHOD with complete data
+    const result = await quoteApi.createGroundQuoteRequest(completeFormData, serviceType);
 
     if (result.success) {
+      // Store the complete form data for later use in booking
+      localStorage.setItem(`quote_formdata_${result.requestId}`, JSON.stringify(completeFormData));
+      
       setQuoteRequest({
         requestId: result.requestId,
         requestNumber: result.requestNumber
