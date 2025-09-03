@@ -371,21 +371,6 @@ const BOLTemplate = ({ bolData, booking }) => {
       <div className="mt-2 text-center" style={{ fontSize: '8px', color: '#666' }}>
         Page 1 of 1
       </div>
-
-      {/* Print-specific styles */}
-      <style jsx>{`
-        @media print {
-          @page {
-            size: letter;
-            margin: 0.5in;
-          }
-          
-          #bol-template {
-            page-break-after: avoid;
-            page-break-inside: avoid;
-          }
-        }
-      `}</style>
     </div>
   );
 };
