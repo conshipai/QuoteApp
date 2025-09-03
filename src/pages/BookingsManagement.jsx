@@ -3,9 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { 
   Package, FileText, Download, Eye, Filter, Search, 
   Calendar, Truck, Plane, Ship, Clock, CheckCircle,
-  AlertCircle, ChevronDown, ChevronRight
+  AlertCircle, ChevronDown, ChevronRight, ExternalLink, X
 } from 'lucide-react';
 import bookingApi from '../services/bookingApi';
+import bolApi from '../services/bolApi';
 
 const BookingsManagement = ({ isDarkMode }) => {
   const [bookings, setBookings] = useState([]);
@@ -14,6 +15,8 @@ const BookingsManagement = ({ isDarkMode }) => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedBooking, setExpandedBooking] = useState(null);
+  const [viewingBOL, setViewingBOL] = useState(null);
+  const [bolLoading, setBolLoading] = useState(false);
   const [dateRange, setDateRange] = useState({
     start: '',
     end: ''
@@ -28,12 +31,71 @@ const BookingsManagement = ({ isDarkMode }) => {
     try {
       const result = await bookingApi.getAllBookings();
       if (result.success) {
-        setBookings(result.bookings);
+        // Check each booking for associated BOL
+        const bookingsWithBOLStatus = await Promise.all(
+          result.bookings.map(async (booking) => {
+            const bolResult = await bolApi.getBOLByBooking(booking.bookingId);
+            return {
+              ...booking,
+              hasBOL: bolResult.success && bolResult.bol,
+              bolNumber: bolResult.bol?.bolNumber
+            };
+          })
+        );
+        setBookings(bookingsWithBOLStatus);
       }
     } catch (error) {
       console.error('Error loading bookings:', error);
     }
     setLoading(false);
+  };
+
+  const viewBOL = async (bookingId) => {
+    setBolLoading(true);
+    try {
+      const result = await bolApi.getBOLByBooking(bookingId);
+      if (result.success && result.bol) {
+        setViewingBOL(result.bol);
+      } else {
+        alert('No BOL found for this booking. Please create one first.');
+      }
+    } catch (error) {
+      alert('Error loading BOL: ' + error.message);
+    }
+    setBolLoading(false);
+  };
+
+  const downloadBOL = async (bookingId) => {
+    const result = await bolApi.getBOLByBooking(bookingId);
+    if (result.success && result.bol) {
+      // Create a printable window with the BOL HTML
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>BOL ${result.bol.bolNumber}</title>
+          <style>
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none; }
+            }
+            body { font-family: Arial, sans-serif; }
+          </style>
+        </head>
+        <body>
+          ${result.bol.htmlContent}
+          <script>
+            window.onload = function() { 
+              window.print(); 
+              setTimeout(function() { window.close(); }, 500);
+            }
+          </script>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
   };
 
   const getModeIcon = (mode) => {
@@ -71,7 +133,8 @@ const BookingsManagement = ({ isDarkMode }) => {
     const matchesStatus = filterStatus === 'all' || booking.status === filterStatus;
     const matchesSearch = booking.confirmationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           booking.carrier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          booking.pickupNumber.toLowerCase().includes(searchTerm.toLowerCase());
+                          booking.pickupNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (booking.bolNumber && booking.bolNumber.toLowerCase().includes(searchTerm.toLowerCase()));
     
     let matchesDate = true;
     if (dateRange.start) {
@@ -83,15 +146,6 @@ const BookingsManagement = ({ isDarkMode }) => {
     
     return matchesMode && matchesStatus && matchesSearch && matchesDate;
   });
-
-  const downloadDocument = async (bookingId, docType) => {
-    const result = await bookingApi.getDocument(bookingId, docType);
-    if (result.success) {
-      // In production, this would download the actual PDF
-      alert(`Downloading ${docType} for booking ${bookingId}`);
-      console.log('Document data:', result.document);
-    }
-  };
 
   if (loading) {
     return (
@@ -128,7 +182,7 @@ const BookingsManagement = ({ isDarkMode }) => {
               <Search className={`absolute left-3 top-2.5 w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
               <input
                 type="text"
-                placeholder="Search bookings..."
+                placeholder="Search bookings or BOL#..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className={`w-full pl-10 pr-3 py-2 rounded border ${
@@ -235,6 +289,14 @@ const BookingsManagement = ({ isDarkMode }) => {
                         <span className={`text-xs px-2 py-1 rounded ${getStatusColor(booking.status)}`}>
                           {booking.status.replace('_', ' ')}
                         </span>
+                        {booking.hasBOL && (
+                          <span className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${
+                            isDarkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'
+                          }`}>
+                            <FileText className="w-3 h-3" />
+                            BOL: {booking.bolNumber}
+                          </span>
+                        )}
                       </div>
                       <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                         {booking.carrier} • Pickup: {booking.pickupNumber}
@@ -252,28 +314,43 @@ const BookingsManagement = ({ isDarkMode }) => {
                       </div>
                     </div>
                     
-                    {/* Document Actions (disabled / placeholder) */}
+                    {/* Document Actions */}
                     <div className="flex gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          alert('Document download coming soon');
-                        }}
-                        className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-                        title="Download BOL (coming soon)"
-                      >
-                        <FileText className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          alert('Document download coming soon');
-                        }}
-                        className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-                        title="Download Invoice (coming soon)"
-                      >
-                        <Download className="w-4 h-4" />
-                      </button>
+                      {booking.hasBOL ? (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              viewBOL(booking.bookingId);
+                            }}
+                            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                            title="View BOL"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              downloadBOL(booking.bookingId);
+                            }}
+                            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                            title="Print BOL"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            alert('No BOL created yet. Go to booking details to create one.');
+                          }}
+                          className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 opacity-50"
+                          title="No BOL Available"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -302,10 +379,24 @@ const BookingsManagement = ({ isDarkMode }) => {
                         Documents
                       </h4>
                       <div className="space-y-2">
+                        {booking.hasBOL ? (
+                          <button
+                            onClick={() => viewBOL(booking.bookingId)}
+                            className={`flex items-center gap-2 text-sm ${
+                              isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'
+                            }`}
+                          >
+                            <FileText className="w-4 h-4" />
+                            Bill of Lading ({booking.bolNumber})
+                          </button>
+                        ) : (
+                          <div className={`text-sm ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                            No BOL created yet
+                          </div>
+                        )}
                         {booking.documents?.map((doc, index) => (
                           <button
                             key={index}
-                            onClick={() => downloadDocument(booking.bookingId, doc.type)}
                             className={`flex items-center gap-2 text-sm ${
                               isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'
                             }`}
@@ -313,11 +404,7 @@ const BookingsManagement = ({ isDarkMode }) => {
                             <FileText className="w-4 h-4" />
                             {doc.name}
                           </button>
-                        )) || (
-                          <div className={`text-sm ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                            No documents available
-                          </div>
-                        )}
+                        ))}
                       </div>
                     </div>
                     
@@ -327,16 +414,36 @@ const BookingsManagement = ({ isDarkMode }) => {
                         Actions
                       </h4>
                       <div className="space-y-2">
-                        {/* Only show working features */}
+                        {booking.hasBOL ? (
+                          <button
+                            onClick={() => viewBOL(booking.bookingId)}
+                            className={`w-full px-3 py-1 rounded text-sm ${
+                              isDarkMode 
+                                ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                            }`}
+                          >
+                            View/Print BOL
+                          </button>
+                        ) : (
+                          <button
+                            className={`w-full px-3 py-1 rounded text-sm ${
+                              isDarkMode 
+                                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            Create BOL
+                          </button>
+                        )}
                         <button
-                          onClick={() => alert('BOL viewing coming soon')}
                           className={`w-full px-3 py-1 rounded text-sm ${
                             isDarkMode 
                               ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
                               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                           }`}
                         >
-                          View BOL
+                          Track Shipment
                         </button>
                       </div>
                     </div>
@@ -353,6 +460,35 @@ const BookingsManagement = ({ isDarkMode }) => {
           </div>
         )}
       </div>
+
+      {/* BOL Viewer Modal */}
+      {viewingBOL && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white max-w-6xl w-full max-h-[90vh] overflow-auto rounded-lg">
+            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold">BOL {viewingBOL.bolNumber}</h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => downloadBOL(viewingBOL.bookingId)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Print
+                </button>
+                <button
+                  onClick={() => setViewingBOL(null)}
+                  className="p-2 rounded hover:bg-gray-200"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-4">
+              <div dangerouslySetInnerHTML={{ __html: viewingBOL.htmlContent }} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
