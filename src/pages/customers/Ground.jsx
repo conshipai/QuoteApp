@@ -333,31 +333,127 @@ const Ground = ({ isDarkMode, userRole }) => {
 
         {/* Origin & Destination */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <EnhancedLocationSection
-            type="origin"
-            zip={formData.originZip}
-            city={formData.originCity}
-            state={formData.originState}
-            onZipChange={(value) => setFormData(prev => ({ ...prev, originZip: value }))}
-            onCityChange={(value) => setFormData(prev => ({ ...prev, originCity: value }))}
-            onStateChange={(value) => setFormData(prev => ({ ...prev, originState: value }))}
-            isDarkMode={isDarkMode}
-            loading={zipLoading.origin}
-            onSetLoading={(loading) => setZipLoading(prev => ({ ...prev, origin: loading }))}
-          />
+          {/* Origin */}
+          <div className="relative">
+            <div className="absolute top-2 right-2 z-10">
+              <button
+                type="button"
+                onClick={() => setShowAddressBook('origin')}
+                className={`px-3 py-1 rounded flex items-center gap-2 text-sm ${
+                  isDarkMode 
+                    ? 'bg-conship-orange text-white hover:bg-orange-600' 
+                    : 'bg-conship-purple text-white hover:bg-purple-700'
+                }`}
+                title="Select from Address Book"
+              >
+                <Building2 className="w-4 h-4" />
+                Address Book
+              </button>
+            </div>
+            <LocationSection
+              type="origin"
+              zip={formData.originZip}
+              city={formData.originCity}
+              state={formData.originState}
+              onZipChange={(value) => setFormData(prev => ({ ...prev, originZip: value }))}
+              onCityChange={(value) => setFormData(prev => ({ ...prev, originCity: value }))}
+              onStateChange={(value) => setFormData(prev => ({ ...prev, originState: value }))}
+              isDarkMode={isDarkMode}
+              loading={zipLoading.origin}
+              onSetLoading={(loading) => setZipLoading(prev => ({ ...prev, origin: loading }))}
+            />
+            
+            {/* Show company name if selected from address book */}
+            {formData.originCompany && (
+              <div className={`mt-2 px-3 py-2 rounded ${
+                isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {formData.originCompany}
+                    </p>
+                    <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {formData.originAddress}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setFormData(prev => ({
+                        ...prev,
+                        originCompany: '',
+                        originAddress: ''
+                      }));
+                    }}
+                    className={`p-1 rounded hover:bg-gray-600`}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
-          <EnhancedLocationSection
-            type="destination"
-            zip={formData.destZip}
-            city={formData.destCity}
-            state={formData.destState}
-            onZipChange={(value) => setFormData(prev => ({ ...prev, destZip: value }))}
-            onCityChange={(value) => setFormData(prev => ({ ...prev, destCity: value }))}
-            onStateChange={(value) => setFormData(prev => ({ ...prev, destState: value }))}
-            isDarkMode={isDarkMode}
-            loading={zipLoading.dest}
-            onSetLoading={(loading) => setZipLoading(prev => ({ ...prev, dest: loading }))}
-          />
+          {/* Destination */}
+          <div className="relative">
+            <div className="absolute top-2 right-2 z-10">
+              <button
+                type="button"
+                onClick={() => setShowAddressBook('destination')}
+                className={`px-3 py-1 rounded flex items-center gap-2 text-sm ${
+                  isDarkMode 
+                    ? 'bg-conship-orange text-white hover:bg-orange-600' 
+                    : 'bg-conship-purple text-white hover:bg-purple-700'
+                }`}
+                title="Select from Address Book"
+              >
+                <Building2 className="w-4 h-4" />
+                Address Book
+              </button>
+            </div>
+            <LocationSection
+              type="destination"
+              zip={formData.destZip}
+              city={formData.destCity}
+              state={formData.destState}
+              onZipChange={(value) => setFormData(prev => ({ ...prev, destZip: value }))}
+              onCityChange={(value) => setFormData(prev => ({ ...prev, destCity: value }))}
+              onStateChange={(value) => setFormData(prev => ({ ...prev, destState: value }))}
+              isDarkMode={isDarkMode}
+              loading={zipLoading.dest}
+              onSetLoading={(loading) => setZipLoading(prev => ({ ...prev, dest: loading }))}
+            />
+            
+            {/* Show company name if selected from address book */}
+            {formData.destCompany && (
+              <div className={`mt-2 px-3 py-2 rounded ${
+                isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {formData.destCompany}
+                    </p>
+                    <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {formData.destAddress}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setFormData(prev => ({
+                        ...prev,
+                        destCompany: '',
+                        destAddress: ''
+                      }));
+                    }}
+                    className={`p-1 rounded hover:bg-gray-600`}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Pickup Date */}
