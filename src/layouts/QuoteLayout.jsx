@@ -9,7 +9,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Import,
-  Share2
+  Share2,
+  History
 } from 'lucide-react';
 
 const QuoteLayout = ({ children, userRole, isDarkMode }) => {
@@ -26,6 +27,13 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
       icon: Package,
       color: 'indigo',
       available: true
+    },
+    {
+  path: '/app/quotes/history',
+  label: 'Quote History',
+  icon: History,
+  color: 'amber',
+  available: true
     },
     {
       path: '/app/quotes',
