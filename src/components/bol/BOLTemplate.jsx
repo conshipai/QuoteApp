@@ -77,8 +77,8 @@ const BOLTemplate = ({ bolData, booking }) => {
       className="w-[8.5in] min-h-[11in] max-h-[11in] bg-white text-black p-4"
       style={{ 
         fontFamily: 'Arial, sans-serif',
-        fontSize: '10px',
-        lineHeight: '1.2',
+        fontSize: '14px',  // INCREASED from 10px to 14px
+        lineHeight: '1.3',  // Slightly increased line height
         backgroundColor: 'white !important',
         color: 'black !important'
       }}
@@ -88,28 +88,20 @@ const BOLTemplate = ({ bolData, booking }) => {
         {/* Left: Logo and Title stacked */}
         <div className="flex flex-col">
           {/* Logo - Recommended size: 200px x 60px for landscape logo */}
-          {/* Place your logo file at: src/assets/images/logo.png */}
           <div className="mb-2">
            <img 
               src={logo} 
               alt="Company Logo"
-              style={{ maxWidth: '200px', height: 'auto', maxHeight: '60px' }}
+              style={{ maxWidth: '240px', height: 'auto', maxHeight: '70px' }}  // Slightly bigger logo
             />
-            {/* If you have an image logo, use this instead:
-            <img 
-              src="/path/to/your/logo.png" 
-              alt="Company Logo" 
-              style={{ maxWidth: '200px', height: 'auto', maxHeight: '60px' }}
-            />
-            */}
           </div>
           
           {/* Title below logo */}
-          <h1 className="text-xl font-bold">Bill Of Lading</h1>
+          <h1 className="text-2xl font-bold">Bill Of Lading</h1>  {/* Increased from text-xl to text-2xl */}
         </div>
 
         {/* Right: Reference Numbers Table */}
-        <div className="border border-black" style={{ fontSize: '9px' }}>
+        <div className="border border-black" style={{ fontSize: '12px' }}>  {/* INCREASED from 9px to 12px */}
           <table>
             <tbody>
               <tr>
@@ -135,7 +127,7 @@ const BOLTemplate = ({ bolData, booking }) => {
               ))}
               <tr>
                 <td className="px-2 py-1 bg-gray-100 font-semibold">Freight Charges</td>
-                <td className="px-2 py-1">Prepaid</td>
+                <td className="px-2 py-1">3rd Party</td>  {/* CHANGED from Prepaid to 3rd Party */}
               </tr>
             </tbody>
           </table>
@@ -146,10 +138,10 @@ const BOLTemplate = ({ bolData, booking }) => {
       <div className="grid grid-cols-2 gap-0 mb-0">
         {/* Shipper */}
         <div className="border border-black">
-          <div className="bg-gray-200 px-2 py-1 font-semibold border-b border-black" style={{ fontSize: '10px' }}>
+          <div className="bg-gray-200 px-2 py-1 font-semibold border-b border-black" style={{ fontSize: '13px' }}>  {/* INCREASED from 10px to 13px */}
             Shipper
           </div>
-          <div className="p-2" style={{ minHeight: '80px', fontSize: '9px' }}>
+          <div className="p-2" style={{ minHeight: '90px', fontSize: '12px' }}>  {/* INCREASED from 9px to 12px */}
             <div className="font-semibold">{shipper?.name || '_______________________'}</div>
             <div>{shipper?.address || '_______________________'}</div>
             <div>
@@ -162,10 +154,10 @@ const BOLTemplate = ({ bolData, booking }) => {
 
         {/* Consignee */}
         <div className="border border-black border-l-0">
-          <div className="bg-gray-200 px-2 py-1 font-semibold border-b border-black" style={{ fontSize: '10px' }}>
+          <div className="bg-gray-200 px-2 py-1 font-semibold border-b border-black" style={{ fontSize: '13px' }}>  {/* INCREASED from 10px to 13px */}
             Consignee
           </div>
-          <div className="p-2" style={{ minHeight: '80px', fontSize: '9px' }}>
+          <div className="p-2" style={{ minHeight: '90px', fontSize: '12px' }}>  {/* INCREASED from 9px to 12px */}
             <div className="font-semibold">{consignee?.name || '_______________________'}</div>
             <div>{consignee?.address || '_______________________'}</div>
             <div>
@@ -181,10 +173,10 @@ const BOLTemplate = ({ bolData, booking }) => {
       <div className="grid grid-cols-2 gap-0 mb-3">
         {/* 3rd Party Billing */}
         <div className="border border-black border-t-0">
-          <div className="bg-gray-200 px-2 py-1 font-semibold border-b border-black" style={{ fontSize: '10px' }}>
+          <div className="bg-gray-200 px-2 py-1 font-semibold border-b border-black" style={{ fontSize: '13px' }}>  {/* INCREASED from 10px to 13px */}
             3rd Party Billing
           </div>
-          <div className="p-2" style={{ minHeight: '70px', fontSize: '9px' }}>
+          <div className="p-2" style={{ minHeight: '80px', fontSize: '12px' }}>  {/* INCREASED from 9px to 12px */}
             <div className="font-semibold">{billingParty.name}</div>
             <div>{billingParty.address}</div>
             <div>{billingParty.city}, {billingParty.state}, {billingParty.zip}</div>
@@ -194,10 +186,10 @@ const BOLTemplate = ({ bolData, booking }) => {
 
         {/* Transportation Company */}
         <div className="border border-black border-l-0 border-t-0">
-          <div className="bg-gray-200 px-2 py-1 font-semibold border-b border-black" style={{ fontSize: '10px' }}>
+          <div className="bg-gray-200 px-2 py-1 font-semibold border-b border-black" style={{ fontSize: '13px' }}>  {/* INCREASED from 10px to 13px */}
             Transportation Company
           </div>
-          <div className="p-2" style={{ minHeight: '70px', fontSize: '9px' }}>
+          <div className="p-2" style={{ minHeight: '80px', fontSize: '12px' }}>  {/* INCREASED from 9px to 12px */}
             <div className="font-semibold">{carrier || '_______________________'}</div>
             <div>{pickupNumber ? `Pickup #: ${pickupNumber}` : ''}</div>
             <div>{quoteNumber ? `Quote #: ${quoteNumber}` : ''}</div>
@@ -208,7 +200,7 @@ const BOLTemplate = ({ bolData, booking }) => {
 
       {/* Commodity Table */}
       <div className="mb-3">
-        <table className="w-full border-collapse border border-black" style={{ fontSize: '9px' }}>
+        <table className="w-full border-collapse border border-black" style={{ fontSize: '11px' }}>  {/* INCREASED from 9px to 11px */}
           <thead>
             <tr className="bg-gray-200">
               <th className="border border-black px-1 py-1 text-left" style={{ width: '8%' }}>
@@ -238,7 +230,7 @@ const BOLTemplate = ({ bolData, booking }) => {
             {items.length === 0 ? (
               // Empty rows for manual entry
               [...Array(4)].map((_, idx) => (
-                <tr key={idx} style={{ height: '20px' }}>
+                <tr key={idx} style={{ height: '24px' }}>  {/* Increased height */}
                   <td className="border border-black px-1 py-1">&nbsp;</td>
                   <td className="border border-black px-1 py-1">&nbsp;</td>
                   <td className="border border-black px-1 py-1 text-center">&nbsp;</td>
@@ -272,7 +264,7 @@ const BOLTemplate = ({ bolData, booking }) => {
                 ))}
                 {/* Add empty rows to fill space */}
                 {items.length < 4 && [...Array(4 - items.length)].map((_, idx) => (
-                  <tr key={`empty-${idx}`} style={{ height: '20px' }}>
+                  <tr key={`empty-${idx}`} style={{ height: '24px' }}>  {/* Increased height */}
                     <td className="border border-black px-1 py-1">&nbsp;</td>
                     <td className="border border-black px-1 py-1">&nbsp;</td>
                     <td className="border border-black px-1 py-1">&nbsp;</td>
@@ -294,7 +286,7 @@ const BOLTemplate = ({ bolData, booking }) => {
               <td className="border border-black px-1 py-1 text-center font-semibold" colSpan="2">
                 Total Weight<br />{totalWeight} LBS.
               </td>
-              <td className="border border-black px-1 py-1 text-center" colSpan="3" style={{ fontSize: '8px' }}>
+              <td className="border border-black px-1 py-1 text-center" colSpan="3" style={{ fontSize: '10px' }}>  {/* INCREASED from 8px to 10px */}
                 Emergency Response Phone<br />
                 {items.some(i => i.hazmat) ? '1-800-424-9300' : ''}
               </td>
@@ -306,60 +298,71 @@ const BOLTemplate = ({ bolData, booking }) => {
       {/* Notes and C.O.D. Section */}
       <div className="grid grid-cols-2 gap-3 mb-3">
         {/* Left: Notes */}
-        <div className="border border-black p-2" style={{ minHeight: '60px' }}>
-          <div className="font-semibold mb-1" style={{ fontSize: '9px' }}>Notes:</div>
-          <div style={{ fontSize: '8px' }}>{allNotes || ''}</div>
-          {bolNumber && <div style={{ fontSize: '8px' }} className="mt-1">BOL #: {bolNumber}</div>}
+        <div className="border border-black p-2" style={{ minHeight: '70px' }}>
+          <div className="font-semibold mb-1" style={{ fontSize: '12px' }}>Notes:</div>  {/* INCREASED from 9px to 12px */}
+          <div style={{ fontSize: '11px' }}>{allNotes || ''}</div>  {/* INCREASED from 8px to 11px */}
+          {bolNumber && <div style={{ fontSize: '11px' }} className="mt-1">BOL #: {bolNumber}</div>}
         </div>
 
         {/* Right: C.O.D. Information (NO Declared Value) */}
         <div className="border border-black">
-          <div className="border-b border-black px-2 py-1" style={{ fontSize: '9px' }}>
+          <div className="border-b border-black px-2 py-1" style={{ fontSize: '12px' }}>  {/* INCREASED from 9px to 12px */}
             C.O.D. Amount: $0.00
           </div>
-          <div className="border-b border-black px-2 py-1" style={{ fontSize: '9px' }}>
-            C.O.D. Fee: Prepaid
+          <div className="border-b border-black px-2 py-1" style={{ fontSize: '12px' }}>  {/* INCREASED from 9px to 12px */}
+            C.O.D. Fee: 3rd Party  {/* CHANGED from Prepaid to 3rd Party */}
           </div>
-          <div className="px-2 py-2 text-center" style={{ fontSize: '8px', marginTop: '10px' }}>
+          <div className="px-2 py-2 text-center" style={{ fontSize: '10px', marginTop: '10px' }}>  {/* INCREASED from 8px to 10px */}
             If at consignor's risk, write or stamp here
           </div>
         </div>
       </div>
 
-      {/* Signature Section - Simplified */}
+      {/* IMPROVED Signature Section */}
       <div className="border border-black">
-        <table className="w-full" style={{ fontSize: '9px' }}>
+        <table className="w-full" style={{ fontSize: '11px' }}>  {/* INCREASED from 9px to 11px */}
           <tbody>
             {/* First Row - Shipper and Carrier */}
             <tr>
-              <td className="border-r border-b border-black px-2 py-2" style={{ width: '25%', height: '60px', verticalAlign: 'top' }}>
-                <div className="font-semibold">Shipper</div>
+              <td className="border-r border-b border-black px-2 py-2" style={{ width: '35%', height: '70px', verticalAlign: 'top' }}>  {/* INCREASED width from 25% to 35% */}
+                <div className="font-semibold mb-1">Shipper Signature</div>
+                <div style={{ borderBottom: '1px solid #999', marginTop: '35px', width: '90%' }}></div>
               </td>
-              <td className="border-r border-b border-black px-2 py-2" style={{ width: '25%', height: '60px', verticalAlign: 'top' }}>
-                <div className="font-semibold">Carrier</div>
+              <td className="border-r border-b border-black px-2 py-2" style={{ width: '35%', height: '70px', verticalAlign: 'top' }}>  {/* INCREASED width from 25% to 35% */}
+                <div className="font-semibold mb-1">Carrier Signature</div>
+                <div style={{ borderBottom: '1px solid #999', marginTop: '35px', width: '90%' }}></div>
               </td>
-              <td className="border-r border-b border-black px-2 py-2" style={{ width: '15%', height: '60px', verticalAlign: 'top' }}>
+              <td className="border-r border-b border-black px-2 py-2" style={{ width: '15%', height: '70px', verticalAlign: 'top' }}>
                 <div className="font-semibold">Date</div>
-                <div className="mt-4">Time</div>
+                <div style={{ borderBottom: '1px solid #999', marginTop: '15px', width: '90%' }}></div>
+                <div className="mt-2">Time</div>
+                <div style={{ borderBottom: '1px solid #999', marginTop: '10px', width: '90%' }}></div>
               </td>
-              <td className="border-b border-black px-2 py-2" style={{ width: '35%', height: '60px', verticalAlign: 'top' }}>
-                <div className="font-semibold text-center">Number Of Pieces Received</div>
+              <td className="border-b border-black px-2 py-2 text-center" style={{ width: '15%', height: '70px', verticalAlign: 'middle' }}>  {/* DECREASED width from 35% to 15% */}
+                <div className="font-semibold" style={{ fontSize: '10px' }}>Pieces<br/>Received</div>
+                <div style={{ border: '1px solid #999', width: '50px', height: '25px', margin: '5px auto' }}></div>
               </td>
             </tr>
             
             {/* Second Row - Consignee */}
             <tr>
-              <td className="border-r border-black px-2 py-2" style={{ width: '25%', height: '60px', verticalAlign: 'top' }}>
-                <div className="font-semibold">Consignee Name</div>
+              <td className="border-r border-black px-2 py-2" style={{ width: '35%', height: '70px', verticalAlign: 'top' }}>  {/* INCREASED width */}
+                <div className="font-semibold mb-1">Consignee Name (Print)</div>
+                <div style={{ borderBottom: '1px solid #999', marginTop: '35px', width: '90%' }}></div>
               </td>
-              <td className="border-r border-black px-2 py-2" style={{ width: '25%', height: '60px', verticalAlign: 'top' }}>
+              <td className="border-r border-black px-2 py-2" style={{ width: '35%', height: '70px', verticalAlign: 'top' }}>  {/* This becomes the signature box */}
+                <div className="font-semibold mb-1">Consignee Signature</div>
+                <div style={{ borderBottom: '1px solid #999', marginTop: '35px', width: '90%' }}></div>
+              </td>
+              <td className="border-r border-black px-2 py-2" style={{ width: '15%', height: '70px', verticalAlign: 'top' }}>
                 <div className="font-semibold">Date</div>
+                <div style={{ borderBottom: '1px solid #999', marginTop: '15px', width: '90%' }}></div>
+                <div className="mt-2">Time</div>
+                <div style={{ borderBottom: '1px solid #999', marginTop: '10px', width: '90%' }}></div>
               </td>
-              <td className="border-r border-black px-2 py-2" style={{ width: '15%', height: '60px', verticalAlign: 'top' }}>
-                <div className="font-semibold">Signature</div>
-              </td>
-              <td className="px-2 py-2" style={{ width: '35%', height: '60px', verticalAlign: 'top' }}>
-                <div className="font-semibold text-center">Number Of Pieces Received</div>
+              <td className="px-2 py-2 text-center" style={{ width: '15%', height: '70px', verticalAlign: 'middle' }}>  {/* DECREASED width */}
+                <div className="font-semibold" style={{ fontSize: '10px' }}>Pieces<br/>Received</div>
+                <div style={{ border: '1px solid #999', width: '50px', height: '25px', margin: '5px auto' }}></div>
               </td>
             </tr>
           </tbody>
@@ -367,7 +370,7 @@ const BOLTemplate = ({ bolData, booking }) => {
       </div>
 
       {/* Footer */}
-      <div className="mt-2 text-center" style={{ fontSize: '8px', color: '#666' }}>
+      <div className="mt-2 text-center" style={{ fontSize: '10px', color: '#666' }}>  {/* INCREASED from 8px to 10px */}
         Page 1 of 1
       </div>
     </div>
