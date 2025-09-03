@@ -34,8 +34,8 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
   const [bolData, setBolData] = useState({
     bolNumber: bolNumber,
     shipper: {
-      name: '',
-      address: '',
+      name: booking?.shipmentData?.formData?.originCompany || '',
+      address: booking?.shipmentData?.formData?.originAddress || '',
       city: booking?.shipmentData?.formData?.originCity || '',
       state: booking?.shipmentData?.formData?.originState || '',
       zip: booking?.shipmentData?.formData?.originZip || '',
@@ -45,8 +45,8 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
       hours: ''
     },
     consignee: {
-      name: '',
-      address: '',
+      name: booking?.shipmentData?.formData?.destCompany || '',
+      address: booking?.shipmentData?.formData?.destAddress || '',
       city: booking?.shipmentData?.formData?.destCity || '',
       state: booking?.shipmentData?.formData?.destState || '',
       zip: booking?.shipmentData?.formData?.destZip || '',
@@ -63,6 +63,9 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
       unitType: c.unitType,
       description: c.description || 'General Freight',
       weight: c.weight,
+      length: c.length || '',
+      width: c.width || '',
+      height: c.height || '',
       class: c.useOverride ? c.overrideClass : c.calculatedClass,
       nmfc: '',
       hazmat: false
