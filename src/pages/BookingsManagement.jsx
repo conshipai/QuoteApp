@@ -3,12 +3,15 @@ import React, { useState, useEffect } from 'react';
 import { 
   Package, FileText, Download, Eye, Filter, Search, 
   Calendar, Truck, Plane, Ship, Clock, CheckCircle,
-  AlertCircle, ChevronDown, ChevronRight, ExternalLink, X
+  AlertCircle, ChevronDown, ChevronRight, ExternalLink, X, Plus
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import bookingApi from '../services/bookingApi';
 import bolApi from '../services/bolApi';
+import BOLBuilder from '../components/bol/BOLBuilder';  // Added import
 
 const BookingsManagement = ({ isDarkMode }) => {
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterMode, setFilterMode] = useState('all');
@@ -17,6 +20,7 @@ const BookingsManagement = ({ isDarkMode }) => {
   const [expandedBooking, setExpandedBooking] = useState(null);
   const [viewingBOL, setViewingBOL] = useState(null);
   const [bolLoading, setBolLoading] = useState(false);
+  const [creatingBOL, setCreatingBOL] = useState(null); // NEW: Track which booking is creating BOL
   const [dateRange, setDateRange] = useState({
     start: '',
     end: ''
@@ -98,6 +102,17 @@ const BookingsManagement = ({ isDarkMode }) => {
     }
   };
 
+  const handleCreateBOL = (booking) => {
+    // Set the booking to create BOL for
+    setCreatingBOL(booking);
+  };
+
+  const handleBOLCreated = () => {
+    // After BOL is created, reload bookings and close BOL builder
+    setCreatingBOL(null);
+    loadBookings();
+  };
+
   const getModeIcon = (mode) => {
     switch(mode) {
       case 'ground':
@@ -146,6 +161,33 @@ const BookingsManagement = ({ isDarkMode }) => {
     
     return matchesMode && matchesStatus && matchesSearch && matchesDate;
   });
+
+  // If creating BOL, show the BOL Builder
+  if (creatingBOL) {
+    return (
+      <div>
+        {/* Header with back button */}
+        <div className={`p-4 border-b ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+          <button
+            onClick={() => setCreatingBOL(null)}
+            className={`px-4 py-2 rounded flex items-center gap-2 ${
+              isDarkMode 
+                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            ← Back to Bookings
+          </button>
+        </div>
+        {/* BOL Builder Component */}
+        <BOLBuilder 
+          booking={creatingBOL} 
+          isDarkMode={isDarkMode}
+          onComplete={handleBOLCreated}  // Optional: add callback when BOL is saved
+        />
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -343,12 +385,17 @@ const BookingsManagement = ({ isDarkMode }) => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            alert('No BOL created yet. Go to booking details to create one.');
+                            handleCreateBOL(booking);  // NEW: Actually navigate to BOL builder
                           }}
-                          className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 opacity-50"
-                          title="No BOL Available"
+                          className={`p-2 rounded flex items-center gap-1 ${
+                            isDarkMode 
+                              ? 'bg-green-600 hover:bg-green-700 text-white' 
+                              : 'bg-green-600 hover:bg-green-700 text-white'
+                          }`}
+                          title="Create BOL"
                         >
-                          <FileText className="w-4 h-4" />
+                          <Plus className="w-4 h-4" />
+                          <span className="text-xs">Create BOL</span>
                         </button>
                       )}
                     </div>
@@ -427,10 +474,11 @@ const BookingsManagement = ({ isDarkMode }) => {
                           </button>
                         ) : (
                           <button
+                            onClick={() => handleCreateBOL(booking)}  // NEW: Actually navigate to BOL builder
                             className={`w-full px-3 py-1 rounded text-sm ${
                               isDarkMode 
-                                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                ? 'bg-green-600 text-white hover:bg-green-700' 
+                                : 'bg-green-600 text-white hover:bg-green-700'
                             }`}
                           >
                             Create BOL
@@ -469,7 +517,28 @@ const BookingsManagement = ({ isDarkMode }) => {
               <h2 className="text-xl font-bold">BOL {viewingBOL.bolNumber}</h2>
               <div className="flex gap-2">
                 <button
-                  onClick={() => downloadBOL(viewingBOL.bookingId)}
+                  onClick={() => {
+                    const printWindow = window.open('', '_blank');
+                    printWindow.document.write(`
+                      <!DOCTYPE html>
+                      <html>
+                      <head>
+                        <title>BOL ${viewingBOL.bolNumber}</title>
+                        <style>
+                          @media print {
+                            body { margin: 0; }
+                          }
+                          body { font-family: Arial, sans-serif; }
+                        </style>
+                      </head>
+                      <body>
+                        ${viewingBOL.htmlContent}
+                        <script>window.print();</script>
+                      </body>
+                      </html>
+                    `);
+                    printWindow.document.close();
+                  }}
                   className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2"
                 >
                   <Download className="w-4 h-4" />
