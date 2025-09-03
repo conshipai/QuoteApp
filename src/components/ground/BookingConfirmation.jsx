@@ -10,10 +10,10 @@ const BookingConfirmation = ({ booking, onCreateBOL, isDarkMode }) => {
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="max-w-4xl mx-auto p-6">
-        {/* Success Banner */}
+        {/* Success Banner - FIXED DARK MODE COLORS */}
         <div className={`mb-6 p-6 rounded-lg border ${
           isDarkMode 
-            ? 'bg-green-900/20 border-green-800' 
+            ? 'bg-green-900/50 border-green-700' // Made background darker
             : 'bg-green-50 border-green-200'
         }`}>
           <div className="flex items-center gap-3">
@@ -22,11 +22,11 @@ const BookingConfirmation = ({ booking, onCreateBOL, isDarkMode }) => {
             </div>
             <div>
               <h2 className={`text-xl font-bold ${
-                isDarkMode ? 'text-green-100' : 'text-green-900'
+                isDarkMode ? 'text-white' : 'text-green-900'  // Changed to pure white in dark mode
               }`}>
                 Booking Confirmed!
               </h2>
-              <p className={isDarkMode ? 'text-green-300' : 'text-green-700'}>
+              <p className={isDarkMode ? 'text-green-200' : 'text-green-700'}>  {/* Made text brighter */}
                 Confirmation: {confirmationNumber}
               </p>
             </div>
