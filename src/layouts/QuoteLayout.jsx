@@ -10,7 +10,9 @@ import {
   ChevronRight,
   Import,
   Share2,
-  History
+  History,
+  Book,     // Added for Address Book
+  Users     // Alternative icon option
 } from 'lucide-react';
 
 const QuoteLayout = ({ children, userRole, isDarkMode }) => {
@@ -20,7 +22,23 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
 
   // Navigation items based on user role
   const navItems = [
-    // ✅ New Bookings link (visible to everyone)
+    // Dashboard at top
+    {
+      path: '/app/quotes',
+      label: 'Dashboard',
+      icon: Home,
+      color: 'purple',
+      available: true
+    },
+    // NEW: Address Book link (visible to everyone)
+    {
+      path: '/app/quotes/address-book',
+      label: 'Address Book',
+      icon: Book,
+      color: 'blue',
+      available: true
+    },
+    // Bookings link
     {
       path: '/app/quotes/bookings',
       label: 'Bookings',
@@ -28,19 +46,21 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
       color: 'indigo',
       available: true
     },
+    // Quote History
     {
-  path: '/app/quotes/history',
-  label: 'Quote History',
-  icon: History,
-  color: 'amber',
-  available: true
-    },
-    {
-      path: '/app/quotes',
-      label: 'Dashboard',
-      icon: Home,
-      color: 'purple',
+      path: '/app/quotes/history',
+      label: 'Quote History',
+      icon: History,
+      color: 'amber',
       available: true
+    },
+    // Service types
+    {
+      path: '/app/quotes/ground',
+      label: 'Ground Domestic',
+      icon: Truck,
+      color: 'green',
+      available: !isForeignAgent
     },
     {
       path: '/app/quotes/air-import',
@@ -72,13 +92,6 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
       icon: Ship,
       subIcon: Share2,
       color: 'teal',
-      available: !isForeignAgent
-    },
-    {
-      path: '/app/quotes/ground',
-      label: 'Ground Domestic',
-      icon: Truck,
-      color: 'green',
       available: !isForeignAgent
     },
     {
