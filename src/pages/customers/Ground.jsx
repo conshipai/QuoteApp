@@ -1,13 +1,15 @@
 // src/pages/customers/Ground.jsx
 import quoteApi from '../../services/quoteApi';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar } from 'lucide-react';
+import { Calendar, Building2, X } from 'lucide-react';
 import LocationSection from '../../components/ground/LocationSection';
 import CommodityList from '../../components/ground/CommodityList';
 import AccessorialOptions from '../../components/ground/AccessorialOptions';
 import ServiceTypeSelector from '../../components/ground/ServiceTypeSelector';
 import GroundQuoteResults from '../../components/ground/QuoteResults';
+import AddressBook from '../../components/shared/AddressBook';
+import addressBookApi from '../../services/addressBookApi';
 import { calculateDensity } from '../../components/ground/constants';
 
 const Ground = ({ isDarkMode, userRole }) => {
@@ -17,6 +19,8 @@ const Ground = ({ isDarkMode, userRole }) => {
   const [loading, setLoading] = useState(false);
   const [serviceType, setServiceType] = useState(null);
   const [zipLoading, setZipLoading] = useState({ origin: false, dest: false });
+  const [showAddressBook, setShowAddressBook] = useState(null); // 'origin' or 'destination' or null
+  const [savedAddresses, setSavedAddresses] = useState([]);
 
   // Results state
   const [showResults, setShowResults] = useState(false);
@@ -28,10 +32,14 @@ const Ground = ({ isDarkMode, userRole }) => {
     originZip: '',
     originCity: '',
     originState: '',
+    originAddress: '',
+    originCompany: '',
     // Destination
     destZip: '',
     destCity: '',
     destState: '',
+    destAddress: '',
+    destCompany: '',
     // Pickup
     pickupDate: '',
     // Commodities
@@ -59,6 +67,47 @@ const Ground = ({ isDarkMode, userRole }) => {
     limitedAccessPickup: false,
     limitedAccessDelivery: false
   });
+
+  // Load saved addresses on component mount
+  useEffect(() => {
+    loadSavedAddresses();
+  }, []);
+
+  const loadSavedAddresses = async () => {
+    const result = await addressBookApi.getCompanies();
+    if (result.success) {
+      setSavedAddresses(result.companies);
+      
+      // Auto-fill with default shipper if exists
+      const defaultShipper = result.companies.find(c => c.type === 'shipper' && c.isDefault);
+      if (defaultShipper) {
+        handleAddressSelect(defaultShipper, 'origin');
+      }
+    }
+  };
+
+  const handleAddressSelect = (company, type) => {
+    if (type === 'origin') {
+      setFormData(prev => ({
+        ...prev,
+        originZip: company.zip,
+        originCity: company.city,
+        originState: company.state,
+        originAddress: company.address,
+        originCompany: company.name
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        destZip: company.zip,
+        destCity: company.city,
+        destState: company.state,
+        destAddress: company.address,
+        destCompany: company.name
+      }));
+    }
+    setShowAddressBook(null);
+  };
 
   // ----- Handlers -----
   const handleCommodityChange = (index, field, value) => {
@@ -164,6 +213,69 @@ const Ground = ({ isDarkMode, userRole }) => {
     setLoading(false);
   };
 
+  // Enhanced LocationSection component with Address Book button
+  const EnhancedLocationSection = ({ type, ...props }) => {
+    return (
+      <div className="relative">
+        <div className="absolute top-2 right-2 z-10">
+          <button
+            type="button"
+            onClick={() => setShowAddressBook(type)}
+            className={`px-3 py-1 rounded flex items-center gap-2 text-sm ${
+              isDarkMode 
+                ? 'bg-conship-orange text-white hover:bg-orange-600' 
+                : 'bg-conship-purple text-white hover:bg-purple-700'
+            }`}
+            title="Select from Address Book"
+          >
+            <Building2 className="w-4 h-4" />
+            Address Book
+          </button>
+        </div>
+        <LocationSection type={type} {...props} />
+        
+        {/* Show company name if selected from address book */}
+        {((type === 'origin' && formData.originCompany) || 
+          (type === 'destination' && formData.destCompany)) && (
+          <div className={`mt-2 px-3 py-2 rounded ${
+            isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {type === 'origin' ? formData.originCompany : formData.destCompany}
+                </p>
+                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {type === 'origin' ? formData.originAddress : formData.destAddress}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  if (type === 'origin') {
+                    setFormData(prev => ({
+                      ...prev,
+                      originCompany: '',
+                      originAddress: ''
+                    }));
+                  } else {
+                    setFormData(prev => ({
+                      ...prev,
+                      destCompany: '',
+                      destAddress: ''
+                    }));
+                  }
+                }}
+                className={`p-1 rounded hover:bg-gray-600`}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // ----- Early returns -----
 
   // 1) No service type selected: show selector
@@ -215,13 +327,13 @@ const Ground = ({ isDarkMode, userRole }) => {
             </button>
           </div>
           <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            Enter 5-digit ZIP codes for automatic city/state lookup
+            Select from address book or enter 5-digit ZIP codes for automatic city/state lookup
           </p>
         </div>
 
         {/* Origin & Destination */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <LocationSection
+          <EnhancedLocationSection
             type="origin"
             zip={formData.originZip}
             city={formData.originCity}
@@ -234,7 +346,7 @@ const Ground = ({ isDarkMode, userRole }) => {
             onSetLoading={(loading) => setZipLoading(prev => ({ ...prev, origin: loading }))}
           />
 
-          <LocationSection
+          <EnhancedLocationSection
             type="destination"
             zip={formData.destZip}
             city={formData.destCity}
@@ -314,6 +426,33 @@ const Ground = ({ isDarkMode, userRole }) => {
           </button>
         </div>
       </div>
+
+      {/* Address Book Modal */}
+      {showAddressBook && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className={`max-w-4xl w-full max-h-[80vh] overflow-y-auto rounded-lg ${
+            isDarkMode ? 'bg-gray-800' : 'bg-white'
+          } p-6`}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                Select {showAddressBook === 'origin' ? 'Origin' : 'Destination'} Address
+              </h2>
+              <button
+                onClick={() => setShowAddressBook(null)}
+                className={`p-2 rounded hover:bg-gray-700`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <AddressBook
+              isDarkMode={isDarkMode}
+              onSelect={(company) => handleAddressSelect(company, showAddressBook)}
+              type={showAddressBook === 'origin' ? 'shipper' : 'consignee'}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
