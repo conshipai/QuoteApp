@@ -6,7 +6,7 @@ import {
   AlertCircle, ChevronDown, ChevronRight, ExternalLink, X, Plus, Upload // ADDED Upload
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { API_BASE } from '../config/api'; // ADDED
+import API_BASE from '../config/api'; // ADDED
 import bookingApi from '../services/bookingApi';
 import bolApi from '../services/bolApi';
 import BOLBuilder from '../components/bol/BOLBuilder';
