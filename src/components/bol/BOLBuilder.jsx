@@ -7,6 +7,195 @@ import BOLTemplate from './BOLTemplate';
 import bolApi from '../../services/bolApi';
 import AddressBook from '../shared/AddressBook';
 import addressBookApi from '../../services/addressBookApi';
+const AddressForm = React.memo(({ type, data, onChange, isDarkMode, setShowAddressBook }) => {
+  const isShipper = type === 'shipper';
+  const title = isShipper ? 'Shipper Information' : 'Consignee Information';
+  
+  return (
+    <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+          <MapPin className="inline w-5 h-5 mr-2" />
+          {title}
+        </h2>
+         <button
+          onClick={() => setShowAddressBook(type)}
+          className={`px-3 py-1 rounded text-sm flex items-center gap-2 ${
+            isDarkMode 
+              ? 'bg-conship-orange text-white hover:bg-orange-600' 
+              : 'bg-conship-purple text-white hover:bg-purple-700'
+          }`}
+        >
+          <Building2 className="w-4 h-4" />
+          Select from Address Book
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="col-span-2">
+          <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            Company Name *
+          </label>
+          <input
+            type="text"
+            value={data.name}
+            onChange={(e) => onChange(type, 'name', e.target.value)}
+            placeholder="Enter company name"
+            className={`w-full px-3 py-2 rounded border ${
+              isDarkMode 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-300 text-gray-900'
+            }`}
+            required
+          />
+        </div>
+
+        <div className="col-span-2">
+          <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            Street Address *
+          </label>
+          <input
+            type="text"
+            value={data.address}
+            onChange={(e) => onChange(type, 'address', e.target.value)}
+            placeholder="Enter street address"
+            className={`w-full px-3 py-2 rounded border ${
+              isDarkMode 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-300 text-gray-900'
+            }`}
+            required
+          />
+        </div>
+
+        <div>
+          <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            City *
+          </label>
+          <input
+            type="text"
+            value={data.city}
+            onChange={(e) => onChange(type, 'city', e.target.value)}
+            className={`w-full px-3 py-2 rounded border ${
+              isDarkMode 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-300 text-gray-900'
+            }`}
+            required
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              State *
+            </label>
+            <input
+              type="text"
+              value={data.state}
+              onChange={(e) => onChange(type, 'state', e.target.value)}
+              maxLength="2"
+              className={`w-full px-3 py-2 rounded border ${
+                isDarkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white' 
+                  : 'bg-white border-gray-300 text-gray-900'
+              }`}
+              required
+            />
+          </div>
+          <div>
+            <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              ZIP *
+            </label>
+            <input
+              type="text"
+              value={data.zip}
+              onChange={(e) => onChange(type, 'zip', e.target.value)}
+              maxLength="5"
+              className={`w-full px-3 py-2 rounded border ${
+                isDarkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white' 
+                  : 'bg-white border-gray-300 text-gray-900'
+              }`}
+              required
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            <User className="inline w-4 h-4 mr-1" />
+            Contact Name
+          </label>
+          <input
+            type="text"
+            value={data.contact}
+            onChange={(e) => onChange(type, 'contact', e.target.value)}
+            placeholder="Contact person"
+            className={`w-full px-3 py-2 rounded border ${
+              isDarkMode 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-300 text-gray-900'
+            }`}
+          />
+        </div>
+
+        <div>
+          <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            <Phone className="inline w-4 h-4 mr-1" />
+            Phone
+          </label>
+          <input
+            type="tel"
+            value={data.phone}
+            onChange={(e) => onChange(type, 'phone', e.target.value)}
+            placeholder="(555) 123-4567"
+            className={`w-full px-3 py-2 rounded border ${
+              isDarkMode 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-300 text-gray-900'
+            }`}
+          />
+        </div>
+
+        <div>
+          <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            <Mail className="inline w-4 h-4 mr-1" />
+            Email
+          </label>
+          <input
+            type="email"
+            value={data.email}
+            onChange={(e) => onChange(type, 'email', e.target.value)}
+            placeholder="email@example.com"
+            className={`w-full px-3 py-2 rounded border ${
+              isDarkMode 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-300 text-gray-900'
+            }`}
+          />
+        </div>
+
+        <div>
+          <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            Dock Hours / Notes
+          </label>
+          <input
+            type="text"
+            value={data.hours}
+            onChange={(e) => onChange(type, 'hours', e.target.value)}
+            placeholder="7AM-3PM, Appt required"
+            className={`w-full px-3 py-2 rounded border ${
+              isDarkMode 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-300 text-gray-900'
+            }`}
+          />
+        </div>
+      </div>
+    </div>
+  );
+});
 
 const BOLBuilder = ({ booking, isDarkMode }) => {
   const bolRef = useRef();
@@ -283,197 +472,6 @@ const initialAccessorialText =
     }
     setGenerating(false);
   };
-
-  // FIX: Extract AddressForm to a stable component
-  const AddressForm = React.memo(({ type, data, onChange }) => {
-    const isShipper = type === 'shipper';
-    const title = isShipper ? 'Shipper Information' : 'Consignee Information';
-    
-    return (
-      <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            <MapPin className="inline w-5 h-5 mr-2" />
-            {title}
-          </h2>
-          <button
-            onClick={() => setShowAddressBook(type)}
-            className={`px-3 py-1 rounded text-sm flex items-center gap-2 ${
-              isDarkMode 
-                ? 'bg-conship-orange text-white hover:bg-orange-600' 
-                : 'bg-conship-purple text-white hover:bg-purple-700'
-            }`}
-          >
-            <Building2 className="w-4 h-4" />
-            Select from Address Book
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-              Company Name *
-            </label>
-            <input
-              type="text"
-              value={data.name}
-              onChange={(e) => onChange(type, 'name', e.target.value)}
-              placeholder="Enter company name"
-              className={`w-full px-3 py-2 rounded border ${
-                isDarkMode 
-                  ? 'bg-gray-700 border-gray-600 text-white' 
-                  : 'bg-white border-gray-300 text-gray-900'
-              }`}
-              required
-            />
-          </div>
-
-          <div className="col-span-2">
-            <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-              Street Address *
-            </label>
-            <input
-              type="text"
-              value={data.address}
-              onChange={(e) => onChange(type, 'address', e.target.value)}
-              placeholder="Enter street address"
-              className={`w-full px-3 py-2 rounded border ${
-                isDarkMode 
-                  ? 'bg-gray-700 border-gray-600 text-white' 
-                  : 'bg-white border-gray-300 text-gray-900'
-              }`}
-              required
-            />
-          </div>
-
-          <div>
-            <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-              City *
-            </label>
-            <input
-              type="text"
-              value={data.city}
-              onChange={(e) => onChange(type, 'city', e.target.value)}
-              className={`w-full px-3 py-2 rounded border ${
-                isDarkMode 
-                  ? 'bg-gray-700 border-gray-600 text-white' 
-                  : 'bg-white border-gray-300 text-gray-900'
-              }`}
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                State *
-              </label>
-              <input
-                type="text"
-                value={data.state}
-                onChange={(e) => onChange(type, 'state', e.target.value)}
-                maxLength="2"
-                className={`w-full px-3 py-2 rounded border ${
-                  isDarkMode 
-                    ? 'bg-gray-700 border-gray-600 text-white' 
-                    : 'bg-white border-gray-300 text-gray-900'
-                }`}
-                required
-              />
-            </div>
-            <div>
-              <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                ZIP *
-              </label>
-              <input
-                type="text"
-                value={data.zip}
-                onChange={(e) => onChange(type, 'zip', e.target.value)}
-                maxLength="5"
-                className={`w-full px-3 py-2 rounded border ${
-                  isDarkMode 
-                    ? 'bg-gray-700 border-gray-600 text-white' 
-                    : 'bg-white border-gray-300 text-gray-900'
-                }`}
-                required
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-              <User className="inline w-4 h-4 mr-1" />
-              Contact Name
-            </label>
-            <input
-              type="text"
-              value={data.contact}
-              onChange={(e) => onChange(type, 'contact', e.target.value)}
-              placeholder="Contact person"
-              className={`w-full px-3 py-2 rounded border ${
-                isDarkMode 
-                  ? 'bg-gray-700 border-gray-600 text-white' 
-                  : 'bg-white border-gray-300 text-gray-900'
-              }`}
-            />
-          </div>
-
-          <div>
-            <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-              <Phone className="inline w-4 h-4 mr-1" />
-              Phone
-            </label>
-            <input
-              type="tel"
-              value={data.phone}
-              onChange={(e) => onChange(type, 'phone', e.target.value)}
-              placeholder="(555) 123-4567"
-              className={`w-full px-3 py-2 rounded border ${
-                isDarkMode 
-                  ? 'bg-gray-700 border-gray-600 text-white' 
-                  : 'bg-white border-gray-300 text-gray-900'
-              }`}
-            />
-          </div>
-
-          <div>
-            <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-              <Mail className="inline w-4 h-4 mr-1" />
-              Email
-            </label>
-            <input
-              type="email"
-              value={data.email}
-              onChange={(e) => onChange(type, 'email', e.target.value)}
-              placeholder="email@example.com"
-              className={`w-full px-3 py-2 rounded border ${
-                isDarkMode 
-                  ? 'bg-gray-700 border-gray-600 text-white' 
-                  : 'bg-white border-gray-300 text-gray-900'
-              }`}
-            />
-          </div>
-
-          <div>
-            <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-              Dock Hours / Notes
-            </label>
-            <input
-              type="text"
-              value={data.hours}
-              onChange={(e) => onChange(type, 'hours', e.target.value)}
-              placeholder="7AM-3PM, Appt required"
-              className={`w-full px-3 py-2 rounded border ${
-                isDarkMode 
-                  ? 'bg-gray-700 border-gray-600 text-white' 
-                  : 'bg-white border-gray-300 text-gray-900'
-              }`}
-            />
-          </div>
-        </div>
-      </div>
-    );
-  });
 
   // Commodity Items section with Hazmat
   const ItemsSection = () => {
@@ -781,8 +779,8 @@ const initialAccessorialText =
 
         {/* Address Forms */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 print:hidden">
-          <AddressForm type="shipper" data={bolData.shipper} onChange={handleAddressChange} />
-          <AddressForm type="consignee" data={bolData.consignee} onChange={handleAddressChange} />
+          <AddressForm type="shipper" data={bolData.shipper} onChange={handleAddressChange} isDarkMode={isDarkMode} setShowAddressBook={setShowAddressBook} />
+          <AddressForm type="consignee" data={bolData.consignee} onChange={handleAddressChange} isDarkMode={isDarkMode} setShowAddressBook={setShowAddressBook} />
         </div>
 
         {/* Reference Numbers */}
