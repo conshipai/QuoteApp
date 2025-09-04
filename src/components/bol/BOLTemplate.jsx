@@ -294,34 +294,21 @@ const BOLTemplate = ({ bolData, booking }) => {
           </tbody>
         </table>
          {/* Hazmat Details Section - Only show if any items are hazmat */}
-      {items.some(item => item.hazmat) && (
+            {items.some(item => item.hazmat) && (
         <div className="mt-3 border border-black p-2" style={{ fontSize: '11px' }}>
           <div className="font-bold mb-1" style={{ fontSize: '12px' }}>
-            HAZARDOUS MATERIALS DETAILS
+            HAZARDOUS MATERIALS
           </div>
           {items.filter(item => item.hazmat).map((item, idx) => (
-            <div key={idx} className="mb-2">
-              <div className="grid grid-cols-6 gap-2">
-                <div>
-                  <span className="font-semibold">UN#:</span> {item.hazmatDetails?.unNumber || 'N/A'}
-                </div>
-                <div className="col-span-2">
-                  <span className="font-semibold">Proper Shipping Name:</span> {item.hazmatDetails?.properShippingName || 'N/A'}
-                </div>
-                <div>
-                  <span className="font-semibold">Class:</span> {item.hazmatDetails?.hazardClass || 'N/A'}
-                </div>
-                <div>
-                  <span className="font-semibold">PG:</span> {item.hazmatDetails?.packingGroup || 'N/A'}
-                </div>
-                <div>
-                  <span className="font-semibold">Weight:</span> {item.weight} lbs
-                </div>
-              </div>
+            <div key={idx} className="mb-1">
+              <span style={{ fontWeight: 'bold' }}>
+                {/* Format: UN#, Proper Shipping Name, Class, PG (if not N/A) */}
+                {item.hazmatDetails?.unNumber || 'UN____'}, {item.hazmatDetails?.properShippingName || 'Not Specified'}, {item.hazmatDetails?.hazardClass || '_'}{item.hazmatDetails?.packingGroup && item.hazmatDetails.packingGroup !== 'N/A' ? `, ${item.hazmatDetails.packingGroup}` : ''}
+              </span>
+              {' - '}
+              <span>{item.weight} lbs</span>
               {item.hazmatDetails?.emergencyPhone && (
-                <div className="mt-1">
-                  <span className="font-semibold">24-Hour Emergency Phone:</span> {item.hazmatDetails.emergencyPhone}
-                </div>
+                <span> | Emergency: {item.hazmatDetails.emergencyPhone}</span>
               )}
             </div>
           ))}
