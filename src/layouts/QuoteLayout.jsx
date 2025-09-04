@@ -46,6 +46,13 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
       color: 'indigo',
       available: true
     },
+    {
+      path: '/app/quotes/product-catalog',
+      label: 'Product Catalog',
+      icon: Package,
+      color: 'green',
+      available: true
+    },
     // Quote History
     {
       path: '/app/quotes/history',
