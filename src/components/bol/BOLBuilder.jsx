@@ -693,7 +693,6 @@ const initialAccessorialText =
         if (!item.hazmatDetails.unNumber) errors.push(`Item ${index + 1}: UN Number required for hazmat`);
         if (!item.hazmatDetails.properShippingName) errors.push(`Item ${index + 1}: Proper shipping name required`);
         if (!item.hazmatDetails.hazardClass) errors.push(`Item ${index + 1}: Hazard class required`);
-        if (!item.hazmatDetails.packingGroup) errors.push(`Item ${index + 1}: Packing group required`);
       }
     });
     
