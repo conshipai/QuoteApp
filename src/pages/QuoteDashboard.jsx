@@ -207,7 +207,6 @@ const QuoteDashboard = ({ isDarkMode, userRole }) => {
       <div className="mt-8">
         <RecentQuotes isDarkMode={isDarkMode} />
       </div>
-    </div>
   );
 };
 
