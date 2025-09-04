@@ -1,4 +1,3 @@
-// src/components/dashboard/RecentQuotes.jsx
 import React, { useState, useEffect } from 'react'; 
 import { useNavigate } from 'react-router-dom';
 import { Clock, Truck, MapPin, ChevronRight, Anchor, Plane, ArrowUp, ArrowDown, CheckCircle } from 'lucide-react';
@@ -14,23 +13,34 @@ const RecentQuotes = ({ isDarkMode }) => {
 
   const loadRecentQuotes = async () => {
     try {
-      const auth = localStorage.getItem('auth_token') || '';
-      // Ground
+      // First try to get ground quotes
       const groundResponse = await fetch('https://api.gcc.conship.ai/api/ground-quotes/recent', {
-        headers: { 'Authorization': `Bearer ${auth}` }
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+        }
       });
+      
       let allQuotes = [];
+      
       if (groundResponse.ok) {
         const groundData = await groundResponse.json();
         if (groundData.success && groundData.requests) {
-          const groundQuotes = groundData.requests.map(req => ({ ...req, mode: 'ground', direction: null }));
+          const groundQuotes = groundData.requests.map(req => ({
+            ...req,
+            mode: 'ground',
+            direction: null
+          }));
           allQuotes = [...allQuotes, ...groundQuotes];
         }
       }
-      // Air/Ocean
+
+      // Also get air/ocean quotes if available
       const airOceanResponse = await fetch('https://api.gcc.conship.ai/api/quotes/recent', {
-        headers: { 'Authorization': `Bearer ${auth}` }
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+        }
       });
+
       if (airOceanResponse.ok) {
         const airOceanData = await airOceanResponse.json();
         if (airOceanData.success && airOceanData.requests) {
@@ -42,13 +52,17 @@ const RecentQuotes = ({ isDarkMode }) => {
           allQuotes = [...allQuotes, ...aoQuotes];
         }
       }
-      // Check booking status
+
+      // Check for bookings for each quote
       const quotesWithBookingStatus = await Promise.all(
         allQuotes.map(async (quote) => {
           try {
             const bookingResponse = await fetch(`https://api.gcc.conship.ai/api/bookings/by-request/${quote.requestId || quote._id}`, {
-              headers: { 'Authorization': `Bearer ${auth}` }
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+              }
             });
+            
             if (bookingResponse.ok) {
               const bookingData = await bookingResponse.json();
               return {
@@ -57,10 +71,14 @@ const RecentQuotes = ({ isDarkMode }) => {
                 bookingId: bookingData.booking?.bookingId
               };
             }
-          } catch (e) { console.error('Error checking booking status:', e); }
+          } catch (e) {
+            console.error('Error checking booking status:', e);
+          }
           return { ...quote, isBooked: false };
         })
       );
+
+      // Sort by date
       quotesWithBookingStatus.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       setQuotes(quotesWithBookingStatus);
       setLoading(false);
@@ -87,26 +105,31 @@ const RecentQuotes = ({ isDarkMode }) => {
 
   const handleQuoteClick = (quote) => {
     if (quote.isBooked) {
+      // Navigate to booking details
       navigate(`/app/quotes/bookings/${quote.bookingId}`);
-    } else if (quote.mode === 'ground') {
-      navigate(`/app/quotes/ground/results/${quote.requestId || quote._id}`, {
-        state: {
-          requestId: quote.requestId || quote._id,
-          requestNumber: quote.requestNumber,
-          serviceType: quote.serviceType,
-          formData: quote.formData || {},
-          status: quote.status
-        }
-      });
     } else {
-      navigate(`/app/quotes/${quote.mode}/results/${quote.requestId || quote._id}`, {
-        state: {
-          requestId: quote.requestId || quote._id,
-          requestNumber: quote.requestNumber,
-          mode: quote.mode,
-          direction: quote.direction
-        }
-      });
+      // Navigate to quote results based on mode
+      if (quote.mode === 'ground') {
+        navigate(`/app/quotes/ground/results/${quote.requestId || quote._id}`, {
+          state: {
+            requestId: quote.requestId || quote._id,
+            requestNumber: quote.requestNumber,
+            serviceType: quote.serviceType,
+            formData: quote.formData || {},
+            status: quote.status
+          }
+        });
+      } else {
+        // Air/Ocean quotes
+        navigate(`/app/quotes/${quote.mode}/results/${quote.requestId || quote._id}`, {
+          state: {
+            requestId: quote.requestId || quote._id,
+            requestNumber: quote.requestNumber,
+            mode: quote.mode,
+            direction: quote.direction
+          }
+        });
+      }
     }
   };
 
@@ -154,7 +177,7 @@ const RecentQuotes = ({ isDarkMode }) => {
               onClick={() => handleQuoteClick(quote)}
               className={`p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
                 isDarkMode 
-                  ? 'bg-gray-700 border-gray-700 hover:border-gray-600' 
+                  ? 'bg-gray-750 border-gray-700 hover:border-gray-600' 
                   : 'bg-gray-50 border-gray-200 hover:border-gray-300'
               }`}
             >
@@ -164,10 +187,14 @@ const RecentQuotes = ({ isDarkMode }) => {
                     <span className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                       {quote.requestNumber}
                     </span>
+                    
+                    {/* Mode and Direction Icons */}
                     <div className="flex items-center gap-1">
                       {getModeIcon(quote.mode)}
                       {getDirectionIcon(quote.direction)}
                     </div>
+
+                    {/* Status Badge */}
                     {quote.isBooked ? (
                       <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                         <CheckCircle className="w-3 h-3" />
@@ -213,4 +240,4 @@ const RecentQuotes = ({ isDarkMode }) => {
   );
 };
 
-export default RecentQuotes;
+export default RecentQuotes
