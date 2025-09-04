@@ -452,7 +452,7 @@ const AddressForm = React.memo(({ type, data, onChange, isDarkMode, setShowAddre
       </>
     );
   });
-const BOLBuilder = ({ booking, isDarkMode }) => {
+  const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
   const bolRef = useRef();
   const [generating, setGenerating] = useState(false);
   const [showAddressBook, setShowAddressBook] = useState(null);
