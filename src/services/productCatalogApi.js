@@ -1,7 +1,6 @@
 // src/services/productCatalogApi.js
 const API_BASE =
   (typeof window !== 'undefined' && window.__CONFIG__ && window.__CONFIG__.API_URL) ||
-  (typeof import !== 'undefined' && typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) ||
   (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL) ||
   ''; // empty => use mocks
 
