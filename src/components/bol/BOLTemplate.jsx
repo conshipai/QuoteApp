@@ -293,6 +293,67 @@ const BOLTemplate = ({ bolData, booking }) => {
             </tr>
           </tbody>
         </table>
+         {/* Hazmat Details Section - Only show if any items are hazmat */}
+      {items.some(item => item.hazmat) && (
+        <div className="mt-3 border border-black p-2" style={{ fontSize: '11px' }}>
+          <div className="font-bold mb-1" style={{ fontSize: '12px' }}>
+            HAZARDOUS MATERIALS DETAILS
+          </div>
+          {items.filter(item => item.hazmat).map((item, idx) => (
+            <div key={idx} className="mb-2">
+              <div className="grid grid-cols-6 gap-2">
+                <div>
+                  <span className="font-semibold">UN#:</span> {item.hazmatDetails?.unNumber || 'N/A'}
+                </div>
+                <div className="col-span-2">
+                  <span className="font-semibold">Proper Shipping Name:</span> {item.hazmatDetails?.properShippingName || 'N/A'}
+                </div>
+                <div>
+                  <span className="font-semibold">Class:</span> {item.hazmatDetails?.hazardClass || 'N/A'}
+                </div>
+                <div>
+                  <span className="font-semibold">PG:</span> {item.hazmatDetails?.packingGroup || 'N/A'}
+                </div>
+                <div>
+                  <span className="font-semibold">Weight:</span> {item.weight} lbs
+                </div>
+              </div>
+              {item.hazmatDetails?.emergencyPhone && (
+                <div className="mt-1">
+                  <span className="font-semibold">24-Hour Emergency Phone:</span> {item.hazmatDetails.emergencyPhone}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+        {/* Hazmat Shipper Certification - Only show if any items are hazmat */}
+      {items.some(item => item.hazmat) && (
+        <div className="mt-3 border-2 border-black p-3" style={{ fontSize: '11px' }}>
+          <div className="font-bold mb-2" style={{ fontSize: '12px' }}>
+            HAZARDOUS MATERIALS SHIPPER'S CERTIFICATION
+          </div>
+          <p className="mb-2">
+            This is to certify that the above-named materials are properly classified, described, 
+            packaged, marked, and labeled, and are in proper condition for transportation according 
+            to the applicable regulations of the Department of Transportation.
+          </p>
+          <div className="grid grid-cols-3 gap-4 mt-4">
+            <div>
+              <div className="font-semibold mb-1">Shipper Name (Print)</div>
+              <div style={{ borderBottom: '1px solid black', height: '25px' }}></div>
+            </div>
+            <div>
+              <div className="font-semibold mb-1">Signature</div>
+              <div style={{ borderBottom: '1px solid black', height: '25px' }}></div>
+            </div>
+            <div>
+              <div className="font-semibold mb-1">Date</div>
+              <div style={{ borderBottom: '1px solid black', height: '25px' }}></div>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
 
       {/* Notes and C.O.D. Section */}
