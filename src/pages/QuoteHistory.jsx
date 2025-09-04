@@ -1,115 +1,218 @@
 // src/pages/QuoteHistory.jsx
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
-  Search, 
-  Filter, 
-  Calendar, 
-  MapPin, 
-  Truck, 
-  DollarSign,
-  Clock,
-  ChevronDown,
-  Package
+  Clock, Truck, MapPin, ChevronRight, Anchor, Plane, 
+  ArrowUp, ArrowDown, CheckCircle, Search, Filter,
+  Calendar, Package, FileText 
 } from 'lucide-react';
 
-const QuoteHistory = ({ isDarkMode }) => {
+const QuoteHistory = ({ isDarkMode, userRole }) => {
+  const navigate = useNavigate();
   const [quotes, setQuotes] = useState([]);
+  const [filteredQuotes, setFilteredQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('date'); // date, price, status
-  const [filterMode, setFilterMode] = useState('all'); // all, ltl, ftl, expedited
-  const [filterStatus, setFilterStatus] = useState('all'); // all, pending, quoted, booked
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterMode, setFilterMode] = useState('all');
+  const [dateRange, setDateRange] = useState('all');
 
   useEffect(() => {
-    loadQuotes();
+    loadAllQuotes();
   }, []);
 
-  const loadQuotes = async () => {
-    setLoading(true);
+  useEffect(() => {
+    filterQuotes();
+  }, [quotes, searchTerm, filterStatus, filterMode, dateRange]);
+
+  const loadAllQuotes = async () => {
     try {
-      // We'll connect this to your backend in the next step
-      // For now, let's use localStorage to test the UI
-      const mockQuotes = [];
+      setLoading(true);
+      let allQuotes = [];
       
-      // Load quotes from localStorage (your existing quotes)
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('quote_request_')) {
-          const quote = JSON.parse(localStorage.getItem(key));
-          if (quote) {
-            mockQuotes.push({
-              ...quote,
-              // Ensure consistent structure
-              id: quote.requestId || quote._id,
-              mode: quote.serviceType || 'ltl',
-              totalPrice: quote.price || 0,
-              origin: {
-                city: quote.formData?.originCity,
-                state: quote.formData?.originState,
-                zip: quote.formData?.originZip
-              },
-              destination: {
-                city: quote.formData?.destCity,
-                state: quote.formData?.destState,
-                zip: quote.formData?.destZip
-              }
-            });
-          }
+      // Get ground quotes
+      const groundResponse = await fetch('https://api.gcc.conship.ai/api/ground-quotes/recent?limit=100', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+        }
+      });
+      
+      if (groundResponse.ok) {
+        const groundData = await groundResponse.json();
+        if (groundData.success && groundData.requests) {
+          const groundQuotes = groundData.requests.map(req => ({
+            ...req,
+            mode: 'ground',
+            direction: null
+          }));
+          allQuotes = [...allQuotes, ...groundQuotes];
         }
       }
-      
-      setQuotes(mockQuotes);
+
+      // Get air/ocean quotes
+      const airOceanResponse = await fetch('https://api.gcc.conship.ai/api/quotes/recent?limit=100', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+        }
+      });
+
+      if (airOceanResponse.ok) {
+        const airOceanData = await airOceanResponse.json();
+        if (airOceanData.success && airOceanData.requests) {
+          const aoQuotes = airOceanData.requests.map(req => ({
+            ...req,
+            mode: req.shipment?.mode || 'air',
+            direction: req.shipment?.direction || 'export'
+          }));
+          allQuotes = [...allQuotes, ...aoQuotes];
+        }
+      }
+
+      // Check booking status for each quote
+      const quotesWithBookingStatus = await Promise.all(
+        allQuotes.map(async (quote) => {
+          try {
+            const bookingResponse = await fetch(`https://api.gcc.conship.ai/api/bookings/by-request/${quote.requestId || quote._id}`, {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+              }
+            });
+            
+            if (bookingResponse.ok) {
+              const bookingData = await bookingResponse.json();
+              return {
+                ...quote,
+                isBooked: bookingData.success && bookingData.booking,
+                bookingId: bookingData.booking?.bookingId
+              };
+            }
+          } catch (e) {
+            console.error('Error checking booking status:', e);
+          }
+          return { ...quote, isBooked: false };
+        })
+      );
+
+      // Sort by date (newest first)
+      quotesWithBookingStatus.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setQuotes(quotesWithBookingStatus);
+      setLoading(false);
     } catch (error) {
-      console.error('Error loading quotes:', error);
-    } finally {
+      console.error('Failed to load quotes:', error);
       setLoading(false);
     }
   };
 
-  // Filter quotes based on search and filters
-  const filteredQuotes = quotes.filter(quote => {
-    const matchesSearch = !searchTerm || 
-      quote.requestNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      quote.origin?.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      quote.destination?.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      quote.origin?.zip?.includes(searchTerm) ||
-      quote.destination?.zip?.includes(searchTerm);
+  const filterQuotes = () => {
+    let filtered = [...quotes];
 
-    const matchesMode = filterMode === 'all' || quote.mode === filterMode;
-    const matchesStatus = filterStatus === 'all' || quote.status?.toLowerCase() === filterStatus;
-
-    return matchesSearch && matchesMode && matchesStatus;
-  });
-
-  // Sort quotes
-  const sortedQuotes = [...filteredQuotes].sort((a, b) => {
-    switch(sortBy) {
-      case 'date':
-        return new Date(b.createdAt) - new Date(a.createdAt);
-      case 'price':
-        return (b.totalPrice || 0) - (a.totalPrice || 0);
-      case 'status':
-        return (a.status || '').localeCompare(b.status || '');
-      default:
-        return 0;
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(quote => 
+        quote.requestNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        quote.origin?.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        quote.destination?.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        quote.formData?.originCity?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        quote.formData?.destCity?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
-  });
 
-  const getStatusColor = (status) => {
-    const statusLower = (status || '').toLowerCase();
-    if (statusLower === 'quoted') return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
-    if (statusLower === 'pending' || statusLower === 'processing') return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
-    if (statusLower === 'booked') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
-    return 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400';
+    // Status filter
+    if (filterStatus !== 'all') {
+      if (filterStatus === 'booked') {
+        filtered = filtered.filter(quote => quote.isBooked);
+      } else {
+        filtered = filtered.filter(quote => !quote.isBooked && quote.status === filterStatus);
+      }
+    }
+
+    // Mode filter
+    if (filterMode !== 'all') {
+      filtered = filtered.filter(quote => quote.mode === filterMode);
+    }
+
+    // Date range filter
+    if (dateRange !== 'all') {
+      const now = new Date();
+      let startDate = new Date();
+      
+      switch(dateRange) {
+        case 'today':
+          startDate.setHours(0, 0, 0, 0);
+          break;
+        case 'week':
+          startDate.setDate(now.getDate() - 7);
+          break;
+        case 'month':
+          startDate.setMonth(now.getMonth() - 1);
+          break;
+        case 'quarter':
+          startDate.setMonth(now.getMonth() - 3);
+          break;
+        default:
+          break;
+      }
+      
+      filtered = filtered.filter(quote => new Date(quote.createdAt) >= startDate);
+    }
+
+    setFilteredQuotes(filtered);
+  };
+
+  const getModeIcon = (mode) => {
+    switch(mode) {
+      case 'ocean': return <Anchor className="w-4 h-4" />;
+      case 'air': return <Plane className="w-4 h-4" />;
+      case 'ground': 
+      default: return <Truck className="w-4 h-4" />;
+    }
+  };
+
+  const getDirectionIcon = (direction) => {
+    if (direction === 'import') return <ArrowDown className="w-3 h-3" />;
+    if (direction === 'export') return <ArrowUp className="w-3 h-3" />;
+    return null;
+  };
+
+  const handleQuoteClick = (quote) => {
+    if (quote.isBooked) {
+      navigate(`/app/quotes/bookings/${quote.bookingId}`);
+    } else {
+      if (quote.mode === 'ground') {
+        navigate(`/app/quotes/ground/results/${quote.requestId || quote._id}`, {
+          state: {
+            requestId: quote.requestId || quote._id,
+            requestNumber: quote.requestNumber,
+            serviceType: quote.serviceType,
+            formData: quote.formData || {},
+            status: quote.status
+          }
+        });
+      } else {
+        navigate(`/app/quotes/${quote.mode}/results/${quote.requestId || quote._id}`, {
+          state: {
+            requestId: quote.requestId || quote._id,
+            requestNumber: quote.requestNumber,
+            mode: quote.mode,
+            direction: quote.direction
+          }
+        });
+      }
+    }
   };
 
   if (loading) {
     return (
-      <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} flex items-center justify-center`}>
-        <div className="text-center">
-          <div className="animate-spin h-12 w-12 border-4 border-t-transparent rounded-full mx-auto mb-4"
-               style={{borderColor: isDarkMode ? '#f97316' : '#7c3aed', borderTopColor: 'transparent'}} />
-          <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Loading quote history...</p>
+      <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+        <div className="p-6">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-300 rounded w-1/3 mb-6"></div>
+            <div className="space-y-3">
+              <div className="h-24 bg-gray-200 rounded"></div>
+              <div className="h-24 bg-gray-200 rounded"></div>
+              <div className="h-24 bg-gray-200 rounded"></div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -117,68 +220,94 @@ const QuoteHistory = ({ isDarkMode }) => {
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="p-6">
         {/* Header */}
         <div className="mb-6">
           <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             Quote History
           </h1>
-          <p className={`text-sm mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+          <p className={`mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
             View and manage all your freight quotes
           </p>
         </div>
 
-        {/* Filters Bar */}
-        <div className={`mb-6 p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Quotes</p>
+                <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {quotes.length}
+                </p>
+              </div>
+              <FileText className={`w-8 h-8 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`} />
+            </div>
+          </div>
+          
+          <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Booked</p>
+                <p className={`text-2xl font-bold text-green-500`}>
+                  {quotes.filter(q => q.isBooked).length}
+                </p>
+              </div>
+              <CheckCircle className="w-8 h-8 text-green-500" />
+            </div>
+          </div>
+          
+          <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Pending</p>
+                <p className={`text-2xl font-bold text-yellow-500`}>
+                  {quotes.filter(q => q.status === 'pending').length}
+                </p>
+              </div>
+              <Clock className="w-8 h-8 text-yellow-500" />
+            </div>
+          </div>
+          
+          <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>This Month</p>
+                <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {quotes.filter(q => {
+                    const date = new Date(q.createdAt);
+                    const now = new Date();
+                    return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+                  }).length}
+                </p>
+              </div>
+              <Calendar className="w-8 h-8 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}" />
+            </div>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className={`p-4 rounded-lg mb-6 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
+          <div className="flex flex-wrap gap-4">
             {/* Search */}
-            <div className="relative lg:col-span-2">
-              <Search className={`absolute left-3 top-2.5 w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
-              <input
-                type="text"
-                placeholder="Search by quote #, city, or ZIP..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className={`w-full pl-10 pr-3 py-2 rounded border ${
-                  isDarkMode 
-                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                }`}
-              />
+            <div className="flex-1 min-w-64">
+              <div className="relative">
+                <Search className={`absolute left-3 top-2.5 w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+                <input
+                  type="text"
+                  placeholder="Search by quote number or location..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className={`w-full pl-10 pr-3 py-2 rounded border ${
+                    isDarkMode 
+                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
+                />
+              </div>
             </div>
 
-            {/* Sort By */}
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className={`px-3 py-2 rounded border ${
-                isDarkMode 
-                  ? 'bg-gray-700 border-gray-600 text-white' 
-                  : 'bg-white border-gray-300 text-gray-900'
-              }`}
-            >
-              <option value="date">Sort by Date</option>
-              <option value="price">Sort by Price</option>
-              <option value="status">Sort by Status</option>
-            </select>
-
-            {/* Filter by Mode */}
-            <select
-              value={filterMode}
-              onChange={(e) => setFilterMode(e.target.value)}
-              className={`px-3 py-2 rounded border ${
-                isDarkMode 
-                  ? 'bg-gray-700 border-gray-600 text-white' 
-                  : 'bg-white border-gray-300 text-gray-900'
-              }`}
-            >
-              <option value="all">All Modes</option>
-              <option value="ltl">LTL</option>
-              <option value="ftl">FTL</option>
-              <option value="expedited">Expedited</option>
-            </select>
-
-            {/* Filter by Status */}
+            {/* Status Filter */}
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
@@ -189,141 +318,135 @@ const QuoteHistory = ({ isDarkMode }) => {
               }`}
             >
               <option value="all">All Status</option>
-              <option value="active">Active (Valid)</option>
-              <option value="expired">Expired</option>
               <option value="booked">Booked</option>
-              <option value="pending">Pending</option>
               <option value="quoted">Quoted</option>
+              <option value="pending">Pending</option>
+              <option value="failed">Failed</option>
+            </select>
+
+            {/* Mode Filter */}
+            <select
+              value={filterMode}
+              onChange={(e) => setFilterMode(e.target.value)}
+              className={`px-3 py-2 rounded border ${
+                isDarkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white' 
+                  : 'bg-white border-gray-300 text-gray-900'
+              }`}
+            >
+              <option value="all">All Modes</option>
+              <option value="ground">Ground</option>
+              <option value="air">Air</option>
+              <option value="ocean">Ocean</option>
+            </select>
+
+            {/* Date Range Filter */}
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+              className={`px-3 py-2 rounded border ${
+                isDarkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white' 
+                  : 'bg-white border-gray-300 text-gray-900'
+              }`}
+            >
+              <option value="all">All Time</option>
+              <option value="today">Today</option>
+              <option value="week">Last 7 Days</option>
+              <option value="month">Last Month</option>
+              <option value="quarter">Last 3 Months</option>
             </select>
           </div>
         </div>
 
-        {/* Stats Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {quotes.length}
-                </p>
-                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Total Quotes
-                </p>
-              </div>
-              <Package className={`w-8 h-8 ${isDarkMode ? 'text-conship-orange' : 'text-conship-purple'} opacity-20`} />
+        {/* Quotes List */}
+        <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
+          {filteredQuotes.length === 0 ? (
+            <div className={`text-center py-12 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+              {searchTerm || filterStatus !== 'all' || filterMode !== 'all' || dateRange !== 'all'
+                ? 'No quotes match your filters'
+                : 'No quotes found'}
             </div>
-          </div>
-          
-          <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {quotes.filter(q => q.status?.toLowerCase() === 'quoted').length}
-                </p>
-                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Completed
-                </p>
-              </div>
-              <Clock className={`w-8 h-8 ${isDarkMode ? 'text-green-400' : 'text-green-600'} opacity-20`} />
-            </div>
-          </div>
+          ) : (
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
+              {filteredQuotes.map((quote) => (
+                <div
+                  key={quote.requestId || quote._id}
+                  onClick={() => handleQuoteClick(quote)}
+                  className={`p-4 cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-gray-750`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          {quote.requestNumber}
+                        </span>
+                        
+                        {/* Mode and Direction Icons */}
+                        <div className="flex items-center gap-1">
+                          {getModeIcon(quote.mode)}
+                          {getDirectionIcon(quote.direction)}
+                        </div>
 
-          <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {quotes.filter(q => ['pending', 'processing'].includes(q.status?.toLowerCase())).length}
-                </p>
-                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  In Progress
-                </p>
-              </div>
-              <Truck className={`w-8 h-8 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'} opacity-20`} />
-            </div>
-          </div>
+                        {/* Status Badge */}
+                        {quote.isBooked ? (
+                          <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                            <CheckCircle className="w-3 h-3" />
+                            BOOKED
+                          </span>
+                        ) : (
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded ${
+                              quote.status === 'quoted'
+                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                : quote.status === 'pending'
+                                ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                : quote.status === 'failed'
+                                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                : 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'
+                            }`}
+                          >
+                            {quote.status?.toUpperCase()}
+                          </span>
+                        )}
+                        
+                        {/* Quote Count */}
+                        {quote.quoteCount > 0 && (
+                          <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            {quote.quoteCount} quotes
+                          </span>
+                        )}
+                      </div>
 
-          <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  ${quotes.reduce((sum, q) => sum + (q.totalPrice || 0), 0).toLocaleString()}
-                </p>
-                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Total Value
-                </p>
-              </div>
-              <DollarSign className={`w-8 h-8 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'} opacity-20`} />
-            </div>
-          </div>
-        </div>
+                      <div className={`text-xs space-y-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        <div className="flex items-center gap-4">
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {quote.formData?.originCity || quote.origin?.city}, {quote.formData?.originState || quote.origin?.state} 
+                            → {quote.formData?.destCity || quote.destination?.city}, {quote.formData?.destState || quote.destination?.state}
+                          </span>
+                          {quote.formData?.commodities?.[0] && (
+                            <span className="flex items-center gap-1">
+                              <Package className="w-3 h-3" />
+                              {quote.formData.commodities.reduce((sum, c) => sum + parseInt(c.quantity || 0), 0)} units,
+                              {quote.formData.commodities.reduce((sum, c) => sum + parseInt(c.weight || 0), 0)} lbs
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {new Date(quote.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
 
-        {/* Quote List */}
-        <div className="space-y-3">
-          {sortedQuotes.map((quote) => (
-            <div
-              key={quote.id}
-              className={`p-4 rounded-lg border ${
-                isDarkMode 
-                  ? 'bg-gray-800 border-gray-700 hover:border-gray-600' 
-                  : 'bg-white border-gray-200 hover:border-gray-300'
-              } transition-all cursor-pointer hover:shadow-md`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  {/* Quote Header */}
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {quote.requestNumber || 'N/A'}
-                    </span>
-                    <span className={`text-xs px-2 py-1 rounded ${getStatusColor(quote.status)}`}>
-                      {(quote.status || 'Unknown').toUpperCase()}
-                    </span>
-                    <span className={`text-xs px-2 py-1 rounded ${
-                      isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
-                    }`}>
-                      {(quote.mode || 'N/A').toUpperCase()}
-                    </span>
-                  </div>
-
-                  {/* Route Info */}
-                  <div className={`flex items-center gap-4 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />
-                      {quote.origin?.city || 'N/A'}, {quote.origin?.state || ''} {quote.origin?.zip || ''}
-                    </span>
-                    <span>→</span>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />
-                      {quote.destination?.city || 'N/A'}, {quote.destination?.state || ''} {quote.destination?.zip || ''}
-                    </span>
-                  </div>
-
-                  {/* Date and Price */}
-                  <div className={`flex items-center gap-4 mt-2 text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      {quote.createdAt ? new Date(quote.createdAt).toLocaleDateString() : 'N/A'}
-                    </span>
-                    {quote.totalPrice > 0 && (
-                      <span className="flex items-center gap-1">
-                        <DollarSign className="w-3 h-3" />
-                        ${quote.totalPrice.toLocaleString()}
-                      </span>
-                    )}
+                    <ChevronRight className={`w-5 h-5 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
                   </div>
                 </div>
-
-                <ChevronDown className={`w-5 h-5 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
-              </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
-
-        {sortedQuotes.length === 0 && (
-          <div className={`text-center py-12 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-            No quotes found matching your criteria
-          </div>
-        )}
       </div>
     </div>
   );
