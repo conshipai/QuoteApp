@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   FileText, Download, Save, ArrowLeft, Building2, Plus, X, 
-  MapPin, Phone, User, Mail, Hash, Trash2 
+  MapPin, Phone, User, Mail, Hash, Trash2, AlertTriangle 
 } from 'lucide-react';
 import BOLTemplate from './BOLTemplate';
 import bolApi from '../../services/bolApi';
@@ -11,10 +11,18 @@ import addressBookApi from '../../services/addressBookApi';
 const BOLBuilder = ({ booking, isDarkMode }) => {
   const bolRef = useRef();
   const [generating, setGenerating] = useState(false);
-  const [bolNumber, setBolNumber] = useState(`BOL-${Date.now()}`);
-  const [showAddressBook, setShowAddressBook] = useState(null); // 'shipper' or 'consignee'
+  const [showAddressBook, setShowAddressBook] = useState(null);
   const [savedAddresses, setSavedAddresses] = useState([]);
   
+  // Extract quote number from booking
+  const quoteNumber = booking?.quoteNumber || booking?.requestNumber || '';
+  // Remove 'Q' prefix if it exists to create BOL number
+  const defaultBolNumber = quoteNumber.startsWith('Q') 
+    ? quoteNumber.substring(1) 
+    : quoteNumber || `BOL-${Date.now()}`;
+  
+  const [bolNumber, setBolNumber] = useState(defaultBolNumber);
+
   // Reference number types
   const referenceTypes = [
     'PO Number',
@@ -31,8 +39,9 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
     'Custom'
   ];
 
+  // Initialize BOL data with booking info
   const [bolData, setBolData] = useState({
-    bolNumber: bolNumber,
+    bolNumber: defaultBolNumber,
     shipper: {
       name: booking?.shipmentData?.formData?.originCompany || '',
       address: booking?.shipmentData?.formData?.originAddress || '',
@@ -56,7 +65,12 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
       hours: ''
     },
     referenceNumbers: [
-      { type: 'PO Number', value: '' }
+      { type: 'PO Number', value: '' },
+      // Add pickup number if SEFL
+      ...(booking?.carrier === 'Southeastern Freight Lines' && booking?.pickupNumber 
+        ? [{ type: 'Pickup Number', value: booking.pickupNumber }]
+        : []
+      )
     ],
     items: booking?.shipmentData?.formData?.commodities?.map(c => ({
       quantity: c.quantity,
@@ -67,12 +81,32 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
       width: c.width || '',
       height: c.height || '',
       class: c.useOverride ? c.overrideClass : c.calculatedClass,
-      nmfc: '',
-      hazmat: false
+      nmfc: c.nmfc || '',
+      hazmat: c.hazmat || false,
+      // Hazmat details (only if hazmat is true)
+      hazmatDetails: c.hazmat ? {
+        unNumber: '',
+        properShippingName: '',
+        hazardClass: '',
+        packingGroup: '',
+        packingDetails: '',
+        totalWeight: c.weight,
+        emergencyPhone: '1-800-424-9300' // Default CHEMTREC
+      } : null
     })) || [],
+    // Include accessorials from the quote
     specialInstructions: '',
     pickupInstructions: '',
-    deliveryInstructions: ''
+    deliveryInstructions: '',
+    // Track which accessorials were selected
+    accessorials: {
+      liftgatePickup: booking?.shipmentData?.formData?.liftgatePickup || false,
+      liftgateDelivery: booking?.shipmentData?.formData?.liftgateDelivery || false,
+      residentialDelivery: booking?.shipmentData?.formData?.residentialDelivery || false,
+      insideDelivery: booking?.shipmentData?.formData?.insideDelivery || false,
+      limitedAccessPickup: booking?.shipmentData?.formData?.limitedAccessPickup || false,
+      limitedAccessDelivery: booking?.shipmentData?.formData?.limitedAccessDelivery || false
+    }
   });
 
   // Load saved addresses on mount
@@ -84,17 +118,6 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
     const result = await addressBookApi.getCompanies();
     if (result.success) {
       setSavedAddresses(result.companies);
-      
-      // Auto-fill with defaults if they exist
-      const defaultShipper = result.companies.find(c => c.type === 'shipper' && c.isDefault);
-      const defaultConsignee = result.companies.find(c => c.type === 'consignee' && c.isDefault);
-      
-      if (defaultShipper) {
-        handleAddressSelect(defaultShipper, 'shipper');
-      }
-      if (defaultConsignee) {
-        handleAddressSelect(defaultConsignee, 'consignee');
-      }
     }
   };
 
@@ -131,13 +154,64 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
     }));
   };
 
-  const handleReferenceChange = (index, field, value) => {
+  // FIX: Use useCallback to prevent re-creation of handlers
+  const handleReferenceChange = useCallback((index, field, value) => {
     setBolData(prev => {
       const newRefs = [...prev.referenceNumbers];
-      newRefs[index][field] = value;
+      newRefs[index] = { ...newRefs[index], [field]: value };
       return { ...prev, referenceNumbers: newRefs };
     });
-  };
+  }, []);
+
+  // FIX: Use useCallback for address change handler
+  const handleAddressChange = useCallback((type, field, value) => {
+    setBolData(prev => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        [field]: value
+      }
+    }));
+  }, []);
+
+  // Handle item changes
+  const handleItemChange = useCallback((index, field, value) => {
+    setBolData(prev => {
+      const newItems = [...prev.items];
+      if (field === 'hazmat') {
+        // Toggle hazmat and initialize/clear hazmat details
+        newItems[index] = {
+          ...newItems[index],
+          hazmat: value,
+          hazmatDetails: value ? {
+            unNumber: '',
+            properShippingName: '',
+            hazardClass: '',
+            packingGroup: '',
+            packingDetails: '',
+            totalWeight: newItems[index].weight,
+            emergencyPhone: '1-800-424-9300'
+          } : null
+        };
+      } else if (field.startsWith('hazmatDetails.')) {
+        // Update nested hazmat details
+        const hazmatField = field.replace('hazmatDetails.', '');
+        newItems[index] = {
+          ...newItems[index],
+          hazmatDetails: {
+            ...newItems[index].hazmatDetails,
+            [hazmatField]: value
+          }
+        };
+      } else {
+        newItems[index] = {
+          ...newItems[index],
+          [field]: value
+        };
+      }
+      return { ...prev, items: newItems };
+    });
+  }, []);
 
   // Print function
   const handlePrint = () => {
@@ -160,6 +234,16 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
     if (!bolData.consignee.name) errors.push('Consignee company name is required');
     if (!bolData.consignee.address) errors.push('Consignee address is required');
     
+    // Validate hazmat details if any item is hazmat
+    bolData.items.forEach((item, index) => {
+      if (item.hazmat && item.hazmatDetails) {
+        if (!item.hazmatDetails.unNumber) errors.push(`Item ${index + 1}: UN Number required for hazmat`);
+        if (!item.hazmatDetails.properShippingName) errors.push(`Item ${index + 1}: Proper shipping name required`);
+        if (!item.hazmatDetails.hazardClass) errors.push(`Item ${index + 1}: Hazard class required`);
+        if (!item.hazmatDetails.packingGroup) errors.push(`Item ${index + 1}: Packing group required`);
+      }
+    });
+    
     if (errors.length > 0) {
       alert('Please complete required fields:\n' + errors.join('\n'));
       return;
@@ -171,7 +255,6 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
       const bolElement = document.getElementById('bol-template');
       let htmlContent = '';
       if (bolElement) {
-        // Clone the element to avoid modifying the original
         const clonedElement = bolElement.cloneNode(true);
         htmlContent = clonedElement.outerHTML;
       }
@@ -180,33 +263,11 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
         bookingId: booking.bookingId,
         bolNumber: bolNumber,
         bolData: bolData,
-        htmlContent: htmlContent // Include the HTML content
+        htmlContent: htmlContent
       });
       
       if (result.success) {
         alert(`BOL ${bolNumber} saved successfully!\n\nYou can view this BOL anytime from the Bookings page.`);
-        
-        // Optionally save addresses if they're new
-        if (window.confirm('Would you like to save these addresses for future use?')) {
-          if (!savedAddresses.find(a => 
-            a.name === bolData.shipper.name && 
-            a.address === bolData.shipper.address
-          )) {
-            await addressBookApi.saveCompany({
-              ...bolData.shipper,
-              type: 'shipper'
-            });
-          }
-          if (!savedAddresses.find(a => 
-            a.name === bolData.consignee.name && 
-            a.address === bolData.consignee.address
-          )) {
-            await addressBookApi.saveCompany({
-              ...bolData.consignee,
-              type: 'consignee'
-            });
-          }
-        }
       }
     } catch (error) {
       alert('Failed to save BOL: ' + error.message);
@@ -214,7 +275,8 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
     setGenerating(false);
   };
 
-  const AddressForm = ({ type, data, onChange }) => {
+  // FIX: Extract AddressForm to a stable component
+  const AddressForm = React.memo(({ type, data, onChange }) => {
     const isShipper = type === 'shipper';
     const title = isShipper ? 'Shipper Information' : 'Consignee Information';
     
@@ -288,7 +350,6 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
                   ? 'bg-gray-700 border-gray-600 text-white' 
                   : 'bg-white border-gray-300 text-gray-900'
               }`}
-              readOnly={data.city !== ''}
               required
             />
           </div>
@@ -308,7 +369,6 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
                     ? 'bg-gray-700 border-gray-600 text-white' 
                     : 'bg-white border-gray-300 text-gray-900'
                 }`}
-                readOnly={data.state !== ''}
                 required
               />
             </div>
@@ -326,7 +386,6 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
                     ? 'bg-gray-700 border-gray-600 text-white' 
                     : 'bg-white border-gray-300 text-gray-900'
                 }`}
-                readOnly={data.zip !== ''}
                 required
               />
             </div>
@@ -405,16 +464,263 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
         </div>
       </div>
     );
-  };
+  });
 
-  const handleAddressChange = (type, field, value) => {
-    setBolData(prev => ({
-      ...prev,
-      [type]: {
-        ...prev[type],
-        [field]: value
-      }
-    }));
+  // Commodity Items section with Hazmat
+  const ItemsSection = () => {
+    const hasHazmat = bolData.items.some(item => item.hazmat);
+    
+    return (
+      <>
+        <div className={`mb-6 p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm print:hidden`}>
+          <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Commodity Items
+          </h2>
+          
+          <div className="space-y-4">
+            {bolData.items.map((item, index) => (
+              <div key={index} className={`p-4 border rounded-lg ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="grid grid-cols-4 gap-3 mb-3">
+                  <div>
+                    <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Qty
+                    </label>
+                    <input
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                      className={`w-full px-2 py-1 rounded border ${
+                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                      }`}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Unit Type
+                    </label>
+                    <select
+                      value={item.unitType}
+                      onChange={(e) => handleItemChange(index, 'unitType', e.target.value)}
+                      className={`w-full px-2 py-1 rounded border ${
+                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                      }`}
+                    >
+                      <option>Pallets</option>
+                      <option>Boxes</option>
+                      <option>Crates</option>
+                      <option>Skids</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Weight (lbs)
+                    </label>
+                    <input
+                      type="number"
+                      value={item.weight}
+                      onChange={(e) => handleItemChange(index, 'weight', e.target.value)}
+                      className={`w-full px-2 py-1 rounded border ${
+                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                      }`}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Class
+                    </label>
+                    <input
+                      type="text"
+                      value={item.class}
+                      onChange={(e) => handleItemChange(index, 'class', e.target.value)}
+                      className={`w-full px-2 py-1 rounded border ${
+                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                      }`}
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Description
+                    </label>
+                    <input
+                      type="text"
+                      value={item.description}
+                      onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                      className={`w-full px-2 py-1 rounded border ${
+                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                      }`}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      NMFC #
+                    </label>
+                    <input
+                      type="text"
+                      value={item.nmfc}
+                      onChange={(e) => handleItemChange(index, 'nmfc', e.target.value)}
+                      placeholder="Optional"
+                      className={`w-full px-2 py-1 rounded border ${
+                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                      }`}
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                  <label className={`flex items-center ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <input
+                      type="checkbox"
+                      checked={item.hazmat}
+                      onChange={(e) => handleItemChange(index, 'hazmat', e.target.checked)}
+                      className="mr-2"
+                    />
+                    <AlertTriangle className="w-4 h-4 mr-1 text-yellow-500" />
+                    Hazmat
+                  </label>
+                </div>
+                
+                {/* Hazmat Details - Only show if item is marked as hazmat */}
+                {item.hazmat && (
+                  <div className={`mt-3 p-3 border-2 border-yellow-500 rounded-lg ${isDarkMode ? 'bg-yellow-900/20' : 'bg-yellow-50'}`}>
+                    <h4 className={`font-semibold mb-2 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                      Hazmat Details Required
+                    </h4>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                          UN Number *
+                        </label>
+                        <input
+                          type="text"
+                          value={item.hazmatDetails?.unNumber || ''}
+                          onChange={(e) => handleItemChange(index, 'hazmatDetails.unNumber', e.target.value)}
+                          placeholder="UN1203"
+                          className={`w-full px-2 py-1 rounded border ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                          }`}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                          Proper Shipping Name *
+                        </label>
+                        <input
+                          type="text"
+                          value={item.hazmatDetails?.properShippingName || ''}
+                          onChange={(e) => handleItemChange(index, 'hazmatDetails.properShippingName', e.target.value)}
+                          placeholder="Gasoline"
+                          className={`w-full px-2 py-1 rounded border ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                          }`}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                          Hazard Class *
+                        </label>
+                        <input
+                          type="text"
+                          value={item.hazmatDetails?.hazardClass || ''}
+                          onChange={(e) => handleItemChange(index, 'hazmatDetails.hazardClass', e.target.value)}
+                          placeholder="3"
+                          className={`w-full px-2 py-1 rounded border ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                          }`}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                          Packing Group *
+                        </label>
+                        <select
+                          value={item.hazmatDetails?.packingGroup || ''}
+                          onChange={(e) => handleItemChange(index, 'hazmatDetails.packingGroup', e.target.value)}
+                          className={`w-full px-2 py-1 rounded border ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                          }`}
+                        >
+                          <option value="">Select</option>
+                          <option value="I">I</option>
+                          <option value="II">II</option>
+                          <option value="III">III</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                          Packaging Details
+                        </label>
+                        <input
+                          type="text"
+                          value={item.hazmatDetails?.packingDetails || ''}
+                          onChange={(e) => handleItemChange(index, 'hazmatDetails.packingDetails', e.target.value)}
+                          placeholder="4 Drums"
+                          className={`w-full px-2 py-1 rounded border ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                          }`}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                          24-Hour Emergency Phone
+                        </label>
+                        <input
+                          type="text"
+                          value={item.hazmatDetails?.emergencyPhone || ''}
+                          onChange={(e) => handleItemChange(index, 'hazmatDetails.emergencyPhone', e.target.value)}
+                          placeholder="1-800-424-9300"
+                          className={`w-full px-2 py-1 rounded border ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                          }`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Hazmat Certification - Only show if any item is hazmat */}
+        {hasHazmat && (
+          <div className={`mb-6 p-6 rounded-lg border-2 border-yellow-500 ${isDarkMode ? 'bg-yellow-900/20' : 'bg-yellow-50'} shadow-sm print:hidden`}>
+            <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+              <AlertTriangle className="inline w-5 h-5 mr-2" />
+              Hazmat Shipper Certification Required
+            </h2>
+            <p className={`text-sm ${isDarkMode ? 'text-yellow-300' : 'text-yellow-600'}`}>
+              This is to certify that the above-named materials are properly classified, described, packaged, marked, 
+              and labeled, and are in proper condition for transportation according to the applicable regulations of 
+              the Department of Transportation.
+            </p>
+            <div className="mt-4">
+              <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                Shipper Name (Print)
+              </label>
+              <input
+                type="text"
+                placeholder="Enter shipper's printed name"
+                className={`w-full max-w-md px-3 py-2 rounded border ${
+                  isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                }`}
+              />
+            </div>
+          </div>
+        )}
+      </>
+    );
   };
 
   return (
@@ -545,6 +851,9 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
             ))}
           </div>
         </div>
+
+        {/* Items Section with Hazmat */}
+        <ItemsSection />
 
         {/* Special Instructions */}
         <div className={`mb-6 p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm print:hidden`}>
