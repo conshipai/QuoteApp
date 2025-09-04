@@ -10,6 +10,7 @@ const Ground = lazy(() => import('./pages/customers/Ground'));
 const BookingsManagement = lazy(() => import('./pages/BookingsManagement'));
 const QuoteHistory = lazy(() => import('./pages/QuoteHistory'));
 const AddressBookPage = lazy(() => import('./pages/AddressBookPage'));  // NEW
+const ProductCatalogPage = lazy(() => import('./pages/ProductCatalogPage'));
 
 // Create placeholder components for routes that don't have pages yet
 const Placeholder = ({ title, isDarkMode }) => (
@@ -50,6 +51,7 @@ const QuotesModule = ({ shellContext, basename }) => {
           {/* All routes WITHOUT leading slashes - relative to basename */}
           <Route index element={<QuoteDashboard isDarkMode={isDarkMode} userRole={userRole} />} />
           <Route path="address-book" element={<AddressBookPage isDarkMode={isDarkMode} userRole={userRole} />} />  {/* NEW */}
+          <Route path="product-catalog" element={<ProductCatalogPage isDarkMode={isDarkMode} userRole={userRole} />} />
           <Route path="bookings" element={<BookingsManagement isDarkMode={isDarkMode} userRole={userRole} />} />
           <Route path="history" element={<QuoteHistory isDarkMode={isDarkMode} userRole={userRole} />} />
           <Route path="ground" element={<Ground isDarkMode={isDarkMode} userRole={userRole} />} />
