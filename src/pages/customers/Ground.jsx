@@ -109,53 +109,82 @@ const Ground = ({ isDarkMode, userRole }) => {
     setShowAddressBook(null);
   };
 
-  // ----- Handlers -----
-  const handleCommodityChange = (index, field, value) => {
-    setFormData(prev => {
-      const newCommodities = [...prev.commodities];
-      newCommodities[index][field] = value;
-
-      if (['weight', 'length', 'width', 'height', 'quantity'].includes(field)) {
-        const densityData = calculateDensity(newCommodities[index]);
-        newCommodities[index] = { ...newCommodities[index], ...densityData };
-      }
-
-      return { ...prev, commodities: newCommodities };
-    });
-  };
-
-  const addCommodity = () => {
-    setFormData(prev => ({
-      ...prev,
-      commodities: [
-        ...prev.commodities,
-        {
-          unitType: 'Pallets',
-          quantity: '1',
-          weight: '',
-          length: '',
-          width: '',
-          height: '',
-          description: '',
-          calculatedClass: '',
-          overrideClass: '',
-          useOverride: false,
-          density: null,
-          cubicFeet: null
+const handleCommodityChange = (index, field, value) => {
+  setFormData(prev => {
+    const newCommodities = [...prev.commodities];
+    
+    // Handle special cases for nested objects
+    if (field === 'hazmat') {
+      // When toggling hazmat, initialize or clear hazmatDetails
+      newCommodities[index] = {
+        ...newCommodities[index],
+        hazmat: value,
+        hazmatDetails: value ? {
+          unNumber: '',
+          properShippingName: '',
+          hazardClass: '',
+          packingGroup: '',
+          emergencyPhone: '1-800-424-9300'
+        } : null
+      };
+    } else if (field === 'hazmatDetails') {
+      // Handle entire hazmatDetails object update (from product catalog)
+      newCommodities[index] = {
+        ...newCommodities[index],
+        hazmatDetails: value
+      };
+    } else if (field.startsWith('hazmatDetails.')) {
+      // Handle individual hazmat detail field updates
+      const hazmatField = field.replace('hazmatDetails.', '');
+      newCommodities[index] = {
+        ...newCommodities[index],
+        hazmatDetails: {
+          ...(newCommodities[index].hazmatDetails || {}),
+          [hazmatField]: value
         }
-      ]
-    }));
-  };
+      };
+    } else {
+      // Handle all other fields normally
+      newCommodities[index][field] = value;
+    }
 
-  const removeCommodity = (index) => {
-    setFormData(prev => {
-      if (prev.commodities.length > 1) {
-        const newCommodities = prev.commodities.filter((_, i) => i !== index);
-        return { ...prev, commodities: newCommodities };
-      }
-      return prev;
-    });
-  };
+    // Recalculate density if dimensions or weight changed
+    if (['weight', 'length', 'width', 'height', 'quantity'].includes(field)) {
+      const densityData = calculateDensity(newCommodities[index]);
+      newCommodities[index] = { ...newCommodities[index], ...densityData };
+    }
+
+    return { ...prev, commodities: newCommodities };
+  });
+};
+
+// Also update the initial commodity structure to include nmfc and hazmat fields:
+const defaultCommodity = {
+  unitType: 'Pallets',
+  quantity: '1',
+  weight: '',
+  length: '',
+  width: '',
+  height: '',
+  description: '',
+  nmfc: '',  // Added NMFC field
+  calculatedClass: '',
+  overrideClass: '',
+  useOverride: false,
+  density: null,
+  cubicFeet: null,
+  hazmat: false,  // Added hazmat flag
+  hazmatDetails: null,  // Added hazmat details
+  notes: ''  // Added notes field
+};
+
+// Update the addCommodity function:
+const addCommodity = () => {
+  setFormData(prev => ({
+    ...prev,
+    commodities: [...prev.commodities, { ...defaultCommodity }]
+  }));
+};
 
   const toggleClassOverride = (index) => {
     setFormData(prev => {
