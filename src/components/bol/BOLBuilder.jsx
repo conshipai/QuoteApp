@@ -745,12 +745,18 @@ return (
               Print BOL
             </button>
             <button
-              onClick={handleSave}
-              disabled={generating}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2 disabled:opacity-60"
-            >
-              <Save className="w-4 h-4" />
-              {generating ? 'Saving...' : 'Save BOL'}
+                onClick={handleSave}
+                disabled={generating}
+                className={`px-4 py-2 rounded flex items-center gap-2 font-medium transition-colors ${
+                  generating 
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-60'
+                    : isDarkMode
+                      ? 'bg-green-600 text-white hover:bg-green-700'  // Dark mode: green bg, white text
+                      : 'bg-green-600 text-white hover:bg-green-700 shadow-md'  // Light mode: green bg, white text with shadow
+                }`}
+              >
+                <Save className="w-4 h-4" />
+                {generating ? 'Saving...' : 'Save BOL'}
             </button>
           </div>
         </div>
