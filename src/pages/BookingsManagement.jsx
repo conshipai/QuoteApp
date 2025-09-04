@@ -381,18 +381,19 @@ const BookingsManagement = ({ isDarkMode }) => {
                           </button>
                         </>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCreateBOL(booking);
-                          }}
-                          className="inline-flex items-center gap-1 px-3 py-2 rounded text-white bg-blue-600 hover:bg-blue-700 ring-1 ring-blue-700/40 shadow-sm"
-                          title="Create BOL"
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span className="text-xs font-medium">Create BOL</span>
-                        </button>
+                       <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCreateBOL(booking);
+                        }}
+                        className={`p-2 rounded flex items-center gap-1 ${
+                          'bg-green-600 hover:bg-green-700 text-white'  // Always white text
+                        }`}
+                        title="Create BOL"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span className="text-xs font-medium">Create BOL</span>
+                      </button>
                       )}
                     </div>
                   </div>
