@@ -941,7 +941,7 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
 
         {/* BOL Preview — ALWAYS render as white/black and printable */}
         <div className="bg-white shadow-lg rounded-lg overflow-hidden print:shadow-none print:rounded-none">
-          <div id="bol-template" ref={bolRef} className="print:bg-white">
+          <div ref={bolRef} className="print:bg-white">
             <BOLTemplate 
               bolData={bolData}
               booking={booking}
@@ -1008,6 +1008,25 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
             page-break-after: avoid;
             page-break-inside: avoid;
           }
+        }
+
+        /* Force BOL template to always have white background and black text */
+        #bol-template {
+          background-color: white !important;
+          color: black !important;
+        }
+        #bol-template * {
+          color: black !important;
+          background-color: transparent !important;
+        }
+        #bol-template .bg-gray-100 { background-color: #f3f4f6 !important; }
+        #bol-template .bg-gray-200 { background-color: #e5e7eb !important; }
+        #bol-template .border-black { border-color: black !important; }
+        #bol-template input,
+        #bol-template select,
+        #bol-template textarea {
+          color: black !important;
+          background-color: white !important;
         }
       `}</style>
     </div>
