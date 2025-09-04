@@ -129,6 +129,39 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
     };
   }, [requestId, status]);
 
+  // ─────────────────────────────────────────────────────────────
+  // NEW: After quotes loaded / status settled, check booking and redirect
+  // (mirrors your requested snippet; triggers when status is no longer loading)
+  // ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!requestId) return;
+
+    // Only check once the request is not in a polling state
+    const isSettled = status !== 'PROCESSING' && status !== 'PENDING';
+    if (!isSettled) return;
+
+    const checkBookingStatus = async () => {
+      try {
+        const bookingResponse = await fetch(`${API_BASE}/bookings/by-request/${requestId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+          }
+        });
+
+        if (bookingResponse.ok) {
+          const bookingData = await bookingResponse.json();
+          if (bookingData.success && bookingData.booking && bookingData.booking.bookingId) {
+            navigate(`/app/quotes/bookings/${bookingData.booking.bookingId}`);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking booking status:', error);
+      }
+    };
+
+    checkBookingStatus();
+  }, [requestId, status, navigate]);
+
   // --- BOOKING: create booking from selected quote ---
   const handleBookShipment = async () => {
     if (selectedQuote === null) return;
@@ -322,7 +355,7 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
                   ${Number(quote.final_price || 0).toFixed(2)}
                 </div>
                 <div className={`text-xs mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                  Base: ${Number(quote.raw_cost || 0).toFixed(2)} | Fuel:{' '}
+                  Base: ${Number(quote.raw_cost || 0).toFixed(2)} | Fuel{' '}
                   {
                     typeof quote.fuel_surcharge === 'number'
                       ? quote.fuel_surcharge.toFixed(2)
