@@ -19,7 +19,7 @@ const Ground = ({ isDarkMode, userRole }) => {
   const [loading, setLoading] = useState(false);
   const [serviceType, setServiceType] = useState(null);
   const [zipLoading, setZipLoading] = useState({ origin: false, dest: false });
-  const [showAddressBook, setShowAddressBook] = useState(null); // 'origin' or 'destination' or null
+  const [showAddressBook, setShowAddressBook] = useState(null); // 'origin' | 'destination' | null
   const [savedAddresses, setSavedAddresses] = useState([]);
 
   // Results state
@@ -56,7 +56,11 @@ const Ground = ({ isDarkMode, userRole }) => {
         overrideClass: '',
         useOverride: false,
         density: null,
-        cubicFeet: null
+        cubicFeet: null,
+        nmfc: '',
+        hazmat: false,
+        hazmatDetails: null,
+        notes: ''
       }
     ],
     // Accessorials
@@ -68,139 +72,137 @@ const Ground = ({ isDarkMode, userRole }) => {
     limitedAccessDelivery: false
   });
 
-  // Load saved addresses on component mount
+  // ─────────────────────────────────────────────────────────────
+  // Effects
+  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     loadSavedAddresses();
   }, []);
 
+  // ─────────────────────────────────────────────────────────────
+  // Helpers
+  // ─────────────────────────────────────────────────────────────
   const loadSavedAddresses = async () => {
     const result = await addressBookApi.getCompanies();
-    if (result.success) {
-      setSavedAddresses(result.companies);
-      
+    if (result?.success) {
+      setSavedAddresses(result.companies || []);
+
       // Auto-fill with default shipper if exists
-      const defaultShipper = result.companies.find(c => c.type === 'shipper' && c.isDefault);
-      if (defaultShipper) {
-        handleAddressSelect(defaultShipper, 'origin');
-      }
+      const defaultShipper = (result.companies || []).find(
+        (c) => c.type === 'shipper' && c.isDefault
+      );
+      if (defaultShipper) handleAddressSelect(defaultShipper, 'origin');
     }
   };
 
   const handleAddressSelect = (company, type) => {
+    if (!company) return;
     if (type === 'origin') {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        originZip: company.zip,
-        originCity: company.city,
-        originState: company.state,
-        originAddress: company.address,
-        originCompany: company.name
+        originZip: company.zip || '',
+        originCity: company.city || '',
+        originState: company.state || '',
+        originAddress: company.address || '',
+        originCompany: company.name || ''
       }));
     } else {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        destZip: company.zip,
-        destCity: company.city,
-        destState: company.state,
-        destAddress: company.address,
-        destCompany: company.name
+        destZip: company.zip || '',
+        destCity: company.city || '',
+        destState: company.state || '',
+        destAddress: company.address || '',
+        destCompany: company.name || ''
       }));
     }
     setShowAddressBook(null);
   };
 
-const handleCommodityChange = (index, field, value) => {
-  setFormData(prev => {
-    const newCommodities = [...prev.commodities];
-    
-    // Handle special cases for nested objects
-    if (field === 'hazmat') {
-      // When toggling hazmat, initialize or clear hazmatDetails
-      newCommodities[index] = {
-        ...newCommodities[index],
-        hazmat: value,
-        hazmatDetails: value ? {
-          unNumber: '',
-          properShippingName: '',
-          hazardClass: '',
-          packingGroup: '',
-          emergencyPhone: '1-800-424-9300'
-        } : null
-      };
-    } else if (field === 'hazmatDetails') {
-      // Handle entire hazmatDetails object update (from product catalog)
-      newCommodities[index] = {
-        ...newCommodities[index],
-        hazmatDetails: value
-      };
-    } else if (field.startsWith('hazmatDetails.')) {
-      // Handle individual hazmat detail field updates
-      const hazmatField = field.replace('hazmatDetails.', '');
-      newCommodities[index] = {
-        ...newCommodities[index],
-        hazmatDetails: {
-          ...(newCommodities[index].hazmatDetails || {}),
-          [hazmatField]: value
-        }
-      };
-    } else {
-      // Handle all other fields normally
-      newCommodities[index][field] = value;
-    }
+  const handleCommodityChange = (index, field, value) => {
+    setFormData((prev) => {
+      const newCommodities = [...prev.commodities];
 
-    // Recalculate density if dimensions or weight changed
-    if (['weight', 'length', 'width', 'height', 'quantity'].includes(field)) {
-      const densityData = calculateDensity(newCommodities[index]);
-      newCommodities[index] = { ...newCommodities[index], ...densityData };
-    }
+      if (field === 'hazmat') {
+        newCommodities[index] = {
+          ...newCommodities[index],
+          hazmat: value,
+          hazmatDetails: value
+            ? {
+                unNumber: '',
+                properShippingName: '',
+                hazardClass: '',
+                packingGroup: '',
+                emergencyPhone: '1-800-424-9300'
+              }
+            : null
+        };
+      } else if (field === 'hazmatDetails') {
+        newCommodities[index] = {
+          ...newCommodities[index],
+          hazmatDetails: value
+        };
+      } else if (field.startsWith('hazmatDetails.')) {
+        const hazmatField = field.replace('hazmatDetails.', '');
+        newCommodities[index] = {
+          ...newCommodities[index],
+          hazmatDetails: {
+            ...(newCommodities[index].hazmatDetails || {}),
+            [hazmatField]: value
+          }
+        };
+      } else {
+        newCommodities[index][field] = value;
+      }
 
-    return { ...prev, commodities: newCommodities };
-  });
-};
+      if (['weight', 'length', 'width', 'height', 'quantity'].includes(field)) {
+        const densityData = calculateDensity(newCommodities[index]);
+        newCommodities[index] = { ...newCommodities[index], ...densityData };
+      }
 
-// Also update the initial commodity structure to include nmfc and hazmat fields:
-const defaultCommodity = {
-  unitType: 'Pallets',
-  quantity: '1',
-  weight: '',
-  length: '',
-  width: '',
-  height: '',
-  description: '',
-  nmfc: '',  // Added NMFC field
-  calculatedClass: '',
-  overrideClass: '',
-  useOverride: false,
-  density: null,
-  cubicFeet: null,
-  hazmat: false,  // Added hazmat flag
-  hazmatDetails: null,  // Added hazmat details
-  notes: ''  // Added notes field
-};
+      return { ...prev, commodities: newCommodities };
+    });
+  };
 
-// Update the addCommodity function:
-const addCommodity = () => {
-  setFormData(prev => ({
-    ...prev,
-    commodities: [...prev.commodities, { ...defaultCommodity }]
-  }));
-};
-const removeCommodity = (index) => {
-  setFormData(prev => {
-    // Don't allow removing the last commodity
-    if (prev.commodities.length > 1) {
+  const defaultCommodity = {
+    unitType: 'Pallets',
+    quantity: '1',
+    weight: '',
+    length: '',
+    width: '',
+    height: '',
+    description: '',
+    nmfc: '',
+    calculatedClass: '',
+    overrideClass: '',
+    useOverride: false,
+    density: null,
+    cubicFeet: null,
+    hazmat: false,
+    hazmatDetails: null,
+    notes: ''
+  };
+
+  const addCommodity = () => {
+    setFormData((prev) => ({
+      ...prev,
+      commodities: [...prev.commodities, { ...defaultCommodity }]
+    }));
+  };
+
+  // ✅ removeCommodity is correctly scoped inside the component, not nested
+  const removeCommodity = (index) => {
+    setFormData((prev) => {
+      if (prev.commodities.length <= 1) return prev; // keep at least one row
       return {
         ...prev,
         commodities: prev.commodities.filter((_, i) => i !== index)
       };
-    }
-    return prev;
-  });
-};
+    });
+  };
 
-const toggleClassOverride = (index) => {
   const toggleClassOverride = (index) => {
-    setFormData(prev => {
+    setFormData((prev) => {
       const newCommodities = [...prev.commodities];
       newCommodities[index].useOverride = !newCommodities[index].useOverride;
       if (!newCommodities[index].useOverride) {
@@ -211,7 +213,7 @@ const toggleClassOverride = (index) => {
   };
 
   const handleAccessorialChange = (key, value) => {
-    setFormData(prev => ({ ...prev, [key]: value }));
+    setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
   // ===== Updated handleSubmit to use real API method =====
@@ -225,10 +227,10 @@ const toggleClassOverride = (index) => {
     if (!formData.destState) errors.push('Destination state required');
     if (!formData.pickupDate) errors.push('Pickup date required');
 
-    formData.commodities.forEach((item, index) => {
-      if (!item.weight) errors.push(`Item ${index + 1}: Weight required`);
+    formData.commodities.forEach((item, idx) => {
+      if (!item.weight) errors.push(`Item ${idx + 1}: Weight required`);
       if (!item.length || !item.width || !item.height) {
-        errors.push(`Item ${index + 1}: All dimensions required`);
+        errors.push(`Item ${idx + 1}: All dimensions required`);
       }
     });
 
@@ -239,111 +241,116 @@ const toggleClassOverride = (index) => {
 
     setLoading(true);
 
-    // Include ALL form data including company/address info
     const completeFormData = {
       ...formData,
-      // Ensure all address fields are included
       originCompany: formData.originCompany || '',
       originAddress: formData.originAddress || '',
       destCompany: formData.destCompany || '',
       destAddress: formData.destAddress || ''
     };
 
-    // USE THE NEW API METHOD with complete data
-    const result = await quoteApi.createGroundQuoteRequest(completeFormData, serviceType);
+    const result = await quoteApi.createGroundQuoteRequest(
+      completeFormData,
+      serviceType
+    );
 
-    if (result.success) {
-      // Store the complete form data for later use in booking
-      localStorage.setItem(`quote_formdata_${result.requestId}`, JSON.stringify(completeFormData));
-      
+    if (result?.success) {
+      localStorage.setItem(
+        `quote_formdata_${result.requestId}`,
+        JSON.stringify(completeFormData)
+      );
+
       setQuoteRequest({
         requestId: result.requestId,
         requestNumber: result.requestNumber
       });
       setShowResults(true);
     } else {
-      alert('Failed to create quote request: ' + (result.error || 'Unknown error'));
+      alert('Failed to create quote request: ' + (result?.error || 'Unknown error'));
     }
 
     setLoading(false);
   };
 
-  // Enhanced LocationSection component with Address Book button
-  const EnhancedLocationSection = ({ type, ...props }) => {
-    return (
-      <div className="relative">
-        <div className="absolute top-2 right-2 z-10">
-          <button
-            type="button"
-            onClick={() => setShowAddressBook(type)}
-            className={`px-3 py-1 rounded flex items-center gap-2 text-sm ${
-              isDarkMode 
-                ? 'bg-conship-orange text-white hover:bg-orange-600' 
-                : 'bg-conship-purple text-white hover:bg-purple-700'
-            }`}
-            title="Select from Address Book"
-          >
-            <Building2 className="w-4 h-4" />
-            Address Book
-          </button>
-        </div>
-        <LocationSection type={type} {...props} />
-        
-        {/* Show company name if selected from address book */}
-        {((type === 'origin' && formData.originCompany) || 
-          (type === 'destination' && formData.destCompany)) && (
-          <div className={`mt-2 px-3 py-2 rounded ${
-            isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
-          }`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {type === 'origin' ? formData.originCompany : formData.destCompany}
-                </p>
-                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  {type === 'origin' ? formData.originAddress : formData.destAddress}
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  if (type === 'origin') {
-                    setFormData(prev => ({
-                      ...prev,
-                      originCompany: '',
-                      originAddress: ''
-                    }));
-                  } else {
-                    setFormData(prev => ({
-                      ...prev,
-                      destCompany: '',
-                      destAddress: ''
-                    }));
-                  }
-                }}
-                className={`p-1 rounded hover:bg-gray-600`}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+  // Optional enhanced wrapper (not currently used)
+  const EnhancedLocationSection = ({ type, ...props }) => (
+    <div className="relative">
+      <div className="absolute top-2 right-2 z-10">
+        <button
+          type="button"
+          onClick={() => setShowAddressBook(type)}
+          className={`px-3 py-1 rounded flex items-center gap-2 text-sm ${
+            isDarkMode
+              ? 'bg-conship-orange text-white hover:bg-orange-600'
+              : 'bg-conship-purple text-white hover:bg-purple-700'
+          }`}
+          title="Select from Address Book"
+        >
+          <Building2 className="w-4 h-4" />
+          Address Book
+        </button>
       </div>
-    );
-  };
+      <LocationSection type={type} {...props} />
 
-  // ----- Early returns -----
+      {((type === 'origin' && formData.originCompany) ||
+        (type === 'destination' && formData.destCompany)) && (
+        <div
+          className={`mt-2 px-3 py-2 rounded ${
+            isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p
+                className={`text-sm font-medium ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
+                }`}
+              >
+                {type === 'origin' ? formData.originCompany : formData.destCompany}
+              </p>
+              <p
+                className={`text-xs ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                }`}
+              >
+                {type === 'origin' ? formData.originAddress : formData.destAddress}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                if (type === 'origin') {
+                  setFormData((prev) => ({
+                    ...prev,
+                    originCompany: '',
+                    originAddress: ''
+                  }));
+                } else {
+                  setFormData((prev) => ({
+                    ...prev,
+                    destCompany: '',
+                    destAddress: ''
+                  }));
+                }
+              }}
+              className="p-1 rounded hover:bg-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
-  // 1) No service type selected: show selector
+  // ─────────────────────────────────────────────────────────────
+  // Render branches
+  // ─────────────────────────────────────────────────────────────
   if (!serviceType) {
     return (
-      <ServiceTypeSelector
-        onSelect={setServiceType}
-        isDarkMode={isDarkMode}
-      />
+      <ServiceTypeSelector onSelect={setServiceType} isDarkMode={isDarkMode} />
     );
   }
 
-  // 2) Show results page (GroundQuoteResults)
   if (showResults && quoteRequest) {
     return (
       <GroundQuoteResults
@@ -360,14 +367,17 @@ const toggleClassOverride = (index) => {
     );
   }
 
-  // 3) Main screen (form)
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
-            <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            <h1
+              className={`text-2xl font-bold ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}
+            >
               {serviceType.toUpperCase()} Freight Quote
             </h1>
             <button
@@ -382,7 +392,8 @@ const toggleClassOverride = (index) => {
             </button>
           </div>
           <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            Select from address book or enter 5-digit ZIP codes for automatic city/state lookup
+            Select from address book or enter 5-digit ZIP codes for automatic
+            city/state lookup
           </p>
         </div>
 
@@ -395,8 +406,8 @@ const toggleClassOverride = (index) => {
                 type="button"
                 onClick={() => setShowAddressBook('origin')}
                 className={`px-3 py-1 rounded flex items-center gap-2 text-sm ${
-                  isDarkMode 
-                    ? 'bg-conship-orange text-white hover:bg-orange-600' 
+                  isDarkMode
+                    ? 'bg-conship-orange text-white hover:bg-orange-600'
                     : 'bg-conship-purple text-white hover:bg-purple-700'
                 }`}
                 title="Select from Address Book"
@@ -410,37 +421,48 @@ const toggleClassOverride = (index) => {
               zip={formData.originZip}
               city={formData.originCity}
               state={formData.originState}
-              onZipChange={(value) => setFormData(prev => ({ ...prev, originZip: value }))}
-              onCityChange={(value) => setFormData(prev => ({ ...prev, originCity: value }))}
-              onStateChange={(value) => setFormData(prev => ({ ...prev, originState: value }))}
+              onZipChange={(v) => setFormData((p) => ({ ...p, originZip: v }))}
+              onCityChange={(v) => setFormData((p) => ({ ...p, originCity: v }))}
+              onStateChange={(v) => setFormData((p) => ({ ...p, originState: v }))}
               isDarkMode={isDarkMode}
               loading={zipLoading.origin}
-              onSetLoading={(loading) => setZipLoading(prev => ({ ...prev, origin: loading }))}
+              onSetLoading={(loading) =>
+                setZipLoading((prev) => ({ ...prev, origin: loading }))
+              }
             />
-            
-            {/* Show company name if selected from address book */}
+
             {formData.originCompany && (
-              <div className={`mt-2 px-3 py-2 rounded ${
-                isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
-              }`}>
+              <div
+                className={`mt-2 px-3 py-2 rounded ${
+                  isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
+                }`}
+              >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    <p
+                      className={`text-sm font-medium ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`}
+                    >
                       {formData.originCompany}
                     </p>
-                    <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    <p
+                      className={`text-xs ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}
+                    >
                       {formData.originAddress}
                     </p>
                   </div>
                   <button
-                    onClick={() => {
-                      setFormData(prev => ({
+                    onClick={() =>
+                      setFormData((prev) => ({
                         ...prev,
                         originCompany: '',
                         originAddress: ''
-                      }));
-                    }}
-                    className={`p-1 rounded hover:bg-gray-600`}
+                      }))
+                    }
+                    className="p-1 rounded hover:bg-gray-600"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -456,8 +478,8 @@ const toggleClassOverride = (index) => {
                 type="button"
                 onClick={() => setShowAddressBook('destination')}
                 className={`px-3 py-1 rounded flex items-center gap-2 text-sm ${
-                  isDarkMode 
-                    ? 'bg-conship-orange text-white hover:bg-orange-600' 
+                  isDarkMode
+                    ? 'bg-conship-orange text-white hover:bg-orange-600'
                     : 'bg-conship-purple text-white hover:bg-purple-700'
                 }`}
                 title="Select from Address Book"
@@ -471,37 +493,48 @@ const toggleClassOverride = (index) => {
               zip={formData.destZip}
               city={formData.destCity}
               state={formData.destState}
-              onZipChange={(value) => setFormData(prev => ({ ...prev, destZip: value }))}
-              onCityChange={(value) => setFormData(prev => ({ ...prev, destCity: value }))}
-              onStateChange={(value) => setFormData(prev => ({ ...prev, destState: value }))}
+              onZipChange={(v) => setFormData((p) => ({ ...p, destZip: v }))}
+              onCityChange={(v) => setFormData((p) => ({ ...p, destCity: v }))}
+              onStateChange={(v) => setFormData((p) => ({ ...p, destState: v }))}
               isDarkMode={isDarkMode}
               loading={zipLoading.dest}
-              onSetLoading={(loading) => setZipLoading(prev => ({ ...prev, dest: loading }))}
+              onSetLoading={(loading) =>
+                setZipLoading((prev) => ({ ...prev, dest: loading }))
+              }
             />
-            
-            {/* Show company name if selected from address book */}
+
             {formData.destCompany && (
-              <div className={`mt-2 px-3 py-2 rounded ${
-                isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
-              }`}>
+              <div
+                className={`mt-2 px-3 py-2 rounded ${
+                  isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
+                }`}
+              >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    <p
+                      className={`text-sm font-medium ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`}
+                    >
                       {formData.destCompany}
                     </p>
-                    <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    <p
+                      className={`text-xs ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}
+                    >
                       {formData.destAddress}
                     </p>
                   </div>
                   <button
-                    onClick={() => {
-                      setFormData(prev => ({
+                    onClick={() =>
+                      setFormData((prev) => ({
                         ...prev,
                         destCompany: '',
                         destAddress: ''
-                      }));
-                    }}
-                    className={`p-1 rounded hover:bg-gray-600`}
+                      }))
+                    }
+                    className="p-1 rounded hover:bg-gray-600"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -512,10 +545,22 @@ const toggleClassOverride = (index) => {
         </div>
 
         {/* Pickup Date */}
-        <div className={`p-6 rounded-lg mb-6 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
+        <div
+          className={`p-6 rounded-lg mb-6 ${
+            isDarkMode ? 'bg-gray-800' : 'bg-white'
+          } shadow-sm`}
+        >
           <div className="flex items-center mb-4">
-            <Calendar className={`w-5 h-5 mr-2 ${isDarkMode ? 'text-conship-orange' : 'text-conship-purple'}`} />
-            <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            <Calendar
+              className={`w-5 h-5 mr-2 ${
+                isDarkMode ? 'text-conship-orange' : 'text-conship-purple'
+              }`}
+            />
+            <h2
+              className={`text-lg font-semibold ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}
+            >
               Pickup Date
             </h2>
           </div>
@@ -523,7 +568,9 @@ const toggleClassOverride = (index) => {
           <input
             type="date"
             value={formData.pickupDate}
-            onChange={(e) => setFormData(prev => ({ ...prev, pickupDate: e.target.value }))}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, pickupDate: e.target.value }))
+            }
             min={new Date().toISOString().split('T')[0]}
             className={`px-3 py-2 rounded border ${
               isDarkMode
@@ -567,10 +614,10 @@ const toggleClassOverride = (index) => {
             disabled={loading}
             className={`px-6 py-2 rounded font-medium ${
               loading
-                ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                ? 'bg-gray-400 text-gray-2 00 cursor-not-allowed'
                 : isDarkMode
-                  ? 'bg-conship-orange text-white hover:bg-orange-600'
-                  : 'bg-conship-purple text-white hover:bg-purple-700'
+                ? 'bg-conship-orange text-white hover:bg-orange-600'
+                : 'bg-conship-purple text-white hover:bg-purple-700'
             }`}
           >
             {loading ? 'Generating...' : 'Generate Quote'}
@@ -581,21 +628,27 @@ const toggleClassOverride = (index) => {
       {/* Address Book Modal */}
       {showAddressBook && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className={`max-w-4xl w-full max-h-[80vh] overflow-y-auto rounded-lg ${
-            isDarkMode ? 'bg-gray-800' : 'bg-white'
-          } p-6`}>
+          <div
+            className={`max-w-4xl w-full max-h-[80vh] overflow-y-auto rounded-lg ${
+              isDarkMode ? 'bg-gray-800' : 'bg-white'
+            } p-6`}
+          >
             <div className="flex items-center justify-between mb-4">
-              <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2
+                className={`text-xl font-bold ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
+                }`}
+              >
                 Select {showAddressBook === 'origin' ? 'Origin' : 'Destination'} Address
               </h2>
               <button
                 onClick={() => setShowAddressBook(null)}
-                className={`p-2 rounded hover:bg-gray-700`}
+                className="p-2 rounded hover:bg-gray-700"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <AddressBook
               isDarkMode={isDarkMode}
               onSelect={(company) => handleAddressSelect(company, showAddressBook)}
