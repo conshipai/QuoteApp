@@ -1,11 +1,18 @@
+// src/components/ground/GroundQuoteResults.jsx
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom'; // ADDED
 import { Check, Clock, Truck, AlertCircle, Package, MapPin } from 'lucide-react';
+import { API_BASE } from '../../config/api'; // ADDED
 import quoteApi from '../../services/quoteApi';
-import bookingApi from '../../services/bookingApi';  // ADDED
-import BookingConfirmation from './BookingConfirmation';  // ADDED
-import BOLBuilder from '../bol/BOLBuilder';  // ADDED
+import bookingApi from '../../services/bookingApi';  // EXISTING
+import BookingConfirmation from './BookingConfirmation';  // EXISTING
+import BOLBuilder from '../bol/BOLBuilder';  // EXISTING
 
-const GroundQuoteResults = ({ requestId, requestNumber, serviceType, formData = {}, onBack, isDarkMode }) => {
+const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceType, formData = {}, onBack, isDarkMode }) => {
+  const navigate = useNavigate(); // ADDED
+  const { requestId: requestIdParam } = useParams(); // ADDED
+  const requestId = requestIdProp || requestIdParam; // ADDED - prefer prop, fallback to route param
+
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('PROCESSING');
   const [quotes, setQuotes] = useState([]);
@@ -17,7 +24,39 @@ const GroundQuoteResults = ({ requestId, requestNumber, serviceType, formData = 
   const [bookingData, setBookingData] = useState(null);
   const [showBOL, setShowBOL] = useState(false);
 
+  // ─────────────────────────────────────────────────────────────
+  // Step 2 — "Check if booked" on mount; redirect to booking page
+  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
+    let mounted = true;
+    if (!requestId) return;
+
+    const checkBookingStatus = async () => {
+      try {
+        const resp = await fetch(`${API_BASE}/bookings/by-request/${requestId}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` }
+        });
+        if (!mounted) return;
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.success && data.booking && data.booking.bookingId) {
+            navigate(`/app/quotes/bookings/${data.booking.bookingId}`);
+          }
+        }
+      } catch (err) {
+        console.error('Error checking booking status:', err);
+      }
+    };
+
+    checkBookingStatus();
+    return () => { mounted = false; };
+  }, [requestId, navigate]);
+
+  // ─────────────────────────────────────────────────────────────
+  // Quote polling
+  // ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!requestId) return;
     let isMounted = true;
 
     const fetchResults = async () => {
@@ -284,7 +323,7 @@ const GroundQuoteResults = ({ requestId, requestNumber, serviceType, formData = 
                 </div>
                 <div className={`text-xs mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                   Base: ${Number(quote.raw_cost || 0).toFixed(2)} | Fuel:{' '}
-                  ${
+                  {
                     typeof quote.fuel_surcharge === 'number'
                       ? quote.fuel_surcharge.toFixed(2)
                       : (quote.fuel_surcharge || '0.00')
