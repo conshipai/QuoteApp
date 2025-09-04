@@ -196,7 +196,262 @@ const AddressForm = React.memo(({ type, data, onChange, isDarkMode, setShowAddre
     </div>
   );
 });
-
+ const ItemsSection = React.memo(({ bolData, isDarkMode, handleItemChange }) => {
+    const hasHazmat = bolData.items.some(item => item.hazmat);
+    
+    return (
+      <>
+        <div className={`mb-6 p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm print:hidden`}>
+          <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Commodity Items
+          </h2>
+          
+          <div className="space-y-4">
+            {bolData.items.map((item, index) => (
+              <div key={index} className={`p-4 border rounded-lg ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="grid grid-cols-4 gap-3 mb-3">
+                  <div>
+                    <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Qty
+                    </label>
+                    <input
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                      className={`w-full px-2 py-1 rounded border ${
+                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                      }`}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Unit Type
+                    </label>
+                    <select
+                      value={item.unitType}
+                      onChange={(e) => handleItemChange(index, 'unitType', e.target.value)}
+                      className={`w-full px-2 py-1 rounded border ${
+                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                      }`}
+                    >
+                      <option>Pallets</option>
+                      <option>Boxes</option>
+                      <option>Crates</option>
+                      <option>Skids</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Weight (lbs)
+                    </label>
+                    <input
+                      type="number"
+                      value={item.weight}
+                      onChange={(e) => handleItemChange(index, 'weight', e.target.value)}
+                      className={`w-full px-2 py-1 rounded border ${
+                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                      }`}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Class
+                    </label>
+                    <input
+                      type="text"
+                      value={item.class}
+                      onChange={(e) => handleItemChange(index, 'class', e.target.value)}
+                      className={`w-full px-2 py-1 rounded border ${
+                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                      }`}
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Description
+                    </label>
+                    <input
+                      type="text"
+                      value={item.description}
+                      onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                      className={`w-full px-2 py-1 rounded border ${
+                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                      }`}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      NMFC #
+                    </label>
+                    <input
+                      type="text"
+                      value={item.nmfc}
+                      onChange={(e) => handleItemChange(index, 'nmfc', e.target.value)}
+                      placeholder="Optional"
+                      className={`w-full px-2 py-1 rounded border ${
+                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                      }`}
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                  <label className={`flex items-center ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <input
+                      type="checkbox"
+                      checked={item.hazmat}
+                      onChange={(e) => handleItemChange(index, 'hazmat', e.target.checked)}
+                      className="mr-2"
+                    />
+                    <AlertTriangle className="w-4 h-4 mr-1 text-yellow-500" />
+                    Hazmat
+                  </label>
+                </div>
+                
+                {/* Hazmat Details - Only show if item is marked as hazmat */}
+                {item.hazmat && (
+                  <div className={`mt-3 p-3 border-2 border-yellow-500 rounded-lg ${isDarkMode ? 'bg-yellow-900/20' : 'bg-yellow-50'}`}>
+                    <h4 className={`font-semibold mb-2 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                      Hazmat Details Required
+                    </h4>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                          UN Number *
+                        </label>
+                        <input
+                          type="text"
+                          value={item.hazmatDetails?.unNumber || ''}
+                          onChange={(e) => handleItemChange(index, 'hazmatDetails.unNumber', e.target.value)}
+                          placeholder="UN1203"
+                          className={`w-full px-2 py-1 rounded border ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                          }`}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                          Proper Shipping Name *
+                        </label>
+                        <input
+                          type="text"
+                          value={item.hazmatDetails?.properShippingName || ''}
+                          onChange={(e) => handleItemChange(index, 'hazmatDetails.properShippingName', e.target.value)}
+                          placeholder="Gasoline"
+                          className={`w-full px-2 py-1 rounded border ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                          }`}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                          Hazard Class *
+                        </label>
+                        <input
+                          type="text"
+                          value={item.hazmatDetails?.hazardClass || ''}
+                          onChange={(e) => handleItemChange(index, 'hazmatDetails.hazardClass', e.target.value)}
+                          placeholder="3"
+                          className={`w-full px-2 py-1 rounded border ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                          }`}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                          Packing Group *
+                        </label>
+                        <select
+                          value={item.hazmatDetails?.packingGroup || ''}
+                          onChange={(e) => handleItemChange(index, 'hazmatDetails.packingGroup', e.target.value)}
+                          className={`w-full px-2 py-1 rounded border ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                          }`}
+                        >
+                          <option value="">Select</option>
+                          <option value="N/A">N/A</option>
+                          <option value="I">I</option>
+                          <option value="II">II</option>
+                          <option value="III">III</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                          Packaging Details
+                        </label>
+                        <input
+                          type="text"
+                          value={item.hazmatDetails?.packingDetails || ''}
+                          onChange={(e) => handleItemChange(index, 'hazmatDetails.packingDetails', e.target.value)}
+                          placeholder="4 Drums"
+                          className={`w-full px-2 py-1 rounded border ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                          }`}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                          24-Hour Emergency Phone
+                        </label>
+                        <input
+                          type="text"
+                          value={item.hazmatDetails?.emergencyPhone || ''}
+                          onChange={(e) => handleItemChange(index, 'hazmatDetails.emergencyPhone', e.target.value)}
+                          placeholder="1-800-424-9300"
+                          className={`w-full px-2 py-1 rounded border ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                          }`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Hazmat Certification - Only show if any item is hazmat */}
+        {hasHazmat && (
+          <div className={`mb-6 p-6 rounded-lg border-2 border-yellow-500 ${isDarkMode ? 'bg-yellow-900/20' : 'bg-yellow-50'} shadow-sm print:hidden`}>
+            <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+              <AlertTriangle className="inline w-5 h-5 mr-2" />
+              Hazmat Shipper Certification Required
+            </h2>
+            <p className={`text-sm ${isDarkMode ? 'text-yellow-300' : 'text-yellow-600'}`}>
+              This is to certify that the above-named materials are properly classified, described, packaged, marked, 
+              and labeled, and are in proper condition for transportation according to the applicable regulations of 
+              the Department of Transportation.
+            </p>
+            <div className="mt-4">
+              <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                Shipper Name (Print)
+              </label>
+              <input
+                type="text"
+                placeholder="Enter shipper's printed name"
+                className={`w-full max-w-md px-3 py-2 rounded border ${
+                  isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                }`}
+              />
+            </div>
+          </div>
+        )}
+      </>
+    );
+  });
 const BOLBuilder = ({ booking, isDarkMode }) => {
   const bolRef = useRef();
   const [generating, setGenerating] = useState(false);
@@ -474,263 +729,7 @@ const initialAccessorialText =
   };
 
   // Commodity Items section with Hazmat
-  const ItemsSection = () => {
-    const hasHazmat = bolData.items.some(item => item.hazmat);
-    
-    return (
-      <>
-        <div className={`mb-6 p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm print:hidden`}>
-          <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            Commodity Items
-          </h2>
-          
-          <div className="space-y-4">
-            {bolData.items.map((item, index) => (
-              <div key={index} className={`p-4 border rounded-lg ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                <div className="grid grid-cols-4 gap-3 mb-3">
-                  <div>
-                    <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Qty
-                    </label>
-                    <input
-                      type="number"
-                      value={item.quantity}
-                      onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                      className={`w-full px-2 py-1 rounded border ${
-                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
-                      }`}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Unit Type
-                    </label>
-                    <select
-                      value={item.unitType}
-                      onChange={(e) => handleItemChange(index, 'unitType', e.target.value)}
-                      className={`w-full px-2 py-1 rounded border ${
-                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
-                      }`}
-                    >
-                      <option>Pallets</option>
-                      <option>Boxes</option>
-                      <option>Crates</option>
-                      <option>Skids</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Weight (lbs)
-                    </label>
-                    <input
-                      type="number"
-                      value={item.weight}
-                      onChange={(e) => handleItemChange(index, 'weight', e.target.value)}
-                      className={`w-full px-2 py-1 rounded border ${
-                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
-                      }`}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Class
-                    </label>
-                    <input
-                      type="text"
-                      value={item.class}
-                      onChange={(e) => handleItemChange(index, 'class', e.target.value)}
-                      className={`w-full px-2 py-1 rounded border ${
-                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
-                      }`}
-                    />
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div>
-                    <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Description
-                    </label>
-                    <input
-                      type="text"
-                      value={item.description}
-                      onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                      className={`w-full px-2 py-1 rounded border ${
-                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
-                      }`}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      NMFC #
-                    </label>
-                    <input
-                      type="text"
-                      value={item.nmfc}
-                      onChange={(e) => handleItemChange(index, 'nmfc', e.target.value)}
-                      placeholder="Optional"
-                      className={`w-full px-2 py-1 rounded border ${
-                        isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
-                      }`}
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-4">
-                  <label className={`flex items-center ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    <input
-                      type="checkbox"
-                      checked={item.hazmat}
-                      onChange={(e) => handleItemChange(index, 'hazmat', e.target.checked)}
-                      className="mr-2"
-                    />
-                    <AlertTriangle className="w-4 h-4 mr-1 text-yellow-500" />
-                    Hazmat
-                  </label>
-                </div>
-                
-                {/* Hazmat Details - Only show if item is marked as hazmat */}
-                {item.hazmat && (
-                  <div className={`mt-3 p-3 border-2 border-yellow-500 rounded-lg ${isDarkMode ? 'bg-yellow-900/20' : 'bg-yellow-50'}`}>
-                    <h4 className={`font-semibold mb-2 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
-                      Hazmat Details Required
-                    </h4>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
-                          UN Number *
-                        </label>
-                        <input
-                          type="text"
-                          value={item.hazmatDetails?.unNumber || ''}
-                          onChange={(e) => handleItemChange(index, 'hazmatDetails.unNumber', e.target.value)}
-                          placeholder="UN1203"
-                          className={`w-full px-2 py-1 rounded border ${
-                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
-                          }`}
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
-                          Proper Shipping Name *
-                        </label>
-                        <input
-                          type="text"
-                          value={item.hazmatDetails?.properShippingName || ''}
-                          onChange={(e) => handleItemChange(index, 'hazmatDetails.properShippingName', e.target.value)}
-                          placeholder="Gasoline"
-                          className={`w-full px-2 py-1 rounded border ${
-                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
-                          }`}
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
-                          Hazard Class *
-                        </label>
-                        <input
-                          type="text"
-                          value={item.hazmatDetails?.hazardClass || ''}
-                          onChange={(e) => handleItemChange(index, 'hazmatDetails.hazardClass', e.target.value)}
-                          placeholder="3"
-                          className={`w-full px-2 py-1 rounded border ${
-                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
-                          }`}
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
-                          Packing Group *
-                        </label>
-                        <select
-                          value={item.hazmatDetails?.packingGroup || ''}
-                          onChange={(e) => handleItemChange(index, 'hazmatDetails.packingGroup', e.target.value)}
-                          className={`w-full px-2 py-1 rounded border ${
-                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
-                          }`}
-                        >
-                          <option value="">Select</option>
-                          <option value="I">I</option>
-                          <option value="II">II</option>
-                          <option value="III">III</option>
-                        </select>
-                      </div>
-                      
-                      <div>
-                        <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
-                          Packaging Details
-                        </label>
-                        <input
-                          type="text"
-                          value={item.hazmatDetails?.packingDetails || ''}
-                          onChange={(e) => handleItemChange(index, 'hazmatDetails.packingDetails', e.target.value)}
-                          placeholder="4 Drums"
-                          className={`w-full px-2 py-1 rounded border ${
-                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
-                          }`}
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
-                          24-Hour Emergency Phone
-                        </label>
-                        <input
-                          type="text"
-                          value={item.hazmatDetails?.emergencyPhone || ''}
-                          onChange={(e) => handleItemChange(index, 'hazmatDetails.emergencyPhone', e.target.value)}
-                          placeholder="1-800-424-9300"
-                          className={`w-full px-2 py-1 rounded border ${
-                            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
-                          }`}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-        
-        {/* Hazmat Certification - Only show if any item is hazmat */}
-        {hasHazmat && (
-          <div className={`mb-6 p-6 rounded-lg border-2 border-yellow-500 ${isDarkMode ? 'bg-yellow-900/20' : 'bg-yellow-50'} shadow-sm print:hidden`}>
-            <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
-              <AlertTriangle className="inline w-5 h-5 mr-2" />
-              Hazmat Shipper Certification Required
-            </h2>
-            <p className={`text-sm ${isDarkMode ? 'text-yellow-300' : 'text-yellow-600'}`}>
-              This is to certify that the above-named materials are properly classified, described, packaged, marked, 
-              and labeled, and are in proper condition for transportation according to the applicable regulations of 
-              the Department of Transportation.
-            </p>
-            <div className="mt-4">
-              <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
-                Shipper Name (Print)
-              </label>
-              <input
-                type="text"
-                placeholder="Enter shipper's printed name"
-                className={`w-full max-w-md px-3 py-2 rounded border ${
-                  isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
-                }`}
-              />
-            </div>
-          </div>
-        )}
-      </>
-    );
-  };
-
-  return (
+return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="max-w-7xl mx-auto p-6">
         {/* Header Controls */}
@@ -860,7 +859,7 @@ const initialAccessorialText =
         </div>
 
         {/* Items Section with Hazmat */}
-        <ItemsSection />
+        <ItemsSection bolData={bolData} isDarkMode={isDarkMode} handleItemChange={handleItemChange} />
 
         {/* Special Instructions */}
         <div className={`mb-6 p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm print:hidden`}>
