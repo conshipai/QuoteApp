@@ -185,7 +185,20 @@ const addCommodity = () => {
     commodities: [...prev.commodities, { ...defaultCommodity }]
   }));
 };
+const removeCommodity = (index) => {
+  setFormData(prev => {
+    // Don't allow removing the last commodity
+    if (prev.commodities.length > 1) {
+      return {
+        ...prev,
+        commodities: prev.commodities.filter((_, i) => i !== index)
+      };
+    }
+    return prev;
+  });
+};
 
+const toggleClassOverride = (index) => {
   const toggleClassOverride = (index) => {
     setFormData(prev => {
       const newCommodities = [...prev.commodities];
