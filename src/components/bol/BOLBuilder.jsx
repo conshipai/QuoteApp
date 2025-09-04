@@ -22,7 +22,16 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
     : quoteNumber || `BOL-${Date.now()}`;
   
   const [bolNumber, setBolNumber] = useState(defaultBolNumber);
+const accessorialNotes = [];
+if (booking?.shipmentData?.formData?.liftgatePickup) accessorialNotes.push('Liftgate at Pickup');
+if (booking?.shipmentData?.formData?.liftgateDelivery) accessorialNotes.push('Liftgate at Delivery');
+if (booking?.shipmentData?.formData?.residentialDelivery) accessorialNotes.push('Residential Delivery');
+if (booking?.shipmentData?.formData?.insideDelivery) accessorialNotes.push('Inside Delivery');
+if (booking?.shipmentData?.formData?.limitedAccessPickup) accessorialNotes.push('Limited Access Pickup');
+if (booking?.shipmentData?.formData?.limitedAccessDelivery) accessorialNotes.push('Limited Access Delivery');
 
+const initialAccessorialText =
+  accessorialNotes.length > 0 ? `ACCESSORIALS: ${accessorialNotes.join(', ')}` : '';
   // Reference number types
   const referenceTypes = [
     'PO Number',
@@ -95,7 +104,7 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
       } : null
     })) || [],
     // Include accessorials from the quote
-    specialInstructions: '',
+    specialInstructions: initialAccessorialText,
     pickupInstructions: '',
     deliveryInstructions: '',
     // Track which accessorials were selected
