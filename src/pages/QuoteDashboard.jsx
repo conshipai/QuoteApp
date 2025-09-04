@@ -120,11 +120,11 @@ const QuoteDashboard = ({ isDarkMode, userRole }) => {
         </div>
 
         {/* Recent Quotes Component */}
-        <div className="mt-8">
+          <div className="mt-8">
           <RecentQuotes isDarkMode={isDarkMode} />
         </div>
       </div>
-    </div>  {/* This closing div was likely missing */}
+    </div>
   );
 };
 
