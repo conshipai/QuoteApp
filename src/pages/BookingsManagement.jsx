@@ -382,13 +382,12 @@ const BookingsManagement = ({ isDarkMode }) => {
                         </>
                       ) : (
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleCreateBOL(booking);
                           }}
-                          className={`p-2 rounded flex items-center gap-1 ${
-                            'bg-green-600 hover:bg-green-700 text-white'  // Removed isDarkMode check - always white text
-                          }`}
+                          className="inline-flex items-center gap-1 px-3 py-2 rounded text-white bg-blue-600 hover:bg-blue-700 ring-1 ring-blue-700/40 shadow-sm"
                           title="Create BOL"
                         >
                           <Plus className="w-4 h-4" />
@@ -471,14 +470,13 @@ const BookingsManagement = ({ isDarkMode }) => {
                           </button>
                         ) : (
                           <button
-                            onClick={() => handleCreateBOL(booking)}
-                            className={`w-full px-3 py-2 rounded text-sm font-medium ${
-                              'bg-green-600 text-white hover:bg-green-700'  // Always white text on green
-                            }`}
-                          >
-                            <Plus className="inline w-4 h-4 mr-2" />
-                            Create BOL
-                          </button>
+                          type="button"
+                          onClick={() => handleCreateBOL(booking)}
+                          className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 ring-1 ring-blue-700/40 shadow-sm"
+                        >
+                          <Plus className="inline w-4 h-4" />
+                          Create BOL
+                        </button>
                         )}
                         <button
                           className={`w-full px-3 py-1 rounded text-sm ${
