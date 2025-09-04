@@ -679,87 +679,123 @@ const initialAccessorialText =
     document.title = prevTitle;
   };
 
-  const handleSave = async () => {
-    // Validate required fields
-    const errors = [];
-    if (!bolData.shipper.name) errors.push('Shipper company name is required');
-    if (!bolData.shipper.address) errors.push('Shipper address is required');
-    if (!bolData.consignee.name) errors.push('Consignee company name is required');
-    if (!bolData.consignee.address) errors.push('Consignee address is required');
-    
-    // Validate hazmat details if any item is hazmat
-    bolData.items.forEach((item, index) => {
-      if (item.hazmat && item.hazmatDetails) {
-        if (!item.hazmatDetails.unNumber) errors.push(`Item ${index + 1}: UN Number required for hazmat`);
-        if (!item.hazmatDetails.properShippingName) errors.push(`Item ${index + 1}: Proper shipping name required`);
-        if (!item.hazmatDetails.hazardClass) errors.push(`Item ${index + 1}: Hazard class required`);
-      }
+const handleSave = async () => {
+  // Validate required fields
+  const errors = [];
+  if (!bolData.shipper.name) errors.push('Shipper company name is required');
+  if (!bolData.shipper.address) errors.push('Shipper address is required');
+  if (!bolData.consignee.name) errors.push('Consignee company name is required');
+  if (!bolData.consignee.address) errors.push('Consignee address is required');
+  
+  // Validate hazmat details if any item is hazmat
+  bolData.items.forEach((item, index) => {
+    if (item.hazmat && item.hazmatDetails) {
+      if (!item.hazmatDetails.unNumber) errors.push(`Item ${index + 1}: UN Number required for hazmat`);
+      if (!item.hazmatDetails.properShippingName) errors.push(`Item ${index + 1}: Proper shipping name required`);
+      if (!item.hazmatDetails.hazardClass) errors.push(`Item ${index + 1}: Hazard class required`);
+    }
+  });
+  
+  if (errors.length > 0) {
+    alert('Please complete required fields:\n' + errors.join('\n'));
+    return;
+  }
+
+  setGenerating(true);
+  try {
+    // Capture the BOL HTML content
+    const bolElement = document.getElementById('bol-template');
+    let htmlContent = '';
+    if (bolElement) {
+      const clonedElement = bolElement.cloneNode(true);
+      htmlContent = clonedElement.outerHTML;
+    }
+
+    const result = await bolApi.createBOL({
+      bookingId: booking.bookingId,
+      bolNumber: bolNumber,
+      bolData: bolData,
+      htmlContent: htmlContent
     });
     
-    if (errors.length > 0) {
-      alert('Please complete required fields:\n' + errors.join('\n'));
-      return;
-    }
-
-    setGenerating(true);
-    try {
-      // Capture the BOL HTML content
-      const bolElement = document.getElementById('bol-template');
-      let htmlContent = '';
-      if (bolElement) {
-        const clonedElement = bolElement.cloneNode(true);
-        htmlContent = clonedElement.outerHTML;
+    if (result.success) {
+      // ✅ ADD THIS: Update the booking record to reflect BOL creation
+      const bookingKey = `booking_${booking.bookingId}`;
+      const bookingData = localStorage.getItem(bookingKey);
+      if (bookingData) {
+        const updatedBooking = JSON.parse(bookingData);
+        updatedBooking.hasBOL = true;
+        updatedBooking.bolNumber = bolNumber;
+        updatedBooking.bolId = result.bolId;
+        updatedBooking.bolUpdatedAt = new Date().toISOString();
+        localStorage.setItem(bookingKey, JSON.stringify(updatedBooking));
+        console.log('✅ Booking updated with BOL info:', bookingKey);
       }
-
-      const result = await bolApi.createBOL({
-        bookingId: booking.bookingId,
-        bolNumber: bolNumber,
-        bolData: bolData,
-        htmlContent: htmlContent
-      });
       
-      if (result.success) {
-        alert(`BOL ${bolNumber} saved successfully!\n\nYou can view this BOL anytime from the Bookings page.`);
+      // Also update in any cached bookings list
+      const allBookingsKey = 'all_bookings_cache';
+      const allBookingsData = localStorage.getItem(allBookingsKey);
+      if (allBookingsData) {
+        const allBookings = JSON.parse(allBookingsData);
+        const bookingIndex = allBookings.findIndex(b => b.bookingId === booking.bookingId);
+        if (bookingIndex !== -1) {
+          allBookings[bookingIndex].hasBOL = true;
+          allBookings[bookingIndex].bolNumber = bolNumber;
+          allBookings[bookingIndex].bolId = result.bolId;
+          localStorage.setItem(allBookingsKey, JSON.stringify(allBookings));
+        }
       }
-    } catch (error) {
-      alert('Failed to save BOL: ' + error.message);
+      
+      alert(`BOL ${bolNumber} saved successfully!\n\nYou can view this BOL anytime from the Bookings page.`);
+      
+      // ✅ ADD THIS: Call onComplete callback if provided (for BookingsManagement refresh)
+      if (typeof onComplete === 'function') {
+        onComplete();
+      }
     }
-    setGenerating(false);
-  };
+  } catch (error) {
+    alert('Failed to save BOL: ' + error.message);
+  }
+  setGenerating(false);
+};
 
   // Commodity Items section with Hazmat
 return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="max-w-7xl mx-auto p-6">
         {/* Header Controls */}
-        <div className="mb-6 flex justify-between items-center print:hidden">
-          <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            Complete Bill of Lading Information
-          </h1>
-          <div className="flex gap-3">
-            <button
-              onClick={handlePrint}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2"
-            >
-              <FileText className="w-4 h-4" />
-              Print BOL
-            </button>
-            <button
-                onClick={handleSave}
-                disabled={generating}
-                className={`px-4 py-2 rounded flex items-center gap-2 font-medium transition-colors ${
-                  generating 
-                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-60'
-                    : isDarkMode
-                      ? 'bg-green-600 text-white hover:bg-green-700'  // Dark mode: green bg, white text
-                      : 'bg-green-600 text-white hover:bg-green-700 shadow-md'  // Light mode: green bg, white text with shadow
-                }`}
-              >
-                <Save className="w-4 h-4" />
-                {generating ? 'Saving...' : 'Save BOL'}
-            </button>
-          </div>
-        </div>
+<div className="mb-6 flex justify-between items-center print:hidden">
+  <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+    Complete Bill of Lading Information
+  </h1>
+  <div className="flex gap-3">
+    <button
+      onClick={handlePrint}
+      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2"
+    >
+      <FileText className="w-4 h-4" />
+      Print BOL
+    </button>
+    
+    {/* ✅ THIS IS THE SAVE BUTTON - REPLACE WITH FIXED VERSION BELOW */}
+    <button
+      onClick={handleSave}
+      disabled={generating}
+      className={`px-4 py-2 rounded flex items-center gap-2 font-medium transition-colors ${
+        generating 
+          ? 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-60'
+          : 'bg-green-500 text-white hover:bg-green-600 border border-green-600 shadow-sm'
+      }`}
+      style={{
+        // Force text color as a fallback to ensure visibility
+        color: generating ? '#e5e5e5' : '#ffffff'
+      }}
+    >
+      <Save className="w-4 h-4" />
+      {generating ? 'Saving...' : 'Save BOL'}
+    </button>
+  </div>
+</div>
 
         {/* BOL Number */}
         <div className={`mb-6 p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm print:hidden`}>
