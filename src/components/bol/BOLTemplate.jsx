@@ -278,19 +278,22 @@ const BOLTemplate = ({ bolData, booking }) => {
             )}
             
             {/* Totals Row */}
-            <tr>
-              <td className="border border-black px-1 py-1 font-semibold">
-                Total Pieces<br />{totalPieces}
-              </td>
-              <td className="border border-black px-1 py-1" colSpan="1"></td>
-              <td className="border border-black px-1 py-1 text-center font-semibold" colSpan="2">
-                Total Weight<br />{totalWeight} LBS.
-              </td>
-              <td className="border border-black px-1 py-1 text-center" colSpan="3" style={{ fontSize: '10px' }}>  {/* INCREASED from 8px to 10px */}
-                Emergency Response Phone<br />
-                {items.some(i => i.hazmat) ? '1-800-424-9300' : ''}
-              </td>
-            </tr>
+           <tr>
+  <td className="border border-black px-1 py-1 font-semibold">
+    Total Pieces<br />{totalPieces}
+  </td>
+  <td className="border border-black px-1 py-1" colSpan="1"></td>
+  <td className="border border-black px-1 py-1 text-center font-semibold" colSpan="2">
+    Total Weight<br />{totalWeight} LBS.
+  </td>
+  <td className="border border-black px-1 py-1 text-center" colSpan="3" style={{ fontSize: '10px' }}>
+    Emergency Response Phone<br />
+    {items.some(i => i.hazmat) ? (
+      // Get the first emergency phone number from hazmat items, or use default
+      items.find(i => i.hazmat && i.hazmatDetails?.emergencyPhone)?.hazmatDetails?.emergencyPhone || '1-800-424-9300'
+    ) : ''}
+  </td>
+</tr>
           </tbody>
         </table>
          {/* Hazmat Details Section - Only show if any items are hazmat */}
@@ -307,9 +310,6 @@ const BOLTemplate = ({ bolData, booking }) => {
               </span>
               {' - '}
               <span>{item.weight} lbs</span>
-              {item.hazmatDetails?.emergencyPhone && (
-                <span> | Emergency: {item.hazmatDetails.emergencyPhone}</span>
-              )}
             </div>
           ))}
         </div>
