@@ -361,14 +361,13 @@ const BookingsManagement = ({ isDarkMode }) => {
                       {booking.hasBOL ? (
                         <>
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              viewBOL(booking.bookingId);
-                            }}
-                            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-                            title="View BOL"
+                            onClick={() => viewBOL(booking.bookingId)}
+                            className={`w-full px-3 py-2 rounded text-sm font-medium ${
+                              'bg-blue-600 text-white hover:bg-blue-700'  // Always white text on blue
+                            }`}
                           >
-                            <Eye className="w-4 h-4" />
+                            <Eye className="inline w-4 h-4 mr-2" />
+                            View BOL
                           </button>
                           <button
                             onClick={(e) => {
@@ -385,17 +384,15 @@ const BookingsManagement = ({ isDarkMode }) => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleCreateBOL(booking);  // NEW: Actually navigate to BOL builder
+                            handleCreateBOL(booking);
                           }}
                           className={`p-2 rounded flex items-center gap-1 ${
-                            isDarkMode 
-                              ? 'bg-green-600 hover:bg-green-700 text-white' 
-                              : 'bg-green-600 hover:bg-green-700 text-white'
+                            'bg-green-600 hover:bg-green-700 text-white'  // Removed isDarkMode check - always white text
                           }`}
                           title="Create BOL"
                         >
                           <Plus className="w-4 h-4" />
-                          <span className="text-xs">Create BOL</span>
+                          <span className="text-xs font-medium">Create BOL</span>
                         </button>
                       )}
                     </div>
@@ -474,13 +471,12 @@ const BookingsManagement = ({ isDarkMode }) => {
                           </button>
                         ) : (
                           <button
-                            onClick={() => handleCreateBOL(booking)}  // NEW: Actually navigate to BOL builder
-                            className={`w-full px-3 py-1 rounded text-sm ${
-                              isDarkMode 
-                                ? 'bg-green-600 text-white hover:bg-green-700' 
-                                : 'bg-green-600 text-white hover:bg-green-700'
+                            onClick={() => handleCreateBOL(booking)}
+                            className={`w-full px-3 py-2 rounded text-sm font-medium ${
+                              'bg-green-600 text-white hover:bg-green-700'  // Always white text on green
                             }`}
                           >
+                            <Plus className="inline w-4 h-4 mr-2" />
                             Create BOL
                           </button>
                         )}
