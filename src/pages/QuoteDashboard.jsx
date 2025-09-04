@@ -14,25 +14,6 @@ import RecentQuotes from '../components/dashboard/RecentQuotes';  // ✅ Added i
 const QuoteDashboard = ({ isDarkMode, userRole }) => {
   const isForeignAgent = userRole === 'foreign_agent';
 
-  // Test connection to api.gcc.conship.ai
-  const testBackendConnection = async () => {
-    console.log('Testing connection to api.gcc.conship.ai...');
-    try {
-      const response = await fetch('https://api.gcc.conship.ai/health');
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Backend connected!', data);
-        alert('SUCCESS! Connected to api.gcc.conship.ai');
-      } else {
-        console.log('❌ Backend responded with:', response.status);
-        alert(`Backend responded with status: ${response.status}`);
-      }
-    } catch (error) {
-      console.error('❌ Connection error:', error);
-      alert('Failed to connect to api.gcc.conship.ai');
-    }
-  };
-
   // Widget placeholders - these will be replaced with actual widgets later
   const widgets = [
     {
@@ -131,15 +112,6 @@ const QuoteDashboard = ({ isDarkMode, userRole }) => {
             }
           </p>
         </div>
-
-        {/* Test API Connection Button */}
-        <button 
-          onClick={testBackendConnection}
-          className="px-4 py-2 h-10 self-center bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
-        >
-          Test API Connection
-        </button>
-      </div>
 
       {/* Widgets Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
