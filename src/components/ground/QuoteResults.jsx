@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom'; // ADDED
 import { Check, Clock, Truck, AlertCircle, Package, MapPin } from 'lucide-react';
-import { API_BASE } from '../../config/api'; // ADDED
+import API_BASE from '../../config/api'; // ADDED
 import quoteApi from '../../services/quoteApi';
 import bookingApi from '../../services/bookingApi';  // EXISTING
 import BookingConfirmation from './BookingConfirmation';  // EXISTING
