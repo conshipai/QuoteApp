@@ -1,32 +1,41 @@
 // src/services/documentApi.js
+import API_BASE from '../config/api';
+
 class DocumentAPI {
-  async uploadDocument(bookingId, file, docType) {
+  async uploadDocument(file, requestId, documentType) {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('bookingId', bookingId);
-    formData.append('docType', docType);
-    
-    // In production: POST to your backend
-    // For now, store reference in localStorage
-    const documentRef = {
-      id: `doc-${Date.now()}`,
-      bookingId,
-      docType,
-      fileName: file.name,
-      fileSize: file.size,
-      uploadedAt: new Date().toISOString()
-    };
-    
-    const docs = JSON.parse(localStorage.getItem('documents') || '[]');
-    docs.push(documentRef);
-    localStorage.setItem('documents', JSON.stringify(docs));
-    
-    return { success: true, document: documentRef };
+    formData.append('requestId', requestId);
+    formData.append('documentType', documentType);
+
+    const response = await fetch(`${API_BASE}/storage/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Upload failed');
+    }
+
+    return response.json();
   }
-  
-  async getDocumentsByBooking(bookingId) {
-    const docs = JSON.parse(localStorage.getItem('documents') || '[]');
-    return docs.filter(doc => doc.bookingId === bookingId);
+
+  async getSignedUrl(key) {
+    const response = await fetch(`${API_BASE}/storage/signed-url/${encodeURIComponent(key)}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get signed URL');
+    }
+
+    return response.json();
   }
 }
 
