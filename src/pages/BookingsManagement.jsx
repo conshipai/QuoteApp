@@ -3,76 +3,137 @@ import React, { useState, useEffect } from 'react';
 import {
   Package, FileText, Download, Eye, Filter, Search,
   Calendar, Truck, Plane, Ship, Clock, CheckCircle,
-  AlertCircle, ChevronDown, ChevronRight, ExternalLink, X, Plus, Upload // ADDED Upload
+  AlertCircle, ChevronDown, ChevronRight, ExternalLink, X, Plus, Upload
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import API_BASE from '../config/api'; // ADDED
+import API_BASE from '../config/api';
 import bookingApi from '../services/bookingApi';
 import bolApi from '../services/bolApi';
 import BOLBuilder from '../components/bol/BOLBuilder';
 
-// ─────────────────────────────────────────────────────────────
-// 4A) DocumentUpload (safer local-state version, no fetching)
-// ─────────────────────────────────────────────────────────────
-const DocumentUpload = ({ bookingId, isDarkMode }) => {
+/* ─────────────────────────────────────────────────────────────
+   DocumentUpload — Cloudflare R2 (via your backend)
+   - POST ${API_BASE}/api/storage/upload  (multipart)
+   - GET  ${API_BASE}/api/storage/signed-url/{key}
+   Allowed: PDF, JPG, PNG; Max: 20MB
+   ───────────────────────────────────────────────────────────── */
+const DocumentUpload = ({ requestId, isDarkMode }) => {
   const [documents, setDocuments] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [docType, setDocType] = useState('');
 
+  // Backend expects these exact keys
   const documentTypes = [
-    'Bill of Lading',
-    'Commercial Invoice',
-    'Packing List',
-    'Safety Data Sheet (SDS)',
-    'Certificate of Origin',
-    'Insurance Certificate',
-    'Other'
+    { value: 'dangerous_goods_declaration', label: 'Dangerous Goods Declaration' },
+    { value: 'sds_sheet', label: 'Safety Data Sheet (SDS)' },
+    { value: 'battery_certification', label: 'Battery Certification' },
+    { value: 'packing_list', label: 'Packing List' },
+    { value: 'commercial_invoice', label: 'Commercial Invoice' },
+    { value: 'air_waybill', label: 'Air Waybill' },
+    { value: 'bol', label: 'Bill of Lading' },
+    { value: 'other', label: 'Other' }
   ];
 
-  // Removed useEffect that attempted to load documents
+  const MAX_BYTES = 20 * 1024 * 1024;
+  const VALID_MIME = ['application/pdf', 'image/jpeg', 'image/png'];
 
   const handleFileUpload = async (event) => {
     const file = event.target.files?.[0];
-    if (!file || !docType) {
+    if (!file) return;
+
+    if (!docType) {
       alert('Please choose a document type first.');
+      event.target.value = '';
       return;
     }
-
-    if (file.size > 10 * 1024 * 1024) {
-      alert('File size must be less than 10MB');
+    if (!VALID_MIME.includes(file.type)) {
+      alert('Only PDF, JPG, and PNG files are allowed');
+      event.target.value = '';
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      alert('File size must be less than 20MB');
+      event.target.value = '';
+      return;
+    }
+    if (!requestId) {
+      alert('Missing requestId. Cannot upload.');
+      event.target.value = '';
       return;
     }
 
     setUploading(true);
     try {
-      // Store in local state only (non-breaking placeholder)
-      const newDoc = {
-        id: `doc_${Date.now()}`,
-        name: file.name,
-        type: docType,
-        size: file.size,
-        uploadedAt: new Date().toISOString()
-      };
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('requestId', requestId);
+      formData.append('documentType', docType);
 
-      setDocuments(prev => [...prev, newDoc]);
-      alert('Document uploaded successfully!');
+      const resp = await fetch(`${API_BASE}/api/storage/upload`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err?.error || `Upload failed (${resp.status})`);
+      }
+
+      const data = await resp.json();
+      if (data?.success) {
+        setDocuments(prev => [
+          ...prev,
+          {
+            id: data.key || `doc_${Date.now()}`,
+            name: file.name,
+            type: docType,
+            size: file.size,
+            uploadedAt: new Date().toISOString(),
+            url: data.fileUrl || null,
+            key: data.key || null
+          }
+        ]);
+        alert('File uploaded successfully!');
+      } else {
+        throw new Error('Unexpected upload response');
+      }
     } catch (error) {
-      console.error('Upload error:', error);
-      alert('Failed to upload document');
+      console.error('Upload failed:', error);
+      alert('Upload failed: ' + error.message);
     } finally {
       setUploading(false);
-      event.target.value = '';
       setDocType('');
+      event.target.value = '';
     }
   };
 
-  const handleDownload = (docId) => {
-    // Placeholder for download
-    console.log('Download:', docId);
+  const handleDownload = async (doc) => {
+    try {
+      // If we already have a public URL, just open it
+      if (doc.url) {
+        window.open(doc.url, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      // Otherwise, request a signed URL if we have the key
+      if (doc.key) {
+        const s = await fetch(`${API_BASE}/api/storage/signed-url/${encodeURIComponent(doc.key)}`);
+        if (!s.ok) throw new Error(`Failed to get signed URL (${s.status})`);
+        const { success, url } = await s.json();
+        if (success && url) {
+          window.open(url, '_blank', 'noopener,noreferrer');
+          return;
+        }
+      }
+      alert('Unable to download this file.');
+    } catch (e) {
+      console.error('Download error:', e);
+      alert('Unable to download this file.');
+    }
   };
 
   const handleDelete = (docId) => {
-    if (!confirm('Delete this document?')) return;
+    // No delete API in docs; remove from UI only
+    if (!confirm('Remove this document from the list? (This does not delete from storage)')) return;
     setDocuments(prev => prev.filter(d => d.id !== docId));
   };
 
@@ -89,7 +150,9 @@ const DocumentUpload = ({ bookingId, isDarkMode }) => {
           }`}
         >
           <option value="">Select document type...</option>
-          {documentTypes.map(type => (<option key={type} value={type}>{type}</option>))}
+          {documentTypes.map(t => (
+            <option key={t.value} value={t.value}>{t.label}</option>
+          ))}
         </select>
 
         <label className={`${isDarkMode ? 'bg-conship-orange hover:bg-orange-600' : 'bg-conship-purple hover:bg-purple-700'} text-white px-4 py-2 rounded inline-flex items-center gap-2 cursor-pointer`}>
@@ -98,7 +161,7 @@ const DocumentUpload = ({ bookingId, isDarkMode }) => {
           <input
             type="file"
             className="hidden"
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+            accept=".pdf,.jpg,.jpeg,.png"
             onChange={handleFileUpload}
             disabled={uploading || !docType}
           />
@@ -121,13 +184,13 @@ const DocumentUpload = ({ bookingId, isDarkMode }) => {
                 <div>
                   <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{doc.name}</p>
                   <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    {doc.type} • {(doc.size / 1024).toFixed(1)} KB • {new Date(doc.uploadedAt).toLocaleDateString()}
+                    {documentTypes.find(t => t.value === doc.type)?.label || doc.type} • {(doc.size / 1024).toFixed(1)} KB • {new Date(doc.uploadedAt).toLocaleDateString()}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => handleDownload(doc.id)}
+                  onClick={() => handleDownload(doc)}
                   className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
                   title="Download"
                 >
@@ -136,7 +199,7 @@ const DocumentUpload = ({ bookingId, isDarkMode }) => {
                 <button
                   onClick={() => handleDelete(doc.id)}
                   className="p-2 rounded hover:bg-red-100 text-red-500"
-                  title="Delete"
+                  title="Remove from list"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -535,7 +598,6 @@ const BookingsManagement = ({ isDarkMode }) => {
 
                     {/* Documents + Upload */}
                     <div className="lg:col-span-2">
-                      {/* Existing list (kept for reference) */}
                       <h4 className={`font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                         Documents
                       </h4>
@@ -555,21 +617,13 @@ const BookingsManagement = ({ isDarkMode }) => {
                             No BOL created yet
                           </div>
                         )}
-                        {booking.documents?.map((doc, index) => (
-                          <button
-                            key={index}
-                            className={`flex items-center gap-2 text-sm ${
-                              isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'
-                            }`}
-                          >
-                            <FileText className="w-4 h-4" />
-                            {doc.name}
-                          </button>
-                        ))}
                       </div>
 
-                      {/* 4B) Render DocumentUpload */}
-                      <DocumentUpload bookingId={booking.bookingId} isDarkMode={isDarkMode} />
+                      {/* R2 Uploads (requestId preferred; falls back to bookingId) */}
+                      <DocumentUpload
+                        requestId={booking.requestId || booking.bookingId}
+                        isDarkMode={isDarkMode}
+                      />
                     </div>
 
                     {/* Actions */}
