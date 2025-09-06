@@ -7,6 +7,7 @@ import quoteApi from '../../services/quoteApi';
 import bookingApi from '../../services/bookingApi';  // EXISTING
 import BookingConfirmation from './BookingConfirmation';  // EXISTING
 import BOLBuilder from '../bol/BOLBuilder';  // EXISTING
+import QuoteDocumentUpload from '../shared/QuoteDocumentUpload';
 
 const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceType, formData = {}, onBack, isDarkMode }) => {
   const navigate = useNavigate(); // ADDED
@@ -18,7 +19,7 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
   const [quotes, setQuotes] = useState([]);
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [error, setError] = useState(null);
-
+  const [showDocuments, setShowDocuments] = useState(false);
   // Booking flow state
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingData, setBookingData] = useState(null);
@@ -264,7 +265,7 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
   const totalUnits = commodities.reduce((sum, c) => sum + parseInt(c.quantity || 0, 10), 0);
   const totalWeight = commodities.reduce((sum, c) => sum + parseInt(c.weight || 0, 10), 0);
 
-  // --- MAIN RESULTS VIEW ---
+// MAIN RESULTS VIEW - Update this section
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="max-w-6xl mx-auto p-6">
@@ -277,14 +278,33 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
               </h1>
               <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Request #{requestNumber}</p>
             </div>
-            <button
-              onClick={onBack}
-              className={`text-sm px-4 py-2 rounded ${
-                isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              New Quote
-            </button>
+            <div className="flex gap-3">
+              {/* ADD DOCUMENTS TOGGLE BUTTON */}
+              <button
+                onClick={() => setShowDocuments(!showDocuments)}
+                className={`text-sm px-4 py-2 rounded flex items-center gap-2 ${
+                  showDocuments
+                    ? isDarkMode 
+                      ? 'bg-conship-orange text-white' 
+                      : 'bg-conship-purple text-white'
+                    : isDarkMode 
+                      ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                {showDocuments ? 'Hide Documents' : 'Manage Documents'}
+              </button>
+              
+              <button
+                onClick={onBack}
+                className={`text-sm px-4 py-2 rounded ${
+                  isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                New Quote
+              </button>
+            </div>
           </div>
         </div>
 
@@ -315,111 +335,71 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
           </div>
         </div>
 
-        {/* Quote Cards - Ground Specific */}
+        {/* ADD DOCUMENTS SECTION - Collapsible */}
+        {showDocuments && (
+          <div className="mb-6">
+            <QuoteDocumentUpload 
+              quoteId={requestId} 
+              isDarkMode={isDarkMode} 
+            />
+          </div>
+        )}
+
+        {/* Quote Cards - Keep your existing code */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {quotes.map((quote, index) => (
-            <div
-              key={index}
-              onClick={() => setSelectedQuote(index)}
-              className={`
-                p-6 rounded-lg border-2 cursor-pointer transition-all
-                ${
-                  selectedQuote === index
-                    ? isDarkMode
-                      ? 'border-conship-orange bg-gray-800'
-                      : 'border-conship-purple bg-purple-50'
-                    : isDarkMode
-                    ? 'border-gray-700 bg-gray-800 hover:border-gray-600'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
-                }
-              `}
-            >
-              {/* Carrier Info */}
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                    {quote?.service_details?.carrier}
-                  </h3>
-                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    {quote?.service_details?.service}
-                  </p>
-                </div>
-                {selectedQuote === index && (
-                  <Check className={`w-6 h-6 ${isDarkMode ? 'text-conship-orange' : 'text-conship-purple'}`} />
-                )}
-              </div>
-
-              {/* Price */}
-              <div className="mb-4">
-                <div className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  ${Number(quote.final_price || 0).toFixed(2)}
-                </div>
-                <div className={`text-xs mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                  Base: ${Number(quote.raw_cost || 0).toFixed(2)} | Fuel{' '}
-                  {
-                    typeof quote.fuel_surcharge === 'number'
-                      ? quote.fuel_surcharge.toFixed(2)
-                      : (quote.fuel_surcharge || '0.00')
-                  }{' '}
-                  | +{quote.markup_percentage}%
-                </div>
-              </div>
-
-              {/* Ground-specific details */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Clock className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
-                  <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Transit: {quote.transit_days} business days
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Truck className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
-                  <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    {serviceType === 'ltl' ? 'LTL Service' : serviceType === 'ftl' ? 'Full Truckload' : 'Expedited'}
-                  </span>
-                </div>
-                {quote?.service_details?.guaranteed && (
-                  <div className={`text-xs ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>✓ Guaranteed Service</div>
-                )}
-              </div>
-            </div>
+            // ... (keep your existing quote card code)
           ))}
         </div>
 
-        {/* Action Buttons */}
-        <div className="mt-8 flex justify-end gap-3">
-          <button
-            onClick={() => {
-              if (selectedQuote === null) return;
-              const selected = quotes[selectedQuote];
-              console.log('Saving quote:', {
-                requestId,
-                carrier: selected?.service_details?.carrier,
-                price: selected?.final_price
-              });
-              alert('Quote saved!');
-            }}
-            className={`px-6 py-2 rounded font-medium ${
-              isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            Save Quote
-          </button>
+        {/* Action Buttons - Update to include document info */}
+        <div className="mt-8">
+          <div className="flex justify-between items-center">
+            {/* Document indicator */}
+            <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              {showDocuments && (
+                <span className="flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Documents will be included with booking
+                </span>
+              )}
+            </div>
+            
+            {/* Action buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  if (selectedQuote === null) return;
+                  const selected = quotes[selectedQuote];
+                  console.log('Saving quote:', {
+                    requestId,
+                    carrier: selected?.service_details?.carrier,
+                    price: selected?.final_price
+                  });
+                  alert('Quote saved!');
+                }}
+                className={`px-6 py-2 rounded font-medium ${
+                  isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Save Quote
+              </button>
 
-          <button
-            onClick={handleBookShipment}
-            disabled={selectedQuote === null || bookingLoading}
-            className={`px-6 py-2 rounded font-medium ${
-              selectedQuote === null || bookingLoading
-                ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                : isDarkMode
-                ? 'bg-conship-orange text-white hover:bg-orange-600'
-                : 'bg-conship-purple text-white hover:bg-purple-700'
-            }`}
-          >
-            {bookingLoading ? 'Booking...' : 'Book Shipment'}
-          </button>
+              <button
+                onClick={handleBookShipment}
+                disabled={selectedQuote === null || bookingLoading}
+                className={`px-6 py-2 rounded font-medium ${
+                  selectedQuote === null || bookingLoading
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    : isDarkMode
+                    ? 'bg-conship-orange text-white hover:bg-orange-600'
+                    : 'bg-conship-purple text-white hover:bg-purple-700'
+                }`}
+              >
+                {bookingLoading ? 'Booking...' : 'Book Shipment'}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
