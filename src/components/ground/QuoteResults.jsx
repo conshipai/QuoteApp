@@ -1,6 +1,6 @@
 // src/components/ground/QuoteResults.jsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   Check, Clock, Truck, AlertCircle, Package, MapPin,
   FileText, Upload, Download, X
@@ -257,10 +257,23 @@ const DocumentUpload = ({ requestId, isDarkMode }) => {
   );
 };
 
-const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceType, formData = {}, onBack, isDarkMode }) => {
+const GroundQuoteResults = ({ 
+  requestId: requestIdProp, 
+  requestNumber: requestNumberProp, 
+  serviceType: serviceTypeProp, 
+  formData: formDataProp = {}, 
+  onBack, 
+  isDarkMode 
+}) => {
   const navigate = useNavigate();
   const { requestId: requestIdParam } = useParams();
-  const requestId = requestIdProp || requestIdParam;
+  const location = useLocation();
+  
+  // Get data from props, route params, or location state
+  const requestId = requestIdProp || requestIdParam || location.state?.requestId;
+  const [requestNumber, setRequestNumber] = useState(requestNumberProp || location.state?.requestNumber || 'N/A');
+  const [serviceType, setServiceType] = useState(serviceTypeProp || location.state?.serviceType || 'ltl');
+  const [formData, setFormData] = useState(formDataProp || location.state?.formData || {});
 
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('PROCESSING');
@@ -272,6 +285,51 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingData, setBookingData] = useState(null);
   const [showBOL, setShowBOL] = useState(false);
+
+  // Try to load form data from localStorage if not provided
+  useEffect(() => {
+    if (requestId && (!formData || Object.keys(formData).length === 0)) {
+      console.log('📦 Attempting to load form data from localStorage...');
+      
+      // Try multiple sources
+      const sources = [
+        `quote_formdata_${requestId}`,
+        `quote_results_${requestId}`,
+        `quote_request_${requestId}`
+      ];
+      
+      for (const source of sources) {
+        const data = localStorage.getItem(source);
+        if (data) {
+          try {
+            const parsed = JSON.parse(data);
+            let extractedFormData = {};
+            
+            // Extract form data based on the source structure
+            if (source.includes('formdata')) {
+              extractedFormData = parsed;
+            } else if (source.includes('results') && parsed.formData) {
+              extractedFormData = parsed.formData;
+            } else if (source.includes('request') && parsed.formData) {
+              extractedFormData = parsed.formData;
+            }
+            
+            if (Object.keys(extractedFormData).length > 0) {
+              console.log(`✅ Loaded form data from ${source}`);
+              setFormData(extractedFormData);
+              
+              // Also try to get other metadata
+              if (parsed.requestNumber) setRequestNumber(parsed.requestNumber);
+              if (parsed.serviceType) setServiceType(parsed.serviceType);
+              break;
+            }
+          } catch (e) {
+            console.error(`Error parsing ${source}:`, e);
+          }
+        }
+      }
+    }
+  }, [requestId]);
 
   // Check if booked on mount; redirect to booking page
   useEffect(() => {
@@ -301,7 +359,12 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
 
   // Quote polling
   useEffect(() => {
-    if (!requestId) return;
+    if (!requestId) {
+      setError('No request ID provided. Please go back and create a new quote.');
+      setLoading(false);
+      return;
+    }
+    
     let isMounted = true;
 
     const fetchResults = async () => {
@@ -312,6 +375,13 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
         if (!isMounted) return;
 
         if (result.success) {
+          // Update metadata if available
+          if (result.requestNumber) setRequestNumber(result.requestNumber);
+          if (result.serviceType) setServiceType(result.serviceType);
+          if (result.formData && Object.keys(formData).length === 0) {
+            setFormData(result.formData);
+          }
+
           // Backend sends lowercase statuses; UI state uses uppercase
           const backendStatus = (result.status || 'processing').toUpperCase();
           setStatus(backendStatus);
@@ -347,7 +417,7 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
             setLoading(false);
           }
         } else {
-          setError(result.error || 'Unknown error');
+          setError(result.error || 'Unknown error occurred while fetching quotes');
           setLoading(false);
         }
       } catch (e) {
@@ -436,6 +506,16 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
     }
   };
 
+  // Handle back button
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      // Navigate to the appropriate quote form
+      navigate(`/app/quotes/ground/${serviceType || 'ltl'}`);
+    }
+  };
+
   // Booking flow renders (take precedence over normal states)
   if (bookingData && !showBOL) {
     return (
@@ -489,7 +569,7 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
             <h2 className="text-2xl font-bold mb-2">Error Getting Quotes</h2>
             <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>{error}</p>
             <button
-              onClick={onBack}
+              onClick={handleBack}
               className={`mt-6 px-6 py-2 rounded font-medium ${
                 isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
@@ -538,7 +618,7 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
               </button>
 
               <button
-                onClick={onBack}
+                onClick={handleBack}
                 className={`text-sm px-4 py-2 rounded ${
                   isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
@@ -550,31 +630,35 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
         </div>
 
         {/* Shipment Summary */}
-        <div className={`mb-6 p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <MapPin className={`w-4 h-4 ${isDarkMode ? 'text-conship-orange' : 'text-conship-purple'}`} />
-                <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {formData.originCity}, {formData.originState} {formData.originZip}
-                </span>
+        {formData && Object.keys(formData).length > 0 && (
+          <div className={`mb-6 p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <MapPin className={`w-4 h-4 ${isDarkMode ? 'text-conship-orange' : 'text-conship-purple'}`} />
+                  <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    {formData.originCity || 'N/A'}, {formData.originState || ''} {formData.originZip || ''}
+                  </span>
+                </div>
+                <span className={isDarkMode ? 'text-gray-500' : 'text-gray-400'}>→</span>
+                <div className="flex items-center gap-2">
+                  <MapPin className={`w-4 h-4 ${isDarkMode ? 'text-conship-orange' : 'text-conship-purple'}`} />
+                  <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    {formData.destCity || 'N/A'}, {formData.destState || ''} {formData.destZip || ''}
+                  </span>
+                </div>
               </div>
-              <span className={isDarkMode ? 'text-gray-500' : 'text-gray-400'}>→</span>
-              <div className="flex items-center gap-2">
-                <MapPin className={`w-4 h-4 ${isDarkMode ? 'text-conship-orange' : 'text-conship-purple'}`} />
-                <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {formData.destCity}, {formData.destState} {formData.destZip}
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Package className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
-              <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                {totalUnits} units, {totalWeight} lbs
-              </span>
+              {commodities.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Package className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+                  <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    {totalUnits} units, {totalWeight} lbs
+                  </span>
+                </div>
+              )}
             </div>
           </div>
-        </div>
+        )}
 
         {/* Documents Section - Collapsible */}
         {showDocuments && (
@@ -584,107 +668,125 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
         )}
 
         {/* Quote Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {quotes.map((quote, index) => (
-            <div
-              key={quote.quoteId || index}
-              className={`rounded-lg p-4 border ${
-                isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+        {quotes.length === 0 && !loading ? (
+          <div className={`text-center py-12 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            <p className="mb-4">No quotes available yet. Please check back in a moment.</p>
+            <button
+              onClick={() => window.location.reload()}
+              className={`px-4 py-2 rounded ${
+                isDarkMode 
+                  ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Truck className={isDarkMode ? 'text-gray-300' : 'text-gray-700'} />
-                  <div>
-                    <div className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {quote?.service_details?.carrier || 'Carrier'}
-                    </div>
-                    <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {quote?.service_details?.service || 'Service'} {quote?.service_details?.guaranteed ? '• Guaranteed' : ''}
+              Refresh
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {quotes.map((quote, index) => (
+              <div
+                key={quote.quoteId || index}
+                className={`rounded-lg p-4 border ${
+                  isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Truck className={isDarkMode ? 'text-gray-300' : 'text-gray-700'} />
+                    <div>
+                      <div className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        {quote?.service_details?.carrier || 'Carrier'}
+                      </div>
+                      <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {quote?.service_details?.service || 'Service'} {quote?.service_details?.guaranteed ? '• Guaranteed' : ''}
+                      </div>
                     </div>
                   </div>
+                  <div className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    ${Number(quote?.final_price ?? 0).toFixed(2)}
+                  </div>
                 </div>
-                <div className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  ${Number(quote?.final_price ?? 0).toFixed(2)}
+
+                <div className="mt-3 flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-1">
+                    <Clock className="w-4 h-4" />
+                    <span>{quote?.transit_days ?? 0} days</span>
+                  </div>
+                  {Array.isArray(quote?.additional_fees) && quote.additional_fees.length > 0 && (
+                    <div className="text-xs opacity-75">
+                      + {quote.additional_fees.length} fees
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4">
+                  <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="selectedQuote"
+                      checked={selectedQuote === index}
+                      onChange={() => setSelectedQuote(index)}
+                    />
+                    <span className={isDarkMode ? 'text-gray-200' : 'text-gray-800'}>Select this quote</span>
+                  </label>
                 </div>
               </div>
+            ))}
+          </div>
+        )}
 
-              <div className="mt-3 flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
-                  <span>{quote?.transit_days ?? 0} days</span>
-                </div>
-                {Array.isArray(quote?.additional_fees) && quote.additional_fees.length > 0 && (
-                  <div className="text-xs opacity-75">
-                    + {quote.additional_fees.length} fees
-                  </div>
+        {/* Action Buttons */}
+        {quotes.length > 0 && (
+          <div className="mt-8">
+            <div className="flex justify-between items-center">
+              {/* Document indicator */}
+              <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                {showDocuments && (
+                  <span className="flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Documents will be included with booking
+                  </span>
                 )}
               </div>
 
-              <div className="mt-4">
-                <label className="inline-flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="selectedQuote"
-                    checked={selectedQuote === index}
-                    onChange={() => setSelectedQuote(index)}
-                  />
-                  <span className={isDarkMode ? 'text-gray-200' : 'text-gray-800'}>Select this quote</span>
-                </label>
+              {/* Action buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    if (selectedQuote === null) return;
+                    const selected = quotes[selectedQuote];
+                    console.log('Saving quote:', {
+                      requestId,
+                      carrier: selected?.service_details?.carrier,
+                      price: selected?.final_price
+                    });
+                    alert('Quote saved!');
+                  }}
+                  className={`px-6 py-2 rounded font-medium ${
+                    isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Save Quote
+                </button>
+
+                <button
+                  onClick={handleBookShipment}
+                  disabled={selectedQuote === null || bookingLoading}
+                  className={`px-6 py-2 rounded font-medium ${
+                    (selectedQuote === null || bookingLoading)
+                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                      : (isDarkMode
+                        ? 'bg-conship-orange text-white hover:bg-orange-600'
+                        : 'bg-conship-purple text-white hover:bg-purple-700')
+                  }`}
+                >
+                  {bookingLoading ? 'Booking...' : 'Book Shipment'}
+                </button>
               </div>
             </div>
-          ))}
-        </div>
-
-        {/* Action Buttons */}
-        <div className="mt-8">
-          <div className="flex justify-between items-center">
-            {/* Document indicator */}
-            <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              {showDocuments && (
-                <span className="flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  Documents will be included with booking
-                </span>
-              )}
-            </div>
-
-            {/* Action buttons */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  if (selectedQuote === null) return;
-                  const selected = quotes[selectedQuote];
-                  console.log('Saving quote:', {
-                    requestId,
-                    carrier: selected?.service_details?.carrier,
-                    price: selected?.final_price
-                  });
-                  alert('Quote saved!');
-                }}
-                className={`px-6 py-2 rounded font-medium ${
-                  isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                Save Quote
-              </button>
-
-              <button
-                onClick={handleBookShipment}
-                disabled={selectedQuote === null || bookingLoading}
-                className={`px-6 py-2 rounded font-medium ${
-                  (selectedQuote === null || bookingLoading)
-                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                    : (isDarkMode
-                      ? 'bg-conship-orange text-white hover:bg-orange-600'
-                      : 'bg-conship-purple text-white hover:bg-purple-700')
-                }`}
-              >
-                {bookingLoading ? 'Booking...' : 'Book Shipment'}
-              </button>
-            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
