@@ -60,6 +60,7 @@ const QuotesModule = ({ shellContext, basename }) => {
           <Route path="ocean-import" element={<Placeholder title="Ocean Import" isDarkMode={isDarkMode} />} />
           <Route path="ocean-export" element={<Placeholder title="Ocean Export" isDarkMode={isDarkMode} />} />
           <Route path="project" element={<Placeholder title="Project Cargo" isDarkMode={isDarkMode} />} />
+          <Route path="ground/results/:requestId" element={<GroundQuoteResults isDarkMode={isDarkMode} userRole={userRole} />} />
           <Route path="*" element={<Navigate to="" replace />} />
         </Routes>
       </Suspense>
