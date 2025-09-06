@@ -1,235 +1,242 @@
-// src/components/ground/GroundQuoteResults.jsx
+// src/components/ground/QuoteResults.jsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom'; // ADDED
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   Check, Clock, Truck, AlertCircle, Package, MapPin,
   FileText, Upload, Download, X
 } from 'lucide-react';
-import API_BASE from '../../config/api'; // ADDED
+import API_BASE from '../../config/api';
 import quoteApi from '../../services/quoteApi';
-import bookingApi from '../../services/bookingApi';  // EXISTING
-import BookingConfirmation from './BookingConfirmation';  // EXISTING
-import BOLBuilder from '../bol/BOLBuilder';  // EXISTING
-// REMOVED: import QuoteDocumentUpload from '../shared/QuoteDocumentUpload';
+import bookingApi from '../../services/bookingApi';
+import BookingConfirmation from './BookingConfirmation';
+import BOLBuilder from '../bol/BOLBuilder';
 
 // ─────────────────────────────────────────────────────────────
-// Local IndexedDB-backed DocumentUpload component
+// R2-backed DocumentUpload component (FIXED VERSION)
 // ─────────────────────────────────────────────────────────────
-const DocumentUpload = ({ bookingId, isDarkMode }) => {
+const DocumentUpload = ({ requestId, isDarkMode }) => {
   const [documents, setDocuments] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [docType, setDocType] = useState('');
 
   const documentTypes = [
-    'Bill of Lading',
-    'Commercial Invoice',
-    'Packing List',
-    'Safety Data Sheet (SDS)',
-    'Certificate of Origin',
-    'Insurance Certificate',
-    'Other'
+    { value: 'dangerous_goods_declaration', label: 'Dangerous Goods Declaration' },
+    { value: 'sds_sheet', label: 'Safety Data Sheet (SDS)' },
+    { value: 'battery_certification', label: 'Battery Certification' },
+    { value: 'packing_list', label: 'Packing List' },
+    { value: 'commercial_invoice', label: 'Commercial Invoice' },
+    { value: 'other', label: 'Other' }
   ];
-
-  // Initialize IndexedDB
-  const initDB = () => {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open('BookingDocuments', 1);
-
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result);
-
-      request.onupgradeneeded = (event) => {
-        const db = event.target.result;
-        if (!db.objectStoreNames.contains('documents')) {
-          const store = db.createObjectStore('documents', { keyPath: 'id' });
-          store.createIndex('bookingId', 'bookingId', { unique: false });
-        }
-      };
-    });
-  };
-
-  // Load documents from IndexedDB
-  const loadDocuments = async () => {
-    try {
-      const db = await initDB();
-      const transaction = db.transaction(['documents'], 'readonly');
-      const store = transaction.objectStore('documents');
-      const index = store.index('bookingId');
-
-      const request = index.getAll(bookingId);
-
-      request.onsuccess = () => {
-        const docs = request.result || [];
-        // Only load metadata, not the actual file data
-        const docsMetadata = docs.map(doc => ({
-          id: doc.id,
-          name: doc.name,
-          type: doc.type,
-          size: doc.size,
-          uploadedAt: doc.uploadedAt
-        }));
-        setDocuments(docsMetadata);
-      };
-    } catch (error) {
-      console.log('Could not load documents from IndexedDB:', error);
-      // Silently fail - documents feature will still work for new uploads
-    }
-  };
-
-  useEffect(() => {
-    if (bookingId) loadDocuments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookingId]);
 
   const handleFileUpload = async (event) => {
     const file = event.target.files?.[0];
-    if (!file || !docType) {
-      alert('Please choose a document type first.');
+    if (!file) return;
+    
+    if (!docType) {
+      alert('Please select a document type first');
+      event.target.value = '';
       return;
     }
 
-    // Allow up to 10MB
-    if (file.size > 10 * 1024 * 1024) {
-      alert('File size must be less than 10MB');
+    // Validate file type
+    const validTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+    if (!validTypes.includes(file.type)) {
+      alert('Only PDF, JPG, and PNG files are allowed');
+      event.target.value = '';
+      return;
+    }
+
+    // Validate file size (20MB max)
+    if (file.size > 20 * 1024 * 1024) {
+      alert('File size must be less than 20MB');
+      event.target.value = '';
+      return;
+    }
+
+    if (!requestId) {
+      alert('Missing request ID. Cannot upload document.');
+      event.target.value = '';
       return;
     }
 
     setUploading(true);
+
     try {
-      const arrayBuffer = await file.arrayBuffer();
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('requestId', requestId);
+      formData.append('documentType', docType);
 
-      const newDoc = {
-        id: `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        bookingId: bookingId,
-        name: file.name,
-        type: docType,
-        size: file.size,
-        mimeType: file.type,
-        data: arrayBuffer,
-        uploadedAt: new Date().toISOString()
-      };
+      console.log('📤 Uploading to R2:', {
+        fileName: file.name,
+        fileSize: file.size,
+        requestId,
+        documentType: docType
+      });
 
-      // Save to IndexedDB
-      const db = await initDB();
-      const transaction = db.transaction(['documents'], 'readwrite');
-      const store = transaction.objectStore('documents');
-      await store.add(newDoc);
+      const response = await fetch(`${API_BASE}/storage/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+        },
+        body: formData
+      });
 
-      // Update UI
-      setDocuments(prev => [
-        ...prev,
-        {
-          id: newDoc.id,
-          name: newDoc.name,
-          type: newDoc.type,
-          size: newDoc.size,
-          uploadedAt: newDoc.uploadedAt
-        }
-      ]);
+      console.log('📥 Upload response status:', response.status);
 
-      alert('Document uploaded successfully!');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
+        throw new Error(errorData.error || `Upload failed (${response.status})`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Upload successful:', data);
+
+      if (data.success) {
+        // Add to documents list
+        setDocuments(prev => [...prev, {
+          id: data.key || `doc_${Date.now()}`,
+          name: file.name,
+          type: docType,
+          size: file.size,
+          url: data.fileUrl,
+          key: data.key,
+          uploadedAt: new Date().toISOString()
+        }]);
+        
+        alert('Document uploaded successfully!');
+        setDocType('');
+        event.target.value = '';
+      } else {
+        throw new Error(data.error || 'Upload failed');
+      }
+      
     } catch (error) {
-      console.error('Upload error:', error);
-      alert('Failed to upload document');
+      console.error('❌ Upload error:', error);
+      alert('Failed to upload document: ' + error.message);
     } finally {
       setUploading(false);
       event.target.value = '';
-      setDocType('');
     }
   };
 
-  const handleDownload = async (docId) => {
+  const handleDownload = async (doc) => {
     try {
-      const db = await initDB();
-      const transaction = db.transaction(['documents'], 'readonly');
-      const store = transaction.objectStore('documents');
-      const request = store.get(docId);
-
-      request.onsuccess = () => {
-        const doc = request.result;
-        if (doc && doc.data) {
-          const blob = new Blob([doc.data], { type: doc.mimeType });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = doc.name;
-          link.click();
-          setTimeout(() => URL.revokeObjectURL(url), 100);
+      if (doc.url) {
+        // If we have a direct URL, just open it
+        window.open(doc.url, '_blank', 'noopener,noreferrer');
+      } else if (doc.key) {
+        // Request a signed URL from backend
+        const response = await fetch(`${API_BASE}/storage/signed-url/${encodeURIComponent(doc.key)}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to get download URL (${response.status})`);
         }
-      };
+        
+        const data = await response.json();
+        if (data.success && data.url) {
+          window.open(data.url, '_blank', 'noopener,noreferrer');
+        } else {
+          throw new Error('Failed to get download URL');
+        }
+      } else {
+        alert('Download URL not available');
+      }
     } catch (error) {
       console.error('Download error:', error);
-      alert('Failed to download document');
+      alert('Failed to download document: ' + error.message);
     }
   };
 
-  const handleDelete = async (docId) => {
-    if (!confirm('Delete this document?')) return;
-    try {
-      const db = await initDB();
-      const transaction = db.transaction(['documents'], 'readwrite');
-      const store = transaction.objectStore('documents');
-      await store.delete(docId);
-
-      setDocuments(prev => prev.filter(d => d.id !== docId));
-    } catch (error) {
-      console.error('Delete error:', error);
-    }
+  const handleDelete = (docId) => {
+    if (!confirm('Remove this document from the list?')) return;
+    setDocuments(prev => prev.filter(d => d.id !== docId));
   };
 
   return (
     <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
-      <h3 className={`text-lg font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Documents</h3>
+      <h3 className={`text-lg font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+        Documents
+      </h3>
 
       <div className="mb-4 flex items-center gap-3">
         <select
           value={docType}
           onChange={(e) => setDocType(e.target.value)}
           className={`px-3 py-2 rounded border ${
-            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
+            isDarkMode 
+              ? 'bg-gray-700 border-gray-600 text-white' 
+              : 'bg-white border-gray-300 text-gray-900'
           }`}
         >
           <option value="">Select document type...</option>
-          {documentTypes.map(type => (<option key={type} value={type}>{type}</option>))}
+          {documentTypes.map(type => (
+            <option key={type.value} value={type.value}>
+              {type.label}
+            </option>
+          ))}
         </select>
 
-        <label className={`${isDarkMode ? 'bg-conship-orange hover:bg-orange-600' : 'bg-conship-purple hover:bg-purple-700'} text-white px-4 py-2 rounded inline-flex items-center gap-2 cursor-pointer`}>
+        <label className={`px-4 py-2 rounded cursor-pointer flex items-center gap-2 ${
+          isDarkMode 
+            ? 'bg-conship-orange text-white hover:bg-orange-600' 
+            : 'bg-conship-purple text-white hover:bg-purple-700'
+        } ${!docType || uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
           <Upload className="w-4 h-4" />
           {uploading ? 'Uploading...' : 'Upload Document'}
           <input
             type="file"
             className="hidden"
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+            accept=".pdf,.jpg,.jpeg,.png"
             onChange={handleFileUpload}
-            disabled={uploading || !docType}
+            disabled={!docType || uploading}
           />
         </label>
       </div>
 
       <div className="space-y-2">
         {documents.length === 0 ? (
-          <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>No documents uploaded yet</p>
+          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            No documents uploaded yet
+          </p>
         ) : (
           documents.map(doc => (
             <div
               key={doc.id}
               className={`flex items-center justify-between p-3 rounded border ${
-                isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
+                isDarkMode 
+                  ? 'bg-gray-700 border-gray-600' 
+                  : 'bg-gray-50 border-gray-200'
               }`}
             >
               <div className="flex items-center gap-3">
-                <FileText className={`w-5 h-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+                <FileText className={`w-5 h-5 ${
+                  doc.type === 'sds_sheet' 
+                    ? 'text-yellow-500' 
+                    : isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                }`} />
                 <div>
-                  <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{doc.name}</p>
+                  <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {doc.name}
+                  </p>
                   <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    {doc.type} • {(doc.size / 1024).toFixed(1)} KB • {new Date(doc.uploadedAt).toLocaleDateString()}
+                    {documentTypes.find(t => t.value === doc.type)?.label || doc.type} • 
+                    {(doc.size / 1024).toFixed(1)} KB • 
+                    {new Date(doc.uploadedAt).toLocaleDateString()}
                   </p>
                 </div>
               </div>
+              
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => handleDownload(doc.id)}
-                  className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={() => handleDownload(doc)}
+                  className={`p-2 rounded ${
+                    isDarkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
+                  }`}
                   title="Download"
                 >
                   <Download className="w-4 h-4" />
@@ -237,7 +244,7 @@ const DocumentUpload = ({ bookingId, isDarkMode }) => {
                 <button
                   onClick={() => handleDelete(doc.id)}
                   className="p-2 rounded hover:bg-red-100 text-red-500"
-                  title="Delete"
+                  title="Remove"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -251,9 +258,9 @@ const DocumentUpload = ({ bookingId, isDarkMode }) => {
 };
 
 const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceType, formData = {}, onBack, isDarkMode }) => {
-  const navigate = useNavigate(); // ADDED
-  const { requestId: requestIdParam } = useParams(); // ADDED
-  const requestId = requestIdProp || requestIdParam; // ADDED - prefer prop, fallback to route param
+  const navigate = useNavigate();
+  const { requestId: requestIdParam } = useParams();
+  const requestId = requestIdProp || requestIdParam;
 
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('PROCESSING');
@@ -266,9 +273,7 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
   const [bookingData, setBookingData] = useState(null);
   const [showBOL, setShowBOL] = useState(false);
 
-  // ─────────────────────────────────────────────────────────────
-  // Step 2 — "Check if booked" on mount; redirect to booking page
-  // ─────────────────────────────────────────────────────────────
+  // Check if booked on mount; redirect to booking page
   useEffect(() => {
     let mounted = true;
     if (!requestId) return;
@@ -294,9 +299,7 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
     return () => { mounted = false; };
   }, [requestId, navigate]);
 
-  // ─────────────────────────────────────────────────────────────
   // Quote polling
-  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!requestId) return;
     let isMounted = true;
@@ -322,12 +325,12 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
                 service: q.service,
                 guaranteed: q.guaranteed
               },
-              raw_cost: q.rawCost ?? q.price ?? 0, // fallback to price if rawCost missing
+              raw_cost: q.rawCost ?? q.price ?? 0,
               final_price: q.price ?? 0,
               markup_percentage: q.markup ?? 0,
               transit_days: q.transitDays ?? q.transit_days ?? 0,
               additional_fees: q.additionalFees || [],
-              fuel_surcharge: 0 // backend doesn't separate this in current payload
+              fuel_surcharge: 0
             }));
 
             setQuotes(mappedQuotes);
@@ -371,9 +374,7 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
     };
   }, [requestId, status]);
 
-  // ─────────────────────────────────────────────────────────────
-  // NEW: After quotes loaded / status settled, check booking and redirect
-  // ─────────────────────────────────────────────────────────────
+  // After quotes loaded / status settled, check booking and redirect
   useEffect(() => {
     if (!requestId) return;
 
@@ -403,7 +404,7 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
     checkBookingStatus();
   }, [requestId, status, navigate]);
 
-  // --- BOOKING: create booking from selected quote ---
+  // Create booking from selected quote
   const handleBookShipment = async () => {
     if (selectedQuote === null) return;
     setBookingLoading(true);
@@ -435,7 +436,7 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
     }
   };
 
-  // --- BOOKING FLOW RENDERS (take precedence over normal states) ---
+  // Booking flow renders (take precedence over normal states)
   if (bookingData && !showBOL) {
     return (
       <BookingConfirmation
@@ -450,7 +451,7 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
     return <BOLBuilder booking={bookingData} isDarkMode={isDarkMode} />;
   }
 
-  // --- EXISTING LOADING / ERROR STATES ---
+  // Loading state
   if (loading && status === 'PROCESSING') {
     return (
       <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
@@ -478,6 +479,7 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
     );
   }
 
+  // Error state
   if (error) {
     return (
       <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
@@ -504,7 +506,7 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
   const totalUnits = commodities.reduce((sum, c) => sum + parseInt(c.quantity || 0, 10), 0);
   const totalWeight = commodities.reduce((sum, c) => sum + parseInt(c.weight || 0, 10), 0);
 
-  // MAIN RESULTS VIEW
+  // Main results view
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="max-w-6xl mx-auto p-6">
@@ -518,7 +520,7 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
               <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Request #{requestNumber}</p>
             </div>
             <div className="flex gap-3">
-              {/* DOCUMENTS TOGGLE BUTTON */}
+              {/* Documents toggle button */}
               <button
                 onClick={() => setShowDocuments(!showDocuments)}
                 className={`text-sm px-4 py-2 rounded flex items-center gap-2 ${
@@ -574,18 +576,16 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
           </div>
         </div>
 
-        {/* DOCUMENTS SECTION - Collapsible */}
+        {/* Documents Section - Collapsible */}
         {showDocuments && (
           <div className="mb-6">
-            {/* Using requestId for now; once a booking is created you can migrate these to the real bookingId if desired */}
-            <DocumentUpload bookingId={requestId} isDarkMode={isDarkMode} />
+            <DocumentUpload requestId={requestId} isDarkMode={isDarkMode} />
           </div>
         )}
 
-        {/* Quote Cards - Keep your existing card rendering here */}
+        {/* Quote Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {quotes.map((quote, index) => (
-            // ... your existing quote card content and handlers ...
             <div
               key={quote.quoteId || index}
               className={`rounded-lg p-4 border ${
