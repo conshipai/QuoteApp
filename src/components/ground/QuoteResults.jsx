@@ -1,13 +1,254 @@
 // src/components/ground/GroundQuoteResults.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom'; // ADDED
-import { Check, Clock, Truck, AlertCircle, Package, MapPin } from 'lucide-react';
+import {
+  Check, Clock, Truck, AlertCircle, Package, MapPin,
+  FileText, Upload, Download, X
+} from 'lucide-react';
 import API_BASE from '../../config/api'; // ADDED
 import quoteApi from '../../services/quoteApi';
 import bookingApi from '../../services/bookingApi';  // EXISTING
 import BookingConfirmation from './BookingConfirmation';  // EXISTING
 import BOLBuilder from '../bol/BOLBuilder';  // EXISTING
-import QuoteDocumentUpload from '../shared/QuoteDocumentUpload';
+// REMOVED: import QuoteDocumentUpload from '../shared/QuoteDocumentUpload';
+
+// ─────────────────────────────────────────────────────────────
+// Local IndexedDB-backed DocumentUpload component
+// ─────────────────────────────────────────────────────────────
+const DocumentUpload = ({ bookingId, isDarkMode }) => {
+  const [documents, setDocuments] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [docType, setDocType] = useState('');
+
+  const documentTypes = [
+    'Bill of Lading',
+    'Commercial Invoice',
+    'Packing List',
+    'Safety Data Sheet (SDS)',
+    'Certificate of Origin',
+    'Insurance Certificate',
+    'Other'
+  ];
+
+  // Initialize IndexedDB
+  const initDB = () => {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open('BookingDocuments', 1);
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains('documents')) {
+          const store = db.createObjectStore('documents', { keyPath: 'id' });
+          store.createIndex('bookingId', 'bookingId', { unique: false });
+        }
+      };
+    });
+  };
+
+  // Load documents from IndexedDB
+  const loadDocuments = async () => {
+    try {
+      const db = await initDB();
+      const transaction = db.transaction(['documents'], 'readonly');
+      const store = transaction.objectStore('documents');
+      const index = store.index('bookingId');
+
+      const request = index.getAll(bookingId);
+
+      request.onsuccess = () => {
+        const docs = request.result || [];
+        // Only load metadata, not the actual file data
+        const docsMetadata = docs.map(doc => ({
+          id: doc.id,
+          name: doc.name,
+          type: doc.type,
+          size: doc.size,
+          uploadedAt: doc.uploadedAt
+        }));
+        setDocuments(docsMetadata);
+      };
+    } catch (error) {
+      console.log('Could not load documents from IndexedDB:', error);
+      // Silently fail - documents feature will still work for new uploads
+    }
+  };
+
+  useEffect(() => {
+    if (bookingId) loadDocuments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingId]);
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !docType) {
+      alert('Please choose a document type first.');
+      return;
+    }
+
+    // Allow up to 10MB
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size must be less than 10MB');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+
+      const newDoc = {
+        id: `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        bookingId: bookingId,
+        name: file.name,
+        type: docType,
+        size: file.size,
+        mimeType: file.type,
+        data: arrayBuffer,
+        uploadedAt: new Date().toISOString()
+      };
+
+      // Save to IndexedDB
+      const db = await initDB();
+      const transaction = db.transaction(['documents'], 'readwrite');
+      const store = transaction.objectStore('documents');
+      await store.add(newDoc);
+
+      // Update UI
+      setDocuments(prev => [
+        ...prev,
+        {
+          id: newDoc.id,
+          name: newDoc.name,
+          type: newDoc.type,
+          size: newDoc.size,
+          uploadedAt: newDoc.uploadedAt
+        }
+      ]);
+
+      alert('Document uploaded successfully!');
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload document');
+    } finally {
+      setUploading(false);
+      event.target.value = '';
+      setDocType('');
+    }
+  };
+
+  const handleDownload = async (docId) => {
+    try {
+      const db = await initDB();
+      const transaction = db.transaction(['documents'], 'readonly');
+      const store = transaction.objectStore('documents');
+      const request = store.get(docId);
+
+      request.onsuccess = () => {
+        const doc = request.result;
+        if (doc && doc.data) {
+          const blob = new Blob([doc.data], { type: doc.mimeType });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = doc.name;
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(url), 100);
+        }
+      };
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('Failed to download document');
+    }
+  };
+
+  const handleDelete = async (docId) => {
+    if (!confirm('Delete this document?')) return;
+    try {
+      const db = await initDB();
+      const transaction = db.transaction(['documents'], 'readwrite');
+      const store = transaction.objectStore('documents');
+      await store.delete(docId);
+
+      setDocuments(prev => prev.filter(d => d.id !== docId));
+    } catch (error) {
+      console.error('Delete error:', error);
+    }
+  };
+
+  return (
+    <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
+      <h3 className={`text-lg font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Documents</h3>
+
+      <div className="mb-4 flex items-center gap-3">
+        <select
+          value={docType}
+          onChange={(e) => setDocType(e.target.value)}
+          className={`px-3 py-2 rounded border ${
+            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
+          }`}
+        >
+          <option value="">Select document type...</option>
+          {documentTypes.map(type => (<option key={type} value={type}>{type}</option>))}
+        </select>
+
+        <label className={`${isDarkMode ? 'bg-conship-orange hover:bg-orange-600' : 'bg-conship-purple hover:bg-purple-700'} text-white px-4 py-2 rounded inline-flex items-center gap-2 cursor-pointer`}>
+          <Upload className="w-4 h-4" />
+          {uploading ? 'Uploading...' : 'Upload Document'}
+          <input
+            type="file"
+            className="hidden"
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+            onChange={handleFileUpload}
+            disabled={uploading || !docType}
+          />
+        </label>
+      </div>
+
+      <div className="space-y-2">
+        {documents.length === 0 ? (
+          <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>No documents uploaded yet</p>
+        ) : (
+          documents.map(doc => (
+            <div
+              key={doc.id}
+              className={`flex items-center justify-between p-3 rounded border ${
+                isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <FileText className={`w-5 h-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+                <div>
+                  <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{doc.name}</p>
+                  <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {doc.type} • {(doc.size / 1024).toFixed(1)} KB • {new Date(doc.uploadedAt).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDownload(doc.id)}
+                  className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                  title="Download"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleDelete(doc.id)}
+                  className="p-2 rounded hover:bg-red-100 text-red-500"
+                  title="Delete"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
 
 const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceType, formData = {}, onBack, isDarkMode }) => {
   const navigate = useNavigate(); // ADDED
@@ -132,7 +373,6 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
 
   // ─────────────────────────────────────────────────────────────
   // NEW: After quotes loaded / status settled, check booking and redirect
-  // (mirrors your requested snippet; triggers when status is no longer loading)
   // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!requestId) return;
@@ -171,7 +411,6 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
     const selected = quotes[selectedQuote];
 
     try {
-      // Pass the formData as shipmentData (as per your backend expectation)
       const bookingPayload = {
         quoteData: selected,
         requestId: requestId,
@@ -265,7 +504,7 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
   const totalUnits = commodities.reduce((sum, c) => sum + parseInt(c.quantity || 0, 10), 0);
   const totalWeight = commodities.reduce((sum, c) => sum + parseInt(c.weight || 0, 10), 0);
 
-// MAIN RESULTS VIEW - Update this section
+  // MAIN RESULTS VIEW
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="max-w-6xl mx-auto p-6">
@@ -279,23 +518,23 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
               <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Request #{requestNumber}</p>
             </div>
             <div className="flex gap-3">
-              {/* ADD DOCUMENTS TOGGLE BUTTON */}
+              {/* DOCUMENTS TOGGLE BUTTON */}
               <button
                 onClick={() => setShowDocuments(!showDocuments)}
                 className={`text-sm px-4 py-2 rounded flex items-center gap-2 ${
                   showDocuments
-                    ? isDarkMode 
-                      ? 'bg-conship-orange text-white' 
+                    ? isDarkMode
+                      ? 'bg-conship-orange text-white'
                       : 'bg-conship-purple text-white'
-                    : isDarkMode 
-                      ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                    : isDarkMode
+                      ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
               >
                 <FileText className="w-4 h-4" />
                 {showDocuments ? 'Hide Documents' : 'Manage Documents'}
               </button>
-              
+
               <button
                 onClick={onBack}
                 className={`text-sm px-4 py-2 rounded ${
@@ -335,24 +574,69 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
           </div>
         </div>
 
-        {/* ADD DOCUMENTS SECTION - Collapsible */}
+        {/* DOCUMENTS SECTION - Collapsible */}
         {showDocuments && (
           <div className="mb-6">
-            <QuoteDocumentUpload 
-              quoteId={requestId} 
-              isDarkMode={isDarkMode} 
-            />
+            {/* Using requestId for now; once a booking is created you can migrate these to the real bookingId if desired */}
+            <DocumentUpload bookingId={requestId} isDarkMode={isDarkMode} />
           </div>
         )}
 
-        {/* Quote Cards - Keep your existing code */}
+        {/* Quote Cards - Keep your existing card rendering here */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {quotes.map((quote, index) => (
-            // ... (keep your existing quote card code)
+            // ... your existing quote card content and handlers ...
+            <div
+              key={quote.quoteId || index}
+              className={`rounded-lg p-4 border ${
+                isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Truck className={isDarkMode ? 'text-gray-300' : 'text-gray-700'} />
+                  <div>
+                    <div className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {quote?.service_details?.carrier || 'Carrier'}
+                    </div>
+                    <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {quote?.service_details?.service || 'Service'} {quote?.service_details?.guaranteed ? '• Guaranteed' : ''}
+                    </div>
+                  </div>
+                </div>
+                <div className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  ${Number(quote?.final_price ?? 0).toFixed(2)}
+                </div>
+              </div>
+
+              <div className="mt-3 flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-1">
+                  <Clock className="w-4 h-4" />
+                  <span>{quote?.transit_days ?? 0} days</span>
+                </div>
+                {Array.isArray(quote?.additional_fees) && quote.additional_fees.length > 0 && (
+                  <div className="text-xs opacity-75">
+                    + {quote.additional_fees.length} fees
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4">
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="selectedQuote"
+                    checked={selectedQuote === index}
+                    onChange={() => setSelectedQuote(index)}
+                  />
+                  <span className={isDarkMode ? 'text-gray-200' : 'text-gray-800'}>Select this quote</span>
+                </label>
+              </div>
+            </div>
           ))}
         </div>
 
-        {/* Action Buttons - Update to include document info */}
+        {/* Action Buttons */}
         <div className="mt-8">
           <div className="flex justify-between items-center">
             {/* Document indicator */}
@@ -364,7 +648,7 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
                 </span>
               )}
             </div>
-            
+
             {/* Action buttons */}
             <div className="flex gap-3">
               <button
@@ -389,11 +673,11 @@ const GroundQuoteResults = ({ requestId: requestIdProp, requestNumber, serviceTy
                 onClick={handleBookShipment}
                 disabled={selectedQuote === null || bookingLoading}
                 className={`px-6 py-2 rounded font-medium ${
-                  selectedQuote === null || bookingLoading
+                  (selectedQuote === null || bookingLoading)
                     ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                    : isDarkMode
-                    ? 'bg-conship-orange text-white hover:bg-orange-600'
-                    : 'bg-conship-purple text-white hover:bg-purple-700'
+                    : (isDarkMode
+                      ? 'bg-conship-orange text-white hover:bg-orange-600'
+                      : 'bg-conship-purple text-white hover:bg-purple-700')
                 }`}
               >
                 {bookingLoading ? 'Booking...' : 'Book Shipment'}
