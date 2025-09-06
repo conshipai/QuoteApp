@@ -1,10 +1,39 @@
-// src/services/bolApi.js
-import API_BASE from '../config/api';
+import documentApi from './documentApi';
+import html2pdf from 'html2pdf.js'; // You'll need to install this: npm install html2pdf.js
 
 class BolAPI {
   async createBOL({ bookingId, bolNumber, bolData, htmlContent }) {
     try {
-      // Try real API first
+      // First, convert HTML to PDF
+      const bolElement = document.getElementById('bol-template');
+      if (!bolElement) {
+        throw new Error('BOL template not found');
+      }
+
+      // Generate PDF from HTML
+      const opt = {
+        margin: 0.5,
+        filename: `BOL-${bolNumber}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+
+      const pdfBlob = await html2pdf().set(opt).from(bolElement).outputPdf('blob');
+      
+      // Create File object from blob
+      const pdfFile = new File([pdfBlob], `BOL-${bolNumber}.pdf`, { 
+        type: 'application/pdf' 
+      });
+
+      // Upload to Cloudflare R2 using your existing backend
+      const uploadResult = await documentApi.uploadDocument(
+        pdfFile,
+        bookingId,  // Using bookingId as requestId
+        'bol'       // Document type
+      );
+
+      // Save BOL metadata to your backend database
       const response = await fetch(`${API_BASE}/bol/create`, {
         method: 'POST',
         headers: {
@@ -15,7 +44,8 @@ class BolAPI {
           bookingId,
           bolNumber,
           bolData,
-          htmlContent
+          fileUrl: uploadResult.fileUrl,  // Store the R2 URL
+          fileKey: uploadResult.key,      // Store the R2 key
         })
       });
 
@@ -24,101 +54,13 @@ class BolAPI {
         return data;
       }
 
-      // Fallback to mock
+      // Fallback to localStorage if backend fails
       return this.mockCreateBOL({ bookingId, bolNumber, bolData, htmlContent });
       
     } catch (error) {
       console.error('BOL creation error:', error);
-      // Fallback to mock implementation
+      // Fallback to localStorage
       return this.mockCreateBOL({ bookingId, bolNumber, bolData, htmlContent });
-    }
-  }
-
-  async mockCreateBOL({ bookingId, bolNumber, bolData, htmlContent }) {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Generate BOL ID
-    const bolId = `BOL-${Date.now()}`;
-    
-    // Create the BOL object
-    const bol = {
-      bolId,
-      bookingId,
-      bolNumber,
-      bolData,
-      htmlContent: htmlContent || '', // Store the HTML content
-      createdAt: new Date().toISOString(),
-      createdBy: localStorage.getItem('user_email') || 'user@example.com'
-    };
-    
-    // Get existing BOLs or initialize empty array
-    const existingBOLs = JSON.parse(localStorage.getItem('bols') || '[]');
-    
-    // Check if a BOL already exists for this booking and remove it (update case)
-    const filteredBOLs = existingBOLs.filter(b => b.bookingId !== bookingId);
-    
-    // Add the new BOL
-    filteredBOLs.push(bol);
-    localStorage.setItem('bols', JSON.stringify(filteredBOLs));
-    
-    // IMPORTANT: Update ALL places where the booking might be stored
-    
-    // 1. Update the specific booking entry
-    const bookingKey = `booking_${bookingId}`;
-    const bookingData = localStorage.getItem(bookingKey);
-    if (bookingData) {
-      const booking = JSON.parse(bookingData);
-      booking.hasBOL = true;
-      booking.bolId = bolId;
-      booking.bolNumber = bolNumber;
-      localStorage.setItem(bookingKey, JSON.stringify(booking));
-    }
-    
-    // 2. Also update in any "all bookings" cache if it exists
-    const allBookingsKey = 'all_bookings_cache';
-    const allBookingsData = localStorage.getItem(allBookingsKey);
-    if (allBookingsData) {
-      const allBookings = JSON.parse(allBookingsData);
-      const bookingIndex = allBookings.findIndex(b => b.bookingId === bookingId);
-      if (bookingIndex !== -1) {
-        allBookings[bookingIndex].hasBOL = true;
-        allBookings[bookingIndex].bolId = bolId;
-        allBookings[bookingIndex].bolNumber = bolNumber;
-        localStorage.setItem(allBookingsKey, JSON.stringify(allBookings));
-      }
-    }
-    
-    console.log('BOL created successfully:', { bolId, bookingId, bolNumber });
-    
-    return {
-      success: true,
-      bolId,
-      bolNumber,
-      message: 'BOL saved successfully'
-    };
-  }
-
-  async getBOLByBooking(bookingId) {
-    try {
-      // Try real API first
-      const response = await fetch(`${API_BASE}/bol/booking/${bookingId}`, {
-        headers: {
-          'Authorization': `Bearer ${this.getToken()}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        return data;
-      }
-
-      // Fallback to mock
-      return this.mockGetBOLByBooking(bookingId);
-      
-    } catch (error) {
-      console.error('Error fetching BOL:', error);
-      return this.mockGetBOLByBooking(bookingId);
     }
   }
 
