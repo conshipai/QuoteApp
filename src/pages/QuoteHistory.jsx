@@ -174,30 +174,78 @@ const QuoteHistory = ({ isDarkMode, userRole }) => {
     return null;
   };
 
-  const handleQuoteClick = (quote) => {
+  const handleQuoteClick = async (quote) => {
+    // If booked, go to booking details
     if (quote.isBooked) {
       navigate(`/app/quotes/bookings/${quote.bookingId}`);
-    } else {
-      if (quote.mode === 'ground') {
-        navigate(`/app/quotes/ground/results/${quote.requestId || quote._id}`, {
-          state: {
-            requestId: quote.requestId || quote._id,
-            requestNumber: quote.requestNumber,
-            serviceType: quote.serviceType,
-            formData: quote.formData || {},
-            status: quote.status
-          }
-        });
-      } else {
-        navigate(`/app/quotes/${quote.mode}/results/${quote.requestId || quote._id}`, {
-          state: {
-            requestId: quote.requestId || quote._id,
-            requestNumber: quote.requestNumber,
-            mode: quote.mode,
-            direction: quote.direction
-          }
-        });
+      return;
+    }
+
+    // For ground quotes, navigate with full context
+    if (quote.mode === 'ground') {
+      const requestId = quote.requestId || quote._id;
+      
+      // Try multiple sources for form data
+      let formData = quote.formData || {};
+      
+      // 1. Check for saved form data in localStorage
+      const savedFormData = localStorage.getItem(`quote_formdata_${requestId}`);
+      if (savedFormData) {
+        try {
+          formData = JSON.parse(savedFormData);
+          console.log('📦 Using saved form data from localStorage');
+        } catch (e) {
+          console.error('Error parsing saved form data:', e);
+        }
       }
+      
+      // 2. Check for cached quote results
+      const cachedResults = localStorage.getItem(`quote_results_${requestId}`);
+      if (cachedResults && !savedFormData) {
+        try {
+          const cached = JSON.parse(cachedResults);
+          if (cached.formData) {
+            formData = cached.formData;
+            console.log('📦 Using form data from cached results');
+          }
+        } catch (e) {
+          console.error('Error parsing cached results:', e);
+        }
+      }
+      
+      // 3. Check for request data
+      const requestData = localStorage.getItem(`quote_request_${requestId}`);
+      if (requestData && Object.keys(formData).length === 0) {
+        try {
+          const request = JSON.parse(requestData);
+          if (request.formData) {
+            formData = request.formData;
+            console.log('📦 Using form data from request data');
+          }
+        } catch (e) {
+          console.error('Error parsing request data:', e);
+        }
+      }
+      
+      navigate(`/app/quotes/ground/results/${requestId}`, {
+        state: {
+          requestId: requestId,
+          requestNumber: quote.requestNumber,
+          serviceType: quote.serviceType || 'ltl',
+          formData: formData,
+          status: quote.status
+        }
+      });
+    } else {
+      // Air/Ocean quotes
+      navigate(`/app/quotes/${quote.mode}/results/${quote.requestId || quote._id}`, {
+        state: {
+          requestId: quote.requestId || quote._id,
+          requestNumber: quote.requestNumber,
+          mode: quote.mode,
+          direction: quote.direction
+        }
+      });
     }
   };
 
@@ -281,7 +329,7 @@ const QuoteHistory = ({ isDarkMode, userRole }) => {
                   }).length}
                 </p>
               </div>
-              <Calendar className="w-8 h-8 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}" />
+              <Calendar className={`w-8 h-8 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`} />
             </div>
           </div>
         </div>
