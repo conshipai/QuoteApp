@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   Check, Clock, Truck, AlertCircle, Package, MapPin,
-  FileText, Upload, Download, X
+  FileText, Upload, Download, X, RefreshCw, AlertTriangle
 } from 'lucide-react';
 import API_BASE from '../../config/api';
 import quoteApi from '../../services/quoteApi';
@@ -12,9 +12,10 @@ import BookingConfirmation from './BookingConfirmation';
 import BOLBuilder from '../bol/BOLBuilder';
 
 // ─────────────────────────────────────────────────────────────
-// R2-backed DocumentUpload component (FIXED VERSION)
+// DocumentUpload component (keeping as-is from original)
 // ─────────────────────────────────────────────────────────────
 const DocumentUpload = ({ requestId, isDarkMode }) => {
+  // ... keeping the original DocumentUpload implementation ...
   const [documents, setDocuments] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [docType, setDocType] = useState('');
@@ -123,10 +124,8 @@ const DocumentUpload = ({ requestId, isDarkMode }) => {
   const handleDownload = async (doc) => {
     try {
       if (doc.url) {
-        // If we have a direct URL, just open it
         window.open(doc.url, '_blank', 'noopener,noreferrer');
       } else if (doc.key) {
-        // Request a signed URL from backend
         const response = await fetch(`${API_BASE}/storage/signed-url/${encodeURIComponent(doc.key)}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
@@ -257,6 +256,9 @@ const DocumentUpload = ({ requestId, isDarkMode }) => {
   );
 };
 
+// ─────────────────────────────────────────────────────────────
+// Enhanced GroundQuoteResults with better data handling
+// ─────────────────────────────────────────────────────────────
 const GroundQuoteResults = ({ 
   requestId: requestIdProp, 
   requestNumber: requestNumberProp, 
@@ -281,55 +283,126 @@ const GroundQuoteResults = ({
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [error, setError] = useState(null);
   const [showDocuments, setShowDocuments] = useState(false);
+  const [dataSource, setDataSource] = useState('props'); // Track where data came from
+  const [missingDataWarning, setMissingDataWarning] = useState(false);
+  
   // Booking flow state
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingData, setBookingData] = useState(null);
   const [showBOL, setShowBOL] = useState(false);
 
-  // Try to load form data from localStorage if not provided
+  // Enhanced data loading with multiple fallback sources
   useEffect(() => {
     if (requestId && (!formData || Object.keys(formData).length === 0)) {
-      console.log('📦 Attempting to load form data from localStorage...');
+      console.log('📦 Attempting to load quote data from multiple sources...');
       
-      // Try multiple sources
-      const sources = [
-        `quote_formdata_${requestId}`,
-        `quote_results_${requestId}`,
-        `quote_request_${requestId}`
-      ];
+      let dataLoaded = false;
+      let source = 'none';
       
-      for (const source of sources) {
-        const data = localStorage.getItem(source);
-        if (data) {
+      // 1. Try complete quote data first
+      const completeData = localStorage.getItem(`quote_complete_${requestId}`);
+      if (completeData) {
+        try {
+          const parsed = JSON.parse(completeData);
+          if (parsed.formData && Object.keys(parsed.formData).length > 0) {
+            setFormData(parsed.formData);
+            setServiceType(parsed.serviceType || 'ltl');
+            setRequestNumber(parsed.requestNumber || 'N/A');
+            source = 'complete_cache';
+            dataLoaded = true;
+            console.log('✅ Loaded complete quote data from cache');
+          }
+        } catch (e) {
+          console.error('Error parsing complete data:', e);
+        }
+      }
+      
+      // 2. Try form data cache
+      if (!dataLoaded) {
+        const formDataCache = localStorage.getItem(`quote_formdata_${requestId}`);
+        if (formDataCache) {
           try {
-            const parsed = JSON.parse(data);
-            let extractedFormData = {};
-            
-            // Extract form data based on the source structure
-            if (source.includes('formdata')) {
-              extractedFormData = parsed;
-            } else if (source.includes('results') && parsed.formData) {
-              extractedFormData = parsed.formData;
-            } else if (source.includes('request') && parsed.formData) {
-              extractedFormData = parsed.formData;
-            }
-            
-            if (Object.keys(extractedFormData).length > 0) {
-              console.log(`✅ Loaded form data from ${source}`);
-              setFormData(extractedFormData);
-              
-              // Also try to get other metadata
-              if (parsed.requestNumber) setRequestNumber(parsed.requestNumber);
-              if (parsed.serviceType) setServiceType(parsed.serviceType);
-              break;
+            const parsed = JSON.parse(formDataCache);
+            if (Object.keys(parsed).length > 0) {
+              setFormData(parsed);
+              source = 'form_cache';
+              dataLoaded = true;
+              console.log('📋 Loaded form data from cache');
             }
           } catch (e) {
-            console.error(`Error parsing ${source}:`, e);
+            console.error('Error parsing form data:', e);
           }
         }
       }
+      
+      // 3. Try results cache
+      if (!dataLoaded) {
+        const resultsCache = localStorage.getItem(`quote_results_${requestId}`);
+        if (resultsCache) {
+          try {
+            const parsed = JSON.parse(resultsCache);
+            if (parsed.formData && Object.keys(parsed.formData).length > 0) {
+              setFormData(parsed.formData);
+              if (parsed.requestNumber) setRequestNumber(parsed.requestNumber);
+              if (parsed.serviceType) setServiceType(parsed.serviceType);
+              source = 'results_cache';
+              dataLoaded = true;
+              console.log('📊 Loaded data from results cache');
+            }
+          } catch (e) {
+            console.error('Error parsing results cache:', e);
+          }
+        }
+      }
+      
+      // 4. Try request cache
+      if (!dataLoaded) {
+        const requestCache = localStorage.getItem(`quote_request_${requestId}`);
+        if (requestCache) {
+          try {
+            const parsed = JSON.parse(requestCache);
+            if (parsed.formData && Object.keys(parsed.formData).length > 0) {
+              setFormData(parsed.formData);
+              source = 'request_cache';
+              dataLoaded = true;
+              console.log('📝 Loaded data from request cache');
+            }
+          } catch (e) {
+            console.error('Error parsing request cache:', e);
+          }
+        }
+      }
+      
+      setDataSource(source);
+      
+      // Show warning if no data could be loaded
+      if (!dataLoaded) {
+        console.warn('⚠️ No form data available for this quote');
+        setMissingDataWarning(true);
+      }
     }
   }, [requestId]);
+
+  // Save current state to localStorage whenever it changes
+  useEffect(() => {
+    if (requestId && formData && Object.keys(formData).length > 0) {
+      const dataToSave = {
+        requestId,
+        requestNumber,
+        serviceType,
+        formData,
+        status,
+        savedAt: new Date().toISOString()
+      };
+      
+      try {
+        localStorage.setItem(`quote_complete_${requestId}`, JSON.stringify(dataToSave));
+        console.log('💾 Saved current state to localStorage');
+      } catch (e) {
+        console.error('Failed to save state:', e);
+      }
+    }
+  }, [requestId, requestNumber, serviceType, formData, status]);
 
   // Check if booked on mount; redirect to booking page
   useEffect(() => {
@@ -357,7 +430,7 @@ const GroundQuoteResults = ({
     return () => { mounted = false; };
   }, [requestId, navigate]);
 
-  // Quote polling
+  // Quote polling with data recovery
   useEffect(() => {
     if (!requestId) {
       setError('No request ID provided. Please go back and create a new quote.');
@@ -378,8 +451,24 @@ const GroundQuoteResults = ({
           // Update metadata if available
           if (result.requestNumber) setRequestNumber(result.requestNumber);
           if (result.serviceType) setServiceType(result.serviceType);
-          if (result.formData && Object.keys(formData).length === 0) {
+          
+          // Update form data if we don't have it yet or if backend has more complete data
+          if (result.formData && (!formData || Object.keys(formData).length === 0)) {
             setFormData(result.formData);
+            setDataSource('backend');
+            setMissingDataWarning(false);
+            
+            // Save the recovered data
+            const dataToSave = {
+              requestId,
+              requestNumber: result.requestNumber,
+              serviceType: result.serviceType,
+              formData: result.formData,
+              status: result.status,
+              savedAt: new Date().toISOString()
+            };
+            localStorage.setItem(`quote_complete_${requestId}`, JSON.stringify(dataToSave));
+            console.log('✅ Recovered and saved form data from backend');
           }
 
           // Backend sends lowercase statuses; UI state uses uppercase
@@ -406,14 +495,11 @@ const GroundQuoteResults = ({
             setQuotes(mappedQuotes);
             setLoading(false);
           } else if (result.status === 'failed') {
-            // Stop polling and show error
             setError(result.error || 'Unable to retrieve quotes. Please try again or contact support.');
             setLoading(false);
           } else if (result.status === 'pending' || result.status === 'processing') {
-            // Keep polling
             setLoading(true);
           } else {
-            // Any other status -> stop loading but keep UI stable
             setLoading(false);
           }
         } else {
@@ -444,39 +530,58 @@ const GroundQuoteResults = ({
     };
   }, [requestId, status]);
 
-  // After quotes loaded / status settled, check booking and redirect
-  useEffect(() => {
+  // Attempt to recover missing data from API
+  const attemptDataRecovery = async () => {
     if (!requestId) return;
-
-    // Only check once the request is not in a polling state
-    const isSettled = status !== 'PROCESSING' && status !== 'PENDING';
-    if (!isSettled) return;
-
-    const checkBookingStatus = async () => {
-      try {
-        const bookingResponse = await fetch(`${API_BASE}/bookings/by-request/${requestId}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
-          }
-        });
-
-        if (bookingResponse.ok) {
-          const bookingData = await bookingResponse.json();
-          if (bookingData.success && bookingData.booking && bookingData.booking.bookingId) {
-            navigate(`/app/quotes/bookings/${bookingData.booking.bookingId}`);
-          }
+    
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/ground-quotes/${requestId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
         }
-      } catch (error) {
-        console.error('Error checking booking status:', error);
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.formData) {
+          setFormData(data.formData);
+          setRequestNumber(data.requestNumber || 'N/A');
+          setServiceType(data.serviceType || 'ltl');
+          setMissingDataWarning(false);
+          setDataSource('recovered');
+          
+          // Save recovered data
+          localStorage.setItem(`quote_complete_${requestId}`, JSON.stringify({
+            requestId,
+            requestNumber: data.requestNumber,
+            serviceType: data.serviceType,
+            formData: data.formData,
+            status: data.status,
+            savedAt: new Date().toISOString()
+          }));
+          
+          console.log('✅ Successfully recovered quote data from API');
+        }
       }
-    };
-
-    checkBookingStatus();
-  }, [requestId, status, navigate]);
+    } catch (error) {
+      console.error('Failed to recover data:', error);
+      alert('Unable to recover quote data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Create booking from selected quote
   const handleBookShipment = async () => {
     if (selectedQuote === null) return;
+    
+    // Check if we have minimum required data
+    if (!formData || Object.keys(formData).length === 0) {
+      alert('Missing shipment details. Please ensure all required information is available.');
+      return;
+    }
+    
     setBookingLoading(true);
 
     const selected = quotes[selectedQuote];
@@ -511,12 +616,11 @@ const GroundQuoteResults = ({
     if (onBack) {
       onBack();
     } else {
-      // Navigate to the appropriate quote form
       navigate(`/app/quotes/ground/${serviceType || 'ltl'}`);
     }
   };
 
-  // Booking flow renders (take precedence over normal states)
+  // Booking flow renders
   if (bookingData && !showBOL) {
     return (
       <BookingConfirmation
@@ -553,6 +657,11 @@ const GroundQuoteResults = ({
                 <span>YRC</span>
               </div>
             </div>
+            {dataSource !== 'props' && (
+              <p className={`mt-4 text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                Data loaded from: {dataSource}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -590,6 +699,36 @@ const GroundQuoteResults = ({
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="max-w-6xl mx-auto p-6">
+        {/* Missing Data Warning */}
+        {missingDataWarning && (
+          <div className={`mb-6 p-4 rounded-lg border ${
+            isDarkMode 
+              ? 'bg-yellow-900/20 border-yellow-600/50 text-yellow-400' 
+              : 'bg-yellow-50 border-yellow-300 text-yellow-800'
+          }`}>
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="font-medium">Limited shipment details available</p>
+                <p className="text-sm mt-1 opacity-90">
+                  Some shipment information could not be loaded. This may affect booking capabilities.
+                </p>
+              </div>
+              <button
+                onClick={attemptDataRecovery}
+                className={`px-3 py-1 text-sm rounded flex items-center gap-1 ${
+                  isDarkMode 
+                    ? 'bg-yellow-600 text-white hover:bg-yellow-500' 
+                    : 'bg-yellow-200 text-yellow-900 hover:bg-yellow-300'
+                }`}
+              >
+                <RefreshCw className="w-3 h-3" />
+                Recover Data
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
@@ -597,7 +736,14 @@ const GroundQuoteResults = ({
               <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {String(serviceType || '').toUpperCase()} Quote Results
               </h1>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Request #{requestNumber}</p>
+              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Request #{requestNumber}
+                {dataSource !== 'props' && (
+                  <span className="ml-2 text-xs opacity-75">
+                    (Data: {dataSource})
+                  </span>
+                )}
+              </p>
             </div>
             <div className="flex gap-3">
               {/* Documents toggle button */}
@@ -630,7 +776,7 @@ const GroundQuoteResults = ({
         </div>
 
         {/* Shipment Summary */}
-        {formData && Object.keys(formData).length > 0 && (
+        {formData && Object.keys(formData).length > 0 ? (
           <div className={`mb-6 p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-6">
@@ -657,6 +803,16 @@ const GroundQuoteResults = ({
                 </div>
               )}
             </div>
+          </div>
+        ) : (
+          <div className={`mb-6 p-4 rounded-lg border ${
+            isDarkMode 
+              ? 'bg-gray-800 border-gray-700' 
+              : 'bg-gray-100 border-gray-300'
+          }`}>
+            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              Shipment details unavailable. Loading from request...
+            </p>
           </div>
         )}
 
@@ -772,14 +928,15 @@ const GroundQuoteResults = ({
 
                 <button
                   onClick={handleBookShipment}
-                  disabled={selectedQuote === null || bookingLoading}
+                  disabled={selectedQuote === null || bookingLoading || (missingDataWarning && (!formData || Object.keys(formData).length === 0))}
                   className={`px-6 py-2 rounded font-medium ${
-                    (selectedQuote === null || bookingLoading)
+                    (selectedQuote === null || bookingLoading || (missingDataWarning && (!formData || Object.keys(formData).length === 0)))
                       ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                       : (isDarkMode
                         ? 'bg-conship-orange text-white hover:bg-orange-600'
                         : 'bg-conship-purple text-white hover:bg-purple-700')
                   }`}
+                  title={missingDataWarning ? 'Please recover shipment data before booking' : ''}
                 >
                   {bookingLoading ? 'Booking...' : 'Book Shipment'}
                 </button>
