@@ -4,43 +4,60 @@ import API_BASE from '../config/api';
 class QuoteAPI {
   // ===== Real API methods =====
 
-  // Create GROUND quote request - UPDATED
-  async createGroundQuoteRequest(formData, serviceType) {
-    try {
-      console.log('📤 Sending to backend:', { serviceType, formData });
+// In src/services/quoteApi.js
+// Find this method and update it:
 
-      const response = await fetch(`${API_BASE}/ground-quotes/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getToken()}`
-        },
-        body: JSON.stringify({
-          serviceType,
-          formData
-        })
-      });
+async createGroundQuoteRequest(formData, serviceType) {
+  try {
+    console.log('📤 Sending to backend:', { serviceType, formData });
 
-      // Attempt to parse JSON even on non-2xx for more useful errors
-      const data = await response.json().catch(() => ({}));
-      console.log('📥 Backend response:', data);
+    const response = await fetch(`${API_BASE}/ground-quotes/create`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.getToken()}`
+      },
+      body: JSON.stringify({
+        serviceType,
+        formData
+      })
+    });
 
-      if (!response.ok || !data?.success) {
-        throw new Error(data?.error || `Failed to create quote (HTTP ${response.status})`);
-      }
+    const data = await response.json().catch(() => ({}));
+    console.log('📥 Backend response:', data);
 
-      return {
-        success: true,
-        requestId: data.data?._id,
-        requestNumber: data.data?.requestNumber
-      };
-    } catch (error) {
-      console.error('❌ API error (createGroundQuoteRequest):', error);
-
-      // Fallback to mock behavior
-      return this.mockCreateQuoteRequest(formData, serviceType);
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.error || `Failed to create quote (HTTP ${response.status})`);
     }
+
+    // IMPORTANT: Save the complete quote data for history
+    const completeQuoteData = {
+      requestId: data.data?._id,
+      requestNumber: data.data?.requestNumber,
+      serviceType: serviceType,
+      formData: formData,  // This is critical!
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    
+    // Save to localStorage for history access
+    localStorage.setItem(
+      `quote_complete_${data.data?._id}`, 
+      JSON.stringify(completeQuoteData)
+    );
+    
+    console.log('💾 Saved complete quote data for history');
+
+    return {
+      success: true,
+      requestId: data.data?._id,
+      requestNumber: data.data?.requestNumber
+    };
+  } catch (error) {
+    console.error('❌ API error:', error);
+    return this.mockCreateQuoteRequest(formData, serviceType);
   }
+}
 
   // Get ground quote results - UPDATED WITH CACHING
   async getGroundQuoteResults(requestId) {
