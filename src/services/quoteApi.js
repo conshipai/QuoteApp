@@ -4,62 +4,71 @@ import API_BASE from '../config/api';
 class QuoteAPI {
   // ===== Real API methods =====
 
-// In src/services/quoteApi.js
-// Find this method and update it:
+  async createGroundQuoteRequest(formData, serviceType) {
+    try {
+      console.log('📤 Sending to backend:', { serviceType, formData });
 
-async createGroundQuoteRequest(formData, serviceType) {
-  try {
-    console.log('📤 Sending to backend:', { serviceType, formData });
+      const response = await fetch(`${API_BASE}/ground-quotes/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getToken()}`
+        },
+        body: JSON.stringify({
+          serviceType,
+          formData
+        })
+      });
 
-    const response = await fetch(`${API_BASE}/ground-quotes/create`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.getToken()}`
-      },
-      body: JSON.stringify({
-        serviceType,
-        formData
-      })
-    });
+      // Attempt to parse JSON even on non-2xx for more useful errors
+      const data = await response.json().catch(() => ({}));
+      console.log('📥 Backend response:', data);
 
-    const data = await response.json().catch(() => ({}));
-    console.log('📥 Backend response:', data);
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || `Failed to create quote (HTTP ${response.status})`);
+      }
 
-    if (!response.ok || !data?.success) {
-      throw new Error(data?.error || `Failed to create quote (HTTP ${response.status})`);
+      // Only save complete data if we have a successful response
+      if (data.success && data.data?._id) {
+        const completeQuoteData = {
+          requestId: data.data._id,
+          requestNumber: data.data.requestNumber,
+          serviceType: serviceType,
+          formData: formData,  // ✅ Critical for history navigation
+          status: 'pending',
+          createdAt: new Date().toISOString()
+        };
+        
+        // Save complete quote data for history access
+        localStorage.setItem(
+          `quote_complete_${data.data._id}`, 
+          JSON.stringify(completeQuoteData)
+        );
+        
+        // Also save just the form data (for backward compatibility)
+        localStorage.setItem(
+          `quote_formdata_${data.data._id}`,
+          JSON.stringify(formData)
+        );
+        
+        console.log('💾 Saved complete quote data for history');
+      }
+
+      return {
+        success: true,
+        requestId: data.data?._id,
+        requestNumber: data.data?.requestNumber
+      };
+      
+    } catch (error) {
+      console.error('❌ API error (createGroundQuoteRequest):', error);
+      
+      // Fallback to mock behavior if API fails
+      return this.mockCreateQuoteRequest(formData, serviceType);
     }
-
-    // IMPORTANT: Save the complete quote data for history
-    const completeQuoteData = {
-      requestId: data.data?._id,
-      requestNumber: data.data?.requestNumber,
-      serviceType: serviceType,
-      formData: formData,  // This is critical!
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    };
-    
-    // Save to localStorage for history access
-    localStorage.setItem(
-      `quote_complete_${data.data?._id}`, 
-      JSON.stringify(completeQuoteData)
-    );
-    
-    console.log('💾 Saved complete quote data for history');
-
-    return {
-      success: true,
-      requestId: data.data?._id,
-      requestNumber: data.data?.requestNumber
-    };
-  } catch (error) {
-    console.error('❌ API error:', error);
-    return this.mockCreateQuoteRequest(formData, serviceType);
   }
-}
 
-  // Get ground quote results - UPDATED WITH CACHING
+  // Get ground quote results - WITH CACHING
   async getGroundQuoteResults(requestId) {
     try {
       const response = await fetch(`${API_BASE}/ground-quotes/results/${encodeURIComponent(requestId)}`, {
@@ -105,11 +114,118 @@ async createGroundQuoteRequest(formData, serviceType) {
     }
   }
 
+  // ✅ NEW: Get form data for a specific request (for history navigation)
+  async getQuoteFormData(requestId) {
+    try {
+      // First try to get from backend
+      const response = await fetch(`${API_BASE}/ground-quotes/formdata/${encodeURIComponent(requestId)}`, {
+        headers: {
+          'Authorization': `Bearer ${this.getToken()}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.formData) {
+          console.log('✅ Got form data from backend');
+          return data.formData;
+        }
+      }
+    } catch (error) {
+      console.error('⚠️ Backend formdata fetch failed, checking localStorage:', error);
+    }
+
+    // Fallback to localStorage
+    // Try multiple keys for backward compatibility
+    const keys = [
+      `quote_formdata_${requestId}`,
+      `quote_complete_${requestId}`,
+      `quote_request_${requestId}`
+    ];
+
+    for (const key of keys) {
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          // Extract formData from different possible structures
+          const formData = parsed.formData || parsed;
+          if (formData && (formData.originZip || formData.originCity)) {
+            console.log(`✅ Got form data from localStorage (${key})`);
+            return formData;
+          }
+        } catch (e) {
+          console.error(`Failed to parse ${key}:`, e);
+        }
+      }
+    }
+
+    console.warn('❌ No form data found for requestId:', requestId);
+    return null;
+  }
+
+  // ✅ NEW: Get recent quotes with form data
+  async getRecentQuotes(limit = 10) {
+    try {
+      const response = await fetch(`${API_BASE}/ground-quotes/recent?limit=${limit}`, {
+        headers: {
+          'Authorization': `Bearer ${this.getToken()}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          console.log('✅ Got recent quotes from backend');
+          return data.requests || [];
+        }
+      }
+    } catch (error) {
+      console.error('⚠️ Failed to fetch recent quotes:', error);
+    }
+
+    // Fallback to localStorage
+    return this.getRecentQuotesFromStorage(limit);
+  }
+
+  // Helper: Get recent quotes from localStorage
+  getRecentQuotesFromStorage(limit = 10) {
+    const quotes = [];
+    
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('quote_complete_')) {
+        try {
+          const data = JSON.parse(localStorage.getItem(key) || '{}');
+          if (data.requestId) {
+            quotes.push(data);
+          }
+        } catch (e) {
+          console.error('Error parsing stored quote:', key, e);
+        }
+      }
+    }
+
+    // Sort by createdAt (newest first) and limit
+    return quotes
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, limit);
+  }
+
   // Clear cached results (utility method for cleanup)
   clearCachedResults(requestId) {
-    const key = `quote_results_${requestId}`;
-    localStorage.removeItem(key);
-    console.log('🗑️ Cleared cached results for:', requestId);
+    const keysToRemove = [
+      `quote_results_${requestId}`,
+      `quote_complete_${requestId}`,
+      `quote_formdata_${requestId}`,
+      `quote_request_${requestId}`
+    ];
+    
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key);
+    });
+    
+    console.log('🗑️ Cleared all cached data for:', requestId);
   }
 
   // Get all cached quote results (utility for debugging)
@@ -117,12 +233,13 @@ async createGroundQuoteRequest(formData, serviceType) {
     const results = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && key.startsWith('quote_results_')) {
+      if (key && key.startsWith('quote_')) {
         try {
           const data = JSON.parse(localStorage.getItem(key) || '{}');
           results.push({
             key,
-            requestId: key.replace('quote_results_', ''),
+            requestId: key.split('_').pop(),
+            type: key.split('_')[1], // 'results', 'complete', 'formdata', 'request'
             data
           });
         } catch (e) {
@@ -153,7 +270,10 @@ async createGroundQuoteRequest(formData, serviceType) {
       createdAt: new Date().toISOString()
     };
 
+    // Save in multiple formats for compatibility
     localStorage.setItem(`quote_request_${requestId}`, JSON.stringify(mockRequest));
+    localStorage.setItem(`quote_complete_${requestId}`, JSON.stringify(mockRequest));
+    localStorage.setItem(`quote_formdata_${requestId}`, JSON.stringify(formData));
 
     // Simulate backend processing that will later populate results
     this.simulateBackendProcessing(requestId);
