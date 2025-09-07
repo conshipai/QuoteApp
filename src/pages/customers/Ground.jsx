@@ -1,8 +1,8 @@
-// src/pages/customers/Ground.jsx
+// src/pages/customers/Ground.jsx - FIXED VERSION
 import quoteApi from '../../services/quoteApi';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Building2, X } from 'lucide-react';
+import { Calendar, Building2, X, AlertCircle } from 'lucide-react';
 import LocationSection from '../../components/ground/LocationSection';
 import CommodityList from '../../components/ground/CommodityList';
 import AccessorialOptions from '../../components/ground/AccessorialOptions';
@@ -17,41 +17,42 @@ const Ground = ({ isDarkMode, userRole }) => {
 
   // UI state
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [serviceType, setServiceType] = useState(null);
   const [zipLoading, setZipLoading] = useState({ origin: false, dest: false });
-  const [showAddressBook, setShowAddressBook] = useState(null); // 'origin' | 'destination' | null
+  const [showAddressBook, setShowAddressBook] = useState(null);
   const [savedAddresses, setSavedAddresses] = useState([]);
 
   // Results state
   const [showResults, setShowResults] = useState(false);
   const [quoteRequest, setQuoteRequest] = useState(null);
 
-  // Form state
+  // Form state - with default test values for easier testing
   const [formData, setFormData] = useState({
-    // Origin
-    originZip: '',
-    originCity: '',
-    originState: '',
+    // Origin - Default test values
+    originZip: '77002',
+    originCity: 'Houston',
+    originState: 'TX',
     originAddress: '',
     originCompany: '',
-    // Destination
-    destZip: '',
-    destCity: '',
-    destState: '',
+    // Destination - Default test values
+    destZip: '75201',
+    destCity: 'Dallas',
+    destState: 'TX',
     destAddress: '',
     destCompany: '',
-    // Pickup
-    pickupDate: '',
-    // Commodities
+    // Pickup - Default to tomorrow
+    pickupDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+    // Commodities - Default test commodity
     commodities: [
       {
         unitType: 'Pallets',
-        quantity: '1',
-        weight: '',
-        length: '',
-        width: '',
-        height: '',
-        description: '',
+        quantity: '2',
+        weight: '1000',
+        length: '48',
+        width: '40',
+        height: '48',
+        description: 'General Freight',
         calculatedClass: '',
         overrideClass: '',
         useOverride: false,
@@ -72,26 +73,38 @@ const Ground = ({ isDarkMode, userRole }) => {
     limitedAccessDelivery: false
   });
 
-  // ─────────────────────────────────────────────────────────────
-  // Effects
-  // ─────────────────────────────────────────────────────────────
+  // Calculate density on component mount for default values
+  useEffect(() => {
+    if (formData.commodities[0].weight && formData.commodities[0].length) {
+      const densityData = calculateDensity(formData.commodities[0]);
+      setFormData(prev => ({
+        ...prev,
+        commodities: [{
+          ...prev.commodities[0],
+          ...densityData
+        }]
+      }));
+    }
+  }, []);
+
   useEffect(() => {
     loadSavedAddresses();
   }, []);
 
-  // ─────────────────────────────────────────────────────────────
-  // Helpers
-  // ─────────────────────────────────────────────────────────────
   const loadSavedAddresses = async () => {
-    const result = await addressBookApi.getCompanies();
-    if (result?.success) {
-      setSavedAddresses(result.companies || []);
+    try {
+      const result = await addressBookApi.getCompanies();
+      if (result?.success) {
+        setSavedAddresses(result.companies || []);
 
-      // Auto-fill with default shipper if exists
-      const defaultShipper = (result.companies || []).find(
-        (c) => c.type === 'shipper' && c.isDefault
-      );
-      if (defaultShipper) handleAddressSelect(defaultShipper, 'origin');
+        // Auto-fill with default shipper if exists
+        const defaultShipper = (result.companies || []).find(
+          (c) => c.type === 'shipper' && c.isDefault
+        );
+        if (defaultShipper) handleAddressSelect(defaultShipper, 'origin');
+      }
+    } catch (err) {
+      console.error('Failed to load addresses:', err);
     }
   };
 
@@ -155,6 +168,7 @@ const Ground = ({ isDarkMode, userRole }) => {
         newCommodities[index][field] = value;
       }
 
+      // Recalculate density when dimensions or weight change
       if (['weight', 'length', 'width', 'height', 'quantity'].includes(field)) {
         const densityData = calculateDensity(newCommodities[index]);
         newCommodities[index] = { ...newCommodities[index], ...densityData };
@@ -190,10 +204,9 @@ const Ground = ({ isDarkMode, userRole }) => {
     }));
   };
 
-  // ✅ removeCommodity is correctly scoped inside the component, not nested
   const removeCommodity = (index) => {
     setFormData((prev) => {
-      if (prev.commodities.length <= 1) return prev; // keep at least one row
+      if (prev.commodities.length <= 1) return prev;
       return {
         ...prev,
         commodities: prev.commodities.filter((_, i) => i !== index)
@@ -216,8 +229,12 @@ const Ground = ({ isDarkMode, userRole }) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
-  // ===== Updated handleSubmit to use real API method =====
+  // Enhanced handleSubmit with better error handling
   const handleSubmit = async () => {
+    console.log('🚀 Starting quote submission...');
+    setError(null);
+    
+    // Validation
     const errors = [];
     if (!formData.originZip) errors.push('Origin ZIP required');
     if (!formData.originCity) errors.push('Origin city required');
@@ -232,126 +249,107 @@ const Ground = ({ isDarkMode, userRole }) => {
       if (!item.length || !item.width || !item.height) {
         errors.push(`Item ${idx + 1}: All dimensions required`);
       }
+      if (item.hazmat && item.hazmatDetails) {
+        if (!item.hazmatDetails.unNumber) errors.push(`Item ${idx + 1}: UN Number required for hazmat`);
+        if (!item.hazmatDetails.properShippingName) errors.push(`Item ${idx + 1}: Proper shipping name required for hazmat`);
+        if (!item.hazmatDetails.hazardClass) errors.push(`Item ${idx + 1}: Hazard class required for hazmat`);
+      }
     });
 
     if (errors.length > 0) {
-      alert('Please fix:\n' + errors.join('\n'));
+      const errorMessage = 'Please fix the following errors:\n' + errors.join('\n');
+      setError(errorMessage);
+      alert(errorMessage);
       return;
     }
 
     setLoading(true);
+    console.log('📦 Form data being submitted:', formData);
+    console.log('🏷️ Service type:', serviceType);
 
-    const completeFormData = {
-      ...formData,
-      originCompany: formData.originCompany || '',
-      originAddress: formData.originAddress || '',
-      destCompany: formData.destCompany || '',
-      destAddress: formData.destAddress || ''
-    };
+    try {
+      const completeFormData = {
+        ...formData,
+        originCompany: formData.originCompany || '',
+        originAddress: formData.originAddress || '',
+        destCompany: formData.destCompany || '',
+        destAddress: formData.destAddress || ''
+      };
 
-    const result = await quoteApi.createGroundQuoteRequest(
-      completeFormData,
-      serviceType
-    );
-
-    if (result?.success) {
-      localStorage.setItem(
-        `quote_formdata_${result.requestId}`,
-        JSON.stringify(completeFormData)
+      console.log('📤 Calling API with complete form data...');
+      const result = await quoteApi.createGroundQuoteRequest(
+        completeFormData,
+        serviceType
       );
 
-      setQuoteRequest({
-        requestId: result.requestId,
-        requestNumber: result.requestNumber
-      });
-      setShowResults(true);
-    } else {
-      alert('Failed to create quote request: ' + (result?.error || 'Unknown error'));
-    }
+      console.log('📥 API Response:', result);
 
-    setLoading(false);
+      if (result?.success && result?.requestId) {
+        console.log('✅ Quote created successfully!');
+        console.log('Request ID:', result.requestId);
+        console.log('Request Number:', result.requestNumber);
+        
+        // Save to localStorage for backup
+        localStorage.setItem(
+          `quote_formdata_${result.requestId}`,
+          JSON.stringify(completeFormData)
+        );
+        
+        // Save the complete quote data
+        const completeQuoteData = {
+          requestId: result.requestId,
+          requestNumber: result.requestNumber,
+          serviceType: serviceType,
+          formData: completeFormData,
+          status: 'pending',
+          createdAt: new Date().toISOString()
+        };
+        
+        localStorage.setItem(
+          `quote_complete_${result.requestId}`,
+          JSON.stringify(completeQuoteData)
+        );
+        
+        console.log('💾 Quote data saved to localStorage');
+
+        // Set the quote request data
+        setQuoteRequest({
+          requestId: result.requestId,
+          requestNumber: result.requestNumber
+        });
+        
+        // Navigate to results
+        console.log('🔄 Showing results...');
+        setShowResults(true);
+        setError(null);
+      } else {
+        // Handle unexpected response format
+        const errorMsg = result?.error || 'Unexpected response format from server';
+        console.error('❌ Quote creation failed:', errorMsg);
+        setError(errorMsg);
+        alert('Failed to create quote: ' + errorMsg);
+      }
+    } catch (error) {
+      console.error('❌ Error during quote submission:', error);
+      const errorMessage = error.message || 'An unexpected error occurred';
+      setError(errorMessage);
+      alert('Error creating quote: ' + errorMessage);
+    } finally {
+      setLoading(false);
+      console.log('✅ Quote submission process completed');
+    }
   };
 
-  // Optional enhanced wrapper (not currently used)
-  const EnhancedLocationSection = ({ type, ...props }) => (
-    <div className="relative">
-      <div className="absolute top-2 right-2 z-10">
-        <button
-          type="button"
-          onClick={() => setShowAddressBook(type)}
-          className={`px-3 py-1 rounded flex items-center gap-2 text-sm ${
-            isDarkMode
-              ? 'bg-conship-orange text-white hover:bg-orange-600'
-              : 'bg-conship-purple text-white hover:bg-purple-700'
-          }`}
-          title="Select from Address Book"
-        >
-          <Building2 className="w-4 h-4" />
-          Address Book
-        </button>
-      </div>
-      <LocationSection type={type} {...props} />
-
-      {((type === 'origin' && formData.originCompany) ||
-        (type === 'destination' && formData.destCompany)) && (
-        <div
-          className={`mt-2 px-3 py-2 rounded ${
-            isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p
-                className={`text-sm font-medium ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}
-              >
-                {type === 'origin' ? formData.originCompany : formData.destCompany}
-              </p>
-              <p
-                className={`text-xs ${
-                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                }`}
-              >
-                {type === 'origin' ? formData.originAddress : formData.destAddress}
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                if (type === 'origin') {
-                  setFormData((prev) => ({
-                    ...prev,
-                    originCompany: '',
-                    originAddress: ''
-                  }));
-                } else {
-                  setFormData((prev) => ({
-                    ...prev,
-                    destCompany: '',
-                    destAddress: ''
-                  }));
-                }
-              }}
-              className="p-1 rounded hover:bg-gray-600"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  // ─────────────────────────────────────────────────────────────
-  // Render branches
-  // ─────────────────────────────────────────────────────────────
+  // Service type selection
   if (!serviceType) {
     return (
       <ServiceTypeSelector onSelect={setServiceType} isDarkMode={isDarkMode} />
     );
   }
 
+  // Show results
   if (showResults && quoteRequest) {
+    console.log('📊 Rendering quote results with:', quoteRequest);
     return (
       <GroundQuoteResults
         requestId={quoteRequest.requestId}
@@ -359,25 +357,24 @@ const Ground = ({ isDarkMode, userRole }) => {
         serviceType={serviceType}
         formData={formData}
         onBack={() => {
+          console.log('⬅️ Going back to form');
           setShowResults(false);
           setQuoteRequest(null);
+          setError(null);
         }}
         isDarkMode={isDarkMode}
       />
     );
   }
 
+  // Main form render
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
-            <h1
-              className={`text-2xl font-bold ${
-                isDarkMode ? 'text-white' : 'text-gray-900'
-              }`}
-            >
+            <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               {serviceType.toUpperCase()} Freight Quote
             </h1>
             <button
@@ -392,10 +389,35 @@ const Ground = ({ isDarkMode, userRole }) => {
             </button>
           </div>
           <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            Select from address book or enter 5-digit ZIP codes for automatic
-            city/state lookup
+            Fill in the form below to generate your freight quote
           </p>
         </div>
+
+        {/* Error Display */}
+        {error && (
+          <div className={`mb-6 p-4 rounded-lg border flex items-start gap-3 ${
+            isDarkMode 
+              ? 'bg-red-900/20 border-red-800 text-red-400' 
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}>
+            <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-medium">Error creating quote</p>
+              <p className="text-sm mt-1 whitespace-pre-line">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Debug Info (only in development) */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className={`mb-4 p-3 rounded text-xs ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+            <p>Debug Info:</p>
+            <p>Service Type: {serviceType}</p>
+            <p>Show Results: {showResults ? 'true' : 'false'}</p>
+            <p>Quote Request: {quoteRequest ? `${quoteRequest.requestId}` : 'null'}</p>
+            <p>Loading: {loading ? 'true' : 'false'}</p>
+          </div>
+        )}
 
         {/* Origin & Destination */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -432,25 +454,13 @@ const Ground = ({ isDarkMode, userRole }) => {
             />
 
             {formData.originCompany && (
-              <div
-                className={`mt-2 px-3 py-2 rounded ${
-                  isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
-                }`}
-              >
+              <div className={`mt-2 px-3 py-2 rounded ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p
-                      className={`text-sm font-medium ${
-                        isDarkMode ? 'text-white' : 'text-gray-900'
-                      }`}
-                    >
+                    <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                       {formData.originCompany}
                     </p>
-                    <p
-                      className={`text-xs ${
-                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                      }`}
-                    >
+                    <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                       {formData.originAddress}
                     </p>
                   </div>
@@ -504,25 +514,13 @@ const Ground = ({ isDarkMode, userRole }) => {
             />
 
             {formData.destCompany && (
-              <div
-                className={`mt-2 px-3 py-2 rounded ${
-                  isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
-                }`}
-              >
+              <div className={`mt-2 px-3 py-2 rounded ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p
-                      className={`text-sm font-medium ${
-                        isDarkMode ? 'text-white' : 'text-gray-900'
-                      }`}
-                    >
+                    <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                       {formData.destCompany}
                     </p>
-                    <p
-                      className={`text-xs ${
-                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                      }`}
-                    >
+                    <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                       {formData.destAddress}
                     </p>
                   </div>
@@ -545,22 +543,10 @@ const Ground = ({ isDarkMode, userRole }) => {
         </div>
 
         {/* Pickup Date */}
-        <div
-          className={`p-6 rounded-lg mb-6 ${
-            isDarkMode ? 'bg-gray-800' : 'bg-white'
-          } shadow-sm`}
-        >
+        <div className={`p-6 rounded-lg mb-6 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
           <div className="flex items-center mb-4">
-            <Calendar
-              className={`w-5 h-5 mr-2 ${
-                isDarkMode ? 'text-conship-orange' : 'text-conship-purple'
-              }`}
-            />
-            <h2
-              className={`text-lg font-semibold ${
-                isDarkMode ? 'text-white' : 'text-gray-900'
-              }`}
-            >
+            <Calendar className={`w-5 h-5 mr-2 ${isDarkMode ? 'text-conship-orange' : 'text-conship-purple'}`} />
+            <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               Pickup Date
             </h2>
           </div>
@@ -614,13 +600,13 @@ const Ground = ({ isDarkMode, userRole }) => {
             disabled={loading}
             className={`px-6 py-2 rounded font-medium ${
               loading
-                ? 'bg-gray-400 text-gray-2 00 cursor-not-allowed'
+                ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                 : isDarkMode
                 ? 'bg-conship-orange text-white hover:bg-orange-600'
                 : 'bg-conship-purple text-white hover:bg-purple-700'
             }`}
           >
-            {loading ? 'Generating...' : 'Generate Quote'}
+            {loading ? 'Generating Quote...' : 'Generate Quote'}
           </button>
         </div>
       </div>
@@ -628,17 +614,11 @@ const Ground = ({ isDarkMode, userRole }) => {
       {/* Address Book Modal */}
       {showAddressBook && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div
-            className={`max-w-4xl w-full max-h-[80vh] overflow-y-auto rounded-lg ${
-              isDarkMode ? 'bg-gray-800' : 'bg-white'
-            } p-6`}
-          >
+          <div className={`max-w-4xl w-full max-h-[80vh] overflow-y-auto rounded-lg ${
+            isDarkMode ? 'bg-gray-800' : 'bg-white'
+          } p-6`}>
             <div className="flex items-center justify-between mb-4">
-              <h2
-                className={`text-xl font-bold ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}
-              >
+              <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 Select {showAddressBook === 'origin' ? 'Origin' : 'Destination'} Address
               </h2>
               <button
