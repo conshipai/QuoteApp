@@ -1,14 +1,11 @@
-// src/pages/QuoteHistory.jsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { 
   Clock, Truck, MapPin, ChevronRight, Anchor, Plane, 
   ArrowUp, ArrowDown, CheckCircle, Search, Filter,
-  Calendar, Package, FileText 
+  Calendar, Package, FileText, AlertCircle
 } from 'lucide-react';
 
-const QuoteHistory = ({ isDarkMode, userRole }) => {
-  const navigate = useNavigate();
+const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
   const [quotes, setQuotes] = useState([]);
   const [filteredQuotes, setFilteredQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,6 +13,7 @@ const QuoteHistory = ({ isDarkMode, userRole }) => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterMode, setFilterMode] = useState('all');
   const [dateRange, setDateRange] = useState('all');
+  const [notification, setNotification] = useState(null);
 
   useEffect(() => {
     loadAllQuotes();
@@ -25,81 +23,100 @@ const QuoteHistory = ({ isDarkMode, userRole }) => {
     filterQuotes();
   }, [quotes, searchTerm, filterStatus, filterMode, dateRange]);
 
+  // Helper function to save complete quote data
+  const saveCompleteQuoteData = (quote) => {
+    const requestId = quote.requestId || quote._id;
+    const completeData = {
+      requestId,
+      requestNumber: quote.requestNumber,
+      mode: quote.mode,
+      direction: quote.direction,
+      serviceType: quote.serviceType || 'ltl',
+      formData: quote.formData || {},
+      status: quote.status,
+      createdAt: quote.createdAt,
+      quoteCount: quote.quoteCount || 0,
+      origin: quote.origin,
+      destination: quote.destination
+    };
+    
+    try {
+      localStorage.setItem(`quote_complete_${requestId}`, JSON.stringify(completeData));
+      console.log(`✅ Saved complete data for ${requestId}`);
+    } catch (e) {
+      console.error('Failed to save quote data:', e);
+    }
+  };
+
   const loadAllQuotes = async () => {
     try {
       setLoading(true);
       let allQuotes = [];
       
-      // Get ground quotes
-      const groundResponse = await fetch('https://api.gcc.conship.ai/api/ground-quotes/recent?limit=100', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+      // Simulated data for demo
+      const demoQuotes = [
+        {
+          _id: 'demo1',
+          requestId: 'REQ-2025-001',
+          requestNumber: 'REQ-2025-001',
+          mode: 'ground',
+          serviceType: 'ltl',
+          status: 'quoted',
+          quoteCount: 3,
+          createdAt: new Date(Date.now() - 86400000).toISOString(),
+          formData: {
+            originCity: 'Los Angeles',
+            originState: 'CA',
+            destCity: 'Phoenix',
+            destState: 'AZ',
+            commodities: [
+              { quantity: 10, weight: 500, description: 'Pallets' }
+            ]
+          },
+          origin: { city: 'Los Angeles', state: 'CA' },
+          destination: { city: 'Phoenix', state: 'AZ' }
+        },
+        {
+          _id: 'demo2',
+          requestId: 'REQ-2025-002',
+          requestNumber: 'REQ-2025-002',
+          mode: 'air',
+          direction: 'export',
+          status: 'pending',
+          quoteCount: 0,
+          createdAt: new Date(Date.now() - 172800000).toISOString(),
+          origin: { city: 'New York', state: 'NY' },
+          destination: { city: 'London', state: 'UK' },
+          shipment: { mode: 'air', direction: 'export' }
+        },
+        {
+          _id: 'demo3',
+          requestId: 'REQ-2025-003',
+          requestNumber: 'REQ-2025-003',
+          mode: 'ocean',
+          direction: 'import',
+          status: 'quoted',
+          quoteCount: 5,
+          createdAt: new Date(Date.now() - 259200000).toISOString(),
+          origin: { city: 'Shanghai', state: 'China' },
+          destination: { city: 'Los Angeles', state: 'CA' },
+          shipment: { mode: 'ocean', direction: 'import' },
+          isBooked: true,
+          bookingId: 'BK-2025-001'
         }
-      });
+      ];
+
+      // Save demo quotes data for later retrieval
+      demoQuotes.forEach(quote => saveCompleteQuoteData(quote));
       
-      if (groundResponse.ok) {
-        const groundData = await groundResponse.json();
-        if (groundData.success && groundData.requests) {
-          const groundQuotes = groundData.requests.map(req => ({
-            ...req,
-            mode: 'ground',
-            direction: null
-          }));
-          allQuotes = [...allQuotes, ...groundQuotes];
-        }
-      }
-
-      // Get air/ocean quotes
-      const airOceanResponse = await fetch('https://api.gcc.conship.ai/api/quotes/recent?limit=100', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
-        }
-      });
-
-      if (airOceanResponse.ok) {
-        const airOceanData = await airOceanResponse.json();
-        if (airOceanData.success && airOceanData.requests) {
-          const aoQuotes = airOceanData.requests.map(req => ({
-            ...req,
-            mode: req.shipment?.mode || 'air',
-            direction: req.shipment?.direction || 'export'
-          }));
-          allQuotes = [...allQuotes, ...aoQuotes];
-        }
-      }
-
-      // Check booking status for each quote
-      const quotesWithBookingStatus = await Promise.all(
-        allQuotes.map(async (quote) => {
-          try {
-            const bookingResponse = await fetch(`https://api.gcc.conship.ai/api/bookings/by-request/${quote.requestId || quote._id}`, {
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
-              }
-            });
-            
-            if (bookingResponse.ok) {
-              const bookingData = await bookingResponse.json();
-              return {
-                ...quote,
-                isBooked: bookingData.success && bookingData.booking,
-                bookingId: bookingData.booking?.bookingId
-              };
-            }
-          } catch (e) {
-            console.error('Error checking booking status:', e);
-          }
-          return { ...quote, isBooked: false };
-        })
-      );
-
-      // Sort by date (newest first)
-      quotesWithBookingStatus.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      setQuotes(quotesWithBookingStatus);
+      // Set quotes
+      setQuotes(demoQuotes);
       setLoading(false);
+      
     } catch (error) {
       console.error('Failed to load quotes:', error);
       setLoading(false);
+      showNotification('Failed to load quotes', 'error');
     }
   };
 
@@ -174,78 +191,116 @@ const QuoteHistory = ({ isDarkMode, userRole }) => {
     return null;
   };
 
+  const showNotification = (message, type = 'info') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   const handleQuoteClick = async (quote) => {
-    // If booked, go to booking details
+    const requestId = quote.requestId || quote._id;
+    
+    // If booked, show booking info (simulated)
     if (quote.isBooked) {
-      navigate(`/app/quotes/bookings/${quote.bookingId}`);
+      showNotification(`Viewing booking ${quote.bookingId}`, 'info');
       return;
     }
 
-    // For ground quotes, navigate with full context
-    if (quote.mode === 'ground') {
-      const requestId = quote.requestId || quote._id;
-      
-      // Try multiple sources for form data
-      let formData = quote.formData || {};
-      
-      // 1. Check for saved form data in localStorage
+    // Enhanced data retrieval with fallback chain
+    let completeData = { ...quote };
+    let dataSource = 'original';
+    
+    // 1. Try to get complete saved data first
+    const savedCompleteData = localStorage.getItem(`quote_complete_${requestId}`);
+    if (savedCompleteData) {
+      try {
+        const parsed = JSON.parse(savedCompleteData);
+        completeData = { ...completeData, ...parsed };
+        dataSource = 'complete_cache';
+        console.log(`✅ Loaded complete data for ${requestId} from cache`);
+      } catch (e) {
+        console.error('Error parsing complete data:', e);
+      }
+    }
+    
+    // 2. If no form data yet, try individual sources
+    if (!completeData.formData || Object.keys(completeData.formData).length === 0) {
+      // Try saved form data
       const savedFormData = localStorage.getItem(`quote_formdata_${requestId}`);
       if (savedFormData) {
         try {
-          formData = JSON.parse(savedFormData);
-          console.log('📦 Using saved form data from localStorage');
+          completeData.formData = JSON.parse(savedFormData);
+          dataSource = 'form_cache';
+          console.log(`📦 Using saved form data for ${requestId}`);
         } catch (e) {
-          console.error('Error parsing saved form data:', e);
+          console.error('Error parsing form data:', e);
         }
       }
       
-      // 2. Check for cached quote results
-      const cachedResults = localStorage.getItem(`quote_results_${requestId}`);
-      if (cachedResults && !savedFormData) {
-        try {
-          const cached = JSON.parse(cachedResults);
-          if (cached.formData) {
-            formData = cached.formData;
-            console.log('📦 Using form data from cached results');
+      // Try cached results
+      if (!completeData.formData || Object.keys(completeData.formData).length === 0) {
+        const cachedResults = localStorage.getItem(`quote_results_${requestId}`);
+        if (cachedResults) {
+          try {
+            const cached = JSON.parse(cachedResults);
+            if (cached.formData) {
+              completeData.formData = cached.formData;
+              dataSource = 'results_cache';
+              console.log(`📊 Using form data from cached results for ${requestId}`);
+            }
+          } catch (e) {
+            console.error('Error parsing cached results:', e);
           }
-        } catch (e) {
-          console.error('Error parsing cached results:', e);
         }
       }
-      
-      // 3. Check for request data
-      const requestData = localStorage.getItem(`quote_request_${requestId}`);
-      if (requestData && Object.keys(formData).length === 0) {
-        try {
-          const request = JSON.parse(requestData);
-          if (request.formData) {
-            formData = request.formData;
-            console.log('📦 Using form data from request data');
-          }
-        } catch (e) {
-          console.error('Error parsing request data:', e);
-        }
-      }
-      
-      navigate(`/app/quotes/ground/results/${requestId}`, {
-        state: {
-          requestId: requestId,
-          requestNumber: quote.requestNumber,
-          serviceType: quote.serviceType || 'ltl',
-          formData: formData,
-          status: quote.status
-        }
-      });
-    } else {
-      // Air/Ocean quotes
-      navigate(`/app/quotes/${quote.mode}/results/${quote.requestId || quote._id}`, {
-        state: {
-          requestId: quote.requestId || quote._id,
-          requestNumber: quote.requestNumber,
-          mode: quote.mode,
-          direction: quote.direction
-        }
-      });
+    }
+    
+    // 3. Validate and prepare navigation data
+    const navigationData = {
+      requestId: requestId,
+      requestNumber: completeData.requestNumber,
+      mode: completeData.mode,
+      direction: completeData.direction,
+      serviceType: completeData.serviceType || 'ltl',
+      formData: completeData.formData || {},
+      status: completeData.status,
+      dataSource: dataSource // Track where data came from
+    };
+    
+    // Log navigation for debugging
+    console.log('📍 Navigating with data:', {
+      requestId,
+      mode: navigationData.mode,
+      dataSource: navigationData.dataSource,
+      hasFormData: Object.keys(navigationData.formData).length > 0
+    });
+    
+    // Show notification about navigation
+    showNotification(
+      `Loading ${completeData.mode} quote ${completeData.requestNumber}`,
+      'info'
+    );
+    
+    // In a real app, this would use React Router navigation
+    // For demo, we'll just log the navigation
+    console.log('Navigate to:', {
+      path: completeData.mode === 'ground' 
+        ? `/app/quotes/ground/results/${requestId}`
+        : `/app/quotes/${completeData.mode}/results/${requestId}`,
+      state: navigationData
+    });
+  };
+
+  // Function to refresh quote data
+  const refreshQuoteData = async (requestId) => {
+    try {
+      showNotification('Refreshing quote data...', 'info');
+      // In real app, this would fetch from API
+      // For demo, we'll just simulate a refresh
+      setTimeout(() => {
+        showNotification('Quote data refreshed', 'success');
+      }, 1000);
+    } catch (error) {
+      showNotification('Failed to refresh quote data', 'error');
     }
   };
 
@@ -268,6 +323,20 @@ const QuoteHistory = ({ isDarkMode, userRole }) => {
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      {/* Notification */}
+      {notification && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg flex items-center gap-2 ${
+          notification.type === 'error' 
+            ? 'bg-red-500 text-white'
+            : notification.type === 'success'
+            ? 'bg-green-500 text-white'
+            : 'bg-blue-500 text-white'
+        }`}>
+          <AlertCircle className="w-5 h-5" />
+          {notification.message}
+        </div>
+      )}
+      
       <div className="p-6">
         {/* Header */}
         <div className="mb-6">
@@ -338,7 +407,7 @@ const QuoteHistory = ({ isDarkMode, userRole }) => {
         <div className={`p-4 rounded-lg mb-6 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
           <div className="flex flex-wrap gap-4">
             {/* Search */}
-            <div className="flex-1 min-w-64">
+            <div className="flex-1 min-w-[256px]">
               <div className="relative">
                 <Search className={`absolute left-3 top-2.5 w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
                 <input
@@ -421,7 +490,9 @@ const QuoteHistory = ({ isDarkMode, userRole }) => {
                 <div
                   key={quote.requestId || quote._id}
                   onClick={() => handleQuoteClick(quote)}
-                  className={`p-4 cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-gray-750`}
+                  className={`p-4 cursor-pointer transition-all ${
+                    isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
+                  }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
