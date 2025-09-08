@@ -667,80 +667,118 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
     document.title = prevTitle;
   };
 
-  const handleSave = async () => {
-    const errors = [];
-    if (!bolData.shipper.name) errors.push('Shipper company name is required');
-    if (!bolData.shipper.address) errors.push('Shipper address is required');
-    if (!bolData.consignee.name) errors.push('Consignee company name is required');
-    if (!bolData.consignee.address) errors.push('Consignee address is required');
-    
-    bolData.items.forEach((item, index) => {
-      if (item.hazmat && item.hazmatDetails) {
-        if (!item.hazmatDetails.unNumber) errors.push(`Item ${index + 1}: UN Number required for hazmat`);
-        if (!item.hazmatDetails.properShippingName) errors.push(`Item ${index + 1}: Proper shipping name required`);
-        if (!item.hazmatDetails.hazardClass) errors.push(`Item ${index + 1}: Hazard class required`);
-      }
-    });
-    
-    if (errors.length > 0) {
-      alert('Please complete required fields:\n' + errors.join('\n'));
-      return;
+// Update the handleSave function in BOLBuilder.jsx
+
+const handleSave = async () => {
+  const errors = [];
+  if (!bolData.shipper.name) errors.push('Shipper company name is required');
+  if (!bolData.shipper.address) errors.push('Shipper address is required');
+  if (!bolData.consignee.name) errors.push('Consignee company name is required');
+  if (!bolData.consignee.address) errors.push('Consignee address is required');
+  
+  bolData.items.forEach((item, index) => {
+    if (item.hazmat && item.hazmatDetails) {
+      if (!item.hazmatDetails.unNumber) errors.push(`Item ${index + 1}: UN Number required for hazmat`);
+      if (!item.hazmatDetails.properShippingName) errors.push(`Item ${index + 1}: Proper shipping name required`);
+      if (!item.hazmatDetails.hazardClass) errors.push(`Item ${index + 1}: Hazard class required`);
     }
+  });
+  
+  if (errors.length > 0) {
+    alert('Please complete required fields:\n' + errors.join('\n'));
+    return;
+  }
 
-    setGenerating(true);
-    try {
-      const bolElement = document.getElementById('bol-template');
-      let htmlContent = '';
-      if (bolElement) {
-        const clonedElement = bolElement.cloneNode(true);
-        htmlContent = clonedElement.outerHTML;
-      }
-
-      const result = await bolApi.createBOL({
-        bookingId: booking.bookingId,
-        bolNumber: bolNumber,
-        bolData: bolData,
-        htmlContent: htmlContent
+  setGenerating(true);
+  try {
+    // First check if html2pdf is loaded
+    if (!window.html2pdf) {
+      // Try to load it dynamically if not present
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      document.head.appendChild(script);
+      
+      // Wait for script to load
+      await new Promise((resolve, reject) => {
+        script.onload = resolve;
+        script.onerror = reject;
+        setTimeout(reject, 5000); // 5 second timeout
       });
       
-      if (result.success) {
-        const bookingKey = `booking_${booking.bookingId}`;
-        const bookingData = localStorage.getItem(bookingKey);
-        if (bookingData) {
-          const updatedBooking = JSON.parse(bookingData);
-          updatedBooking.hasBOL = true;
-          updatedBooking.bolNumber = bolNumber;
-          updatedBooking.bolId = result.bolId;
-          updatedBooking.bolUpdatedAt = new Date().toISOString();
-          localStorage.setItem(bookingKey, JSON.stringify(updatedBooking));
-          console.log('✅ Booking updated with BOL info:', bookingKey);
-        }
-        
-        const allBookingsKey = 'all_bookings_cache';
-        const allBookingsData = localStorage.getItem(allBookingsKey);
-        if (allBookingsData) {
-          const allBookings = JSON.parse(allBookingsData);
-          const bookingIndex = allBookings.findIndex(b => b.bookingId === booking.bookingId);
-          if (bookingIndex !== -1) {
-            allBookings[bookingIndex].hasBOL = true;
-            allBookings[bookingIndex].bolNumber = bolNumber;
-            allBookings[bookingIndex].bolId = result.bolId;
-            localStorage.setItem(allBookingsKey, JSON.stringify(allBookings));
-          }
-        }
-        
-        alert(`BOL ${bolNumber} saved successfully!\n\nYou can view this BOL anytime from the Bookings page.`);
-        
-        if (typeof onComplete === 'function') {
-          onComplete();
+      console.log('html2pdf library loaded dynamically');
+    }
+
+    const bolElement = document.getElementById('bol-template');
+    if (!bolElement) {
+      throw new Error('BOL template not found in DOM');
+    }
+    
+    let htmlContent = '';
+    const clonedElement = bolElement.cloneNode(true);
+    htmlContent = clonedElement.outerHTML;
+
+    // Ensure we have the request number from the booking
+    const requestNumber = booking?.requestNumber || booking?.requestId;
+    if (!requestNumber) {
+      throw new Error('Request number not found in booking data');
+    }
+
+    console.log('Creating BOL with request number:', requestNumber);
+
+    const result = await bolApi.createBOL({
+      bookingId: booking.bookingId,
+      bolNumber: bolNumber,
+      bolData: bolData,
+      htmlContent: htmlContent
+    });
+    
+    if (result.success) {
+      // Update local storage with the successful result
+      const bookingKey = `booking_${booking.bookingId}`;
+      const bookingData = localStorage.getItem(bookingKey);
+      if (bookingData) {
+        const updatedBooking = JSON.parse(bookingData);
+        updatedBooking.hasBOL = true;
+        updatedBooking.bolNumber = bolNumber;
+        updatedBooking.bolId = result.bolId;
+        updatedBooking.bolFileUrl = result.fileUrl;
+        updatedBooking.bolFileKey = result.fileKey;
+        updatedBooking.bolUpdatedAt = new Date().toISOString();
+        localStorage.setItem(bookingKey, JSON.stringify(updatedBooking));
+        console.log('✅ Booking updated with BOL info:', bookingKey);
+      }
+      
+      // Update all bookings cache
+      const allBookingsKey = 'all_bookings_cache';
+      const allBookingsData = localStorage.getItem(allBookingsKey);
+      if (allBookingsData) {
+        const allBookings = JSON.parse(allBookingsData);
+        const bookingIndex = allBookings.findIndex(b => b.bookingId === booking.bookingId);
+        if (bookingIndex !== -1) {
+          allBookings[bookingIndex].hasBOL = true;
+          allBookings[bookingIndex].bolNumber = bolNumber;
+          allBookings[bookingIndex].bolId = result.bolId;
+          allBookings[bookingIndex].bolFileUrl = result.fileUrl;
+          allBookings[bookingIndex].bolFileKey = result.fileKey;
+          localStorage.setItem(allBookingsKey, JSON.stringify(allBookings));
         }
       }
-    } catch (error) {
-      alert('Failed to save BOL: ' + error.message);
+      
+      // Success callback
+      if (typeof onComplete === 'function') {
+        onComplete();
+      }
+    } else {
+      // Handle failure
+      throw new Error(result.error || 'BOL creation failed');
     }
+  } catch (error) {
+    console.error('Failed to save BOL:', error);
+    alert(`Failed to save BOL:\n${error.message}\n\nPlease check:\n1. html2pdf library is loaded\n2. BOL template is rendered\n3. Network connection is active`);
+  } finally {
     setGenerating(false);
-  };
-
+  }
+};
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="max-w-7xl mx-auto p-6">
