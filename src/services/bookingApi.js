@@ -1,4 +1,4 @@
-// src/services/bookingApi.js - NO MOCK DATA VERSION
+// src/services/bookingApi.js - NO MOCK FALLBACKS
 import API_BASE from '../config/api';
 
 class BookingAPI {
@@ -12,11 +12,18 @@ class BookingAPI {
       body: JSON.stringify(bookingData)
     });
 
-    if (!response.ok) {
-      throw new Error('Failed to create booking');
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      throw new Error(data?.error || 'Failed to create booking');
     }
 
-    return await response.json();
+    // Store booking locally for reference
+    if (data.booking) {
+      localStorage.setItem(`booking_${data.booking.bookingId}`, JSON.stringify(data.booking));
+    }
+
+    return data;
   }
 
   async getAllBookings() {
@@ -26,11 +33,13 @@ class BookingAPI {
       }
     });
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch bookings');
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      throw new Error(data?.error || 'Failed to fetch bookings');
     }
 
-    return await response.json();
+    return data;
   }
 
   async getBooking(bookingId) {
@@ -40,15 +49,37 @@ class BookingAPI {
       }
     });
 
-    if (!response.ok) {
-      throw new Error('Booking not found');
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      throw new Error(data?.error || 'Booking not found');
     }
 
-    return await response.json();
+    return data;
+  }
+
+  async getBookingByRequest(requestId) {
+    const response = await fetch(`${API_BASE}/bookings/by-request/${requestId}`, {
+      headers: {
+        'Authorization': `Bearer ${this.getToken()}`
+      }
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      throw new Error(data?.error || 'Booking not found');
+    }
+
+    return data;
   }
 
   getToken() {
-    return localStorage.getItem('auth_token') || '';
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      throw new Error('No authentication token');
+    }
+    return token;
   }
 }
 
