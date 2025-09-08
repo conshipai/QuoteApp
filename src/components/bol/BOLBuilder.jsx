@@ -668,14 +668,13 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
   };
 
 // Update the handleSave function in BOLBuilder.jsx
-
 const handleSave = async () => {
   const errors = [];
   if (!bolData.shipper.name) errors.push('Shipper company name is required');
   if (!bolData.shipper.address) errors.push('Shipper address is required');
   if (!bolData.consignee.name) errors.push('Consignee company name is required');
   if (!bolData.consignee.address) errors.push('Consignee address is required');
-  
+
   bolData.items.forEach((item, index) => {
     if (item.hazmat && item.hazmatDetails) {
       if (!item.hazmatDetails.unNumber) errors.push(`Item ${index + 1}: UN Number required for hazmat`);
@@ -683,7 +682,7 @@ const handleSave = async () => {
       if (!item.hazmatDetails.hazardClass) errors.push(`Item ${index + 1}: Hazard class required`);
     }
   });
-  
+
   if (errors.length > 0) {
     alert('Please complete required fields:\n' + errors.join('\n'));
     return;
@@ -691,37 +690,26 @@ const handleSave = async () => {
 
   setGenerating(true);
   try {
-    // First check if html2pdf is loaded
     if (!window.html2pdf) {
-      // Try to load it dynamically if not present
       const script = document.createElement('script');
       script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
       document.head.appendChild(script);
-      
-      // Wait for script to load
       await new Promise((resolve, reject) => {
         script.onload = resolve;
         script.onerror = reject;
-        setTimeout(reject, 5000); // 5 second timeout
+        setTimeout(reject, 5000);
       });
-      
       console.log('html2pdf library loaded dynamically');
     }
 
     const bolElement = document.getElementById('bol-template');
-    if (!bolElement) {
-      throw new Error('BOL template not found in DOM');
-    }
-    
-    let htmlContent = '';
-    const clonedElement = bolElement.cloneNode(true);
-    htmlContent = clonedElement.outerHTML;
+    if (!bolElement) throw new Error('BOL template not found in DOM');
 
-    // Ensure we have the request number from the booking
+    const clonedElement = bolElement.cloneNode(true);
+    const htmlContent = clonedElement.outerHTML;
+
     const requestNumber = booking?.requestNumber || booking?.requestId;
-    if (!requestNumber) {
-      throw new Error('Request number not found in booking data');
-    }
+    if (!requestNumber) throw new Error('Request number not found in booking data');
 
     console.log('Creating BOL with request number:', requestNumber);
 
@@ -729,47 +717,14 @@ const handleSave = async () => {
       bookingId: booking.bookingId,
       bolNumber: bolNumber,
       bolData: bolData,
-      htmlContent: htmlContent
+      htmlContent: htmlContent,
+      bookingData: booking  // ✅ pass booking directly
     });
-    
+
     if (result.success) {
-      // Update local storage with the successful result
-      const bookingKey = `booking_${booking.bookingId}`;
-      const bookingData = localStorage.getItem(bookingKey);
-      if (bookingData) {
-        const updatedBooking = JSON.parse(bookingData);
-        updatedBooking.hasBOL = true;
-        updatedBooking.bolNumber = bolNumber;
-        updatedBooking.bolId = result.bolId;
-        updatedBooking.bolFileUrl = result.fileUrl;
-        updatedBooking.bolFileKey = result.fileKey;
-        updatedBooking.bolUpdatedAt = new Date().toISOString();
-        localStorage.setItem(bookingKey, JSON.stringify(updatedBooking));
-        console.log('✅ Booking updated with BOL info:', bookingKey);
-      }
-      
-      // Update all bookings cache
-      const allBookingsKey = 'all_bookings_cache';
-      const allBookingsData = localStorage.getItem(allBookingsKey);
-      if (allBookingsData) {
-        const allBookings = JSON.parse(allBookingsData);
-        const bookingIndex = allBookings.findIndex(b => b.bookingId === booking.bookingId);
-        if (bookingIndex !== -1) {
-          allBookings[bookingIndex].hasBOL = true;
-          allBookings[bookingIndex].bolNumber = bolNumber;
-          allBookings[bookingIndex].bolId = result.bolId;
-          allBookings[bookingIndex].bolFileUrl = result.fileUrl;
-          allBookings[bookingIndex].bolFileKey = result.fileKey;
-          localStorage.setItem(allBookingsKey, JSON.stringify(allBookings));
-        }
-      }
-      
-      // Success callback
-      if (typeof onComplete === 'function') {
-        onComplete();
-      }
+      // (Optional) You can remove the manual localStorage/cache updates here
+      if (typeof onComplete === 'function') onComplete();
     } else {
-      // Handle failure
       throw new Error(result.error || 'BOL creation failed');
     }
   } catch (error) {
@@ -779,6 +734,7 @@ const handleSave = async () => {
     setGenerating(false);
   }
 };
+
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="max-w-7xl mx-auto p-6">
