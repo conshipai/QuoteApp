@@ -25,112 +25,86 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
     filterQuotes();
   }, [quotes, searchTerm, filterStatus, filterMode, dateRange]);
 
-  const loadAllQuotes = async () => {
-    try {
-      setLoading(true);
-      let allQuotes = [];
+const loadAllQuotes = async () => {
+  try {
+    setLoading(true);
+    
+    // FIXED: Use the unified endpoint that exists
+    const response = await fetch('https://api.gcc.conship.ai/api/quotes/recent?limit=50', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('API Response:', data); // Debug log
       
-      // Load ground quotes
-      try {
-        const groundResponse = await fetch('https://api.gcc.conship.ai/api/ground-quotes/recent', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
-          }
+      // FIXED: Check for 'quotes' not 'requests'
+      if (data.success && data.quotes) {
+        const quotesData = data.quotes.map(quote => ({
+          ...quote,
+          requestId: quote._id,
+          requestNumber: quote.requestNumber,
+          mode: quote.mode || 'ground',
+          status: quote.status || 'quoted',
+          createdAt: quote.createdAt,
+          isBooked: quote.isBooked || false,
+          bookingId: quote.bookingId,
+          
+          // Handle both ground and air quote formats
+          origin: quote.origin || {
+            city: quote.originCity,
+            state: quote.originState,
+            zipCode: quote.originZip
+          },
+          destination: quote.destination || {
+            city: quote.destinationCity || quote.destCity,
+            state: quote.destinationState || quote.destState,
+            zipCode: quote.destinationZip || quote.destZip
+          },
+          
+          weight: quote.weight || 0,
+          pieces: quote.pieces || 0,
+          bestPrice: quote.bestPrice,
+          carrierCount: quote.carrierCount
+        }));
+        
+        // Sort by date (newest first)
+        quotesData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        // Save complete data for each quote
+        quotesData.forEach(quote => {
+          const requestId = quote.requestId;
+          const completeData = {
+            requestId,
+            requestNumber: quote.requestNumber,
+            mode: quote.mode,
+            serviceType: quote.serviceType || 'ltl',
+            formData: quote.formData || {},
+            status: quote.status,
+            createdAt: quote.createdAt
+          };
+          localStorage.setItem(`quote_complete_${requestId}`, JSON.stringify(completeData));
         });
         
-        if (groundResponse.ok) {
-          const groundData = await groundResponse.json();
-          if (groundData.success && groundData.requests) {
-            const groundQuotes = groundData.requests.map(req => ({
-              ...req,
-              mode: 'ground',
-              direction: null
-            }));
-            allQuotes = [...allQuotes, ...groundQuotes];
-          }
-        }
-      } catch (error) {
-        console.error('Error loading ground quotes:', error);
+        setQuotes(quotesData);
+        console.log(`Loaded ${quotesData.length} quotes`);
+      } else {
+        console.log('No quotes found in response');
+        setQuotes([]);
       }
-
-      // Load air/ocean quotes
-      try {
-        const airOceanResponse = await fetch('https://api.gcc.conship.ai/api/quotes/recent?limit=50', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
-          }
-        });
-
-        if (airOceanResponse.ok) {
-          const airOceanData = await airOceanResponse.json();
-          if (airOceanData.success && airOceanData.requests) {
-            const aoQuotes = airOceanData.requests.map(req => ({
-              ...req,
-              mode: req.shipment?.mode || 'air',
-              direction: req.shipment?.direction || 'export'
-            }));
-            allQuotes = [...allQuotes, ...aoQuotes];
-          }
-        }
-      } catch (error) {
-        console.error('Error loading air/ocean quotes:', error);
-      }
-
-      // Check booking status for each quote
-      const quotesWithBookingStatus = await Promise.all(
-        allQuotes.map(async (quote) => {
-          try {
-            const requestId = quote.requestId || quote._id;
-            const bookingResponse = await fetch(`https://api.gcc.conship.ai/api/bookings/by-request/${requestId}`, {
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
-              }
-            });
-            
-            if (bookingResponse.ok) {
-              const bookingData = await bookingResponse.json();
-              return {
-                ...quote,
-                isBooked: bookingData.success && bookingData.booking,
-                bookingId: bookingData.booking?.bookingId
-              };
-            }
-          } catch (e) {
-            console.error('Error checking booking status:', e);
-          }
-          return { ...quote, isBooked: false };
-        })
-      );
-
-      // Sort by date (newest first)
-      quotesWithBookingStatus.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      
-      // Save complete data for each quote
-      quotesWithBookingStatus.forEach(quote => {
-        const requestId = quote.requestId || quote._id;
-        const completeData = {
-          requestId,
-          requestNumber: quote.requestNumber,
-          mode: quote.mode,
-          direction: quote.direction,
-          serviceType: quote.serviceType || 'ltl',
-          formData: quote.formData || {},
-          status: quote.status,
-          createdAt: quote.createdAt
-        };
-        localStorage.setItem(`quote_complete_${requestId}`, JSON.stringify(completeData));
-      });
-      
-      setQuotes(quotesWithBookingStatus);
-      setLoading(false);
-      
-    } catch (error) {
-      console.error('Failed to load quotes:', error);
-      setLoading(false);
+    } else {
+      console.error('Failed to fetch quotes:', response.status);
       showNotification('Failed to load quotes', 'error');
     }
-  };
-
+  } catch (error) {
+    console.error('Failed to load quotes:', error);
+    showNotification('Failed to load quotes', 'error');
+  } finally {
+    setLoading(false);
+  }
+};
   const filterQuotes = () => {
     let filtered = [...quotes];
 
