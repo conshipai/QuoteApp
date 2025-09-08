@@ -1,6 +1,7 @@
+// src/components/bol/BOLBuilder.jsx
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
-  FileText, Download, Save, ArrowLeft, Building2, Plus, X, 
+  FileText, Save, Building2, Plus, X, 
   MapPin, Phone, User, Mail, Hash, Trash2, AlertTriangle 
 } from 'lucide-react';
 import BOLTemplate from './BOLTemplate';
@@ -559,6 +560,7 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
 
   useEffect(() => {
     loadSavedAddresses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadSavedAddresses = async () => {
@@ -667,73 +669,72 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
     document.title = prevTitle;
   };
 
-// Update the handleSave function in BOLBuilder.jsx
-const handleSave = async () => {
-  const errors = [];
-  if (!bolData.shipper.name) errors.push('Shipper company name is required');
-  if (!bolData.shipper.address) errors.push('Shipper address is required');
-  if (!bolData.consignee.name) errors.push('Consignee company name is required');
-  if (!bolData.consignee.address) errors.push('Consignee address is required');
+  // Save / Generate PDF and upload
+  const handleSave = async () => {
+    const errors = [];
+    if (!bolData.shipper.name) errors.push('Shipper company name is required');
+    if (!bolData.shipper.address) errors.push('Shipper address is required');
+    if (!bolData.consignee.name) errors.push('Consignee company name is required');
+    if (!bolData.consignee.address) errors.push('Consignee address is required');
 
-  bolData.items.forEach((item, index) => {
-    if (item.hazmat && item.hazmatDetails) {
-      if (!item.hazmatDetails.unNumber) errors.push(`Item ${index + 1}: UN Number required for hazmat`);
-      if (!item.hazmatDetails.properShippingName) errors.push(`Item ${index + 1}: Proper shipping name required`);
-      if (!item.hazmatDetails.hazardClass) errors.push(`Item ${index + 1}: Hazard class required`);
-    }
-  });
-
-  if (errors.length > 0) {
-    alert('Please complete required fields:\n' + errors.join('\n'));
-    return;
-  }
-
-  setGenerating(true);
-  try {
-    if (!window.html2pdf) {
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-      document.head.appendChild(script);
-      await new Promise((resolve, reject) => {
-        script.onload = resolve;
-        script.onerror = reject;
-        setTimeout(reject, 5000);
-      });
-      console.log('html2pdf library loaded dynamically');
-    }
-
-    const bolElement = document.getElementById('bol-template');
-    if (!bolElement) throw new Error('BOL template not found in DOM');
-
-    const clonedElement = bolElement.cloneNode(true);
-    const htmlContent = clonedElement.outerHTML;
-
-    const requestNumber = booking?.requestNumber || booking?.requestId;
-    if (!requestNumber) throw new Error('Request number not found in booking data');
-
-    console.log('Creating BOL with request number:', requestNumber);
-
-    const result = await bolApi.createBOL({
-      bookingId: booking.bookingId,
-      bolNumber: bolNumber,
-      bolData: bolData,
-      htmlContent: htmlContent,
-      bookingData: booking  // ✅ pass booking directly
+    bolData.items.forEach((item, index) => {
+      if (item.hazmat && item.hazmatDetails) {
+        if (!item.hazmatDetails.unNumber) errors.push(`Item ${index + 1}: UN Number required for hazmat`);
+        if (!item.hazmatDetails.properShippingName) errors.push(`Item ${index + 1}: Proper shipping name required`);
+        if (!item.hazmatDetails.hazardClass) errors.push(`Item ${index + 1}: Hazard class required`);
+      }
     });
 
-    if (result.success) {
-      // (Optional) You can remove the manual localStorage/cache updates here
-      if (typeof onComplete === 'function') onComplete();
-    } else {
-      throw new Error(result.error || 'BOL creation failed');
+    if (errors.length > 0) {
+      alert('Please complete required fields:\n' + errors.join('\n'));
+      return;
     }
-  } catch (error) {
-    console.error('Failed to save BOL:', error);
-    alert(`Failed to save BOL:\n${error.message}\n\nPlease check:\n1. html2pdf library is loaded\n2. BOL template is rendered\n3. Network connection is active`);
-  } finally {
-    setGenerating(false);
-  }
-};
+
+    setGenerating(true);
+    try {
+      if (!window.html2pdf) {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+        document.head.appendChild(script);
+        await new Promise((resolve, reject) => {
+          script.onload = resolve;
+          script.onerror = reject;
+          setTimeout(reject, 5000);
+        });
+        console.log('html2pdf library loaded dynamically');
+      }
+
+      const bolElement = document.getElementById('bol-template');
+      if (!bolElement) throw new Error('BOL template not found in DOM');
+
+      const clonedElement = bolElement.cloneNode(true);
+      const htmlContent = clonedElement.outerHTML;
+
+      const requestNumber = booking?.requestNumber || booking?.requestId;
+      if (!requestNumber) throw new Error('Request number not found in booking data');
+
+      console.log('Creating BOL with request number:', requestNumber);
+
+      const result = await bolApi.createBOL({
+        bookingId: booking.bookingId,
+        bolNumber: bolNumber,
+        bolData: bolData,
+        htmlContent: htmlContent,
+        bookingData: booking // ✅ pass booking directly
+      });
+
+      if (result.success) {
+        if (typeof onComplete === 'function') onComplete();
+      } else {
+        throw new Error(result.error || 'BOL creation failed');
+      }
+    } catch (error) {
+      console.error('Failed to save BOL:', error);
+      alert(`Failed to save BOL:\n${error.message}\n\nPlease check:\n1. html2pdf library is loaded\n2. BOL template is rendered\n3. Network connection is active`);
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
