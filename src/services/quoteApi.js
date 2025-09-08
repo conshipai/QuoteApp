@@ -15,113 +15,95 @@ class QuoteAPI {
     }
   }
 
-  async createGroundQuoteRequest(formData, serviceType) {
-    this.log('Creating ground quote request', { serviceType, formData });
+ async createGroundQuoteRequest(formData, serviceType) {
+  this.log('Creating ground quote request', { serviceType, formData });
 
-    // Check if we should use mock
-    if (this.forceMock) {
-      this.log('FORCE_MOCK enabled, using mock data');
-      return this.mockCreateQuoteRequest(formData, serviceType);
+  try {
+    const token = this.getToken();
+    if (!token) {
+      throw new Error('No authentication token found');
     }
 
-    try {
-      const token = this.getToken();
-      if (!token) {
-        throw new Error('No authentication token found');
+    // Try using the general quotes endpoint like air/ocean
+    const initResponse = await fetch(`${API_BASE}/quotes/init`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       }
+    });
 
-      this.log('Sending request to backend', `${API_BASE}/ground-quotes/create`);
+    const initData = await initResponse.json();
+    
+    if (!initData.success) {
+      throw new Error('Failed to initialize quote');
+    }
 
-      const response = await fetch(`${API_BASE}/ground-quotes/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+    // Now create the quote with the structure that works for air/ocean
+    const response = await fetch(`${API_BASE}/quotes/create`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        requestNumber: initData.requestId,
+        userId: localStorage.getItem('userId') || 'unknown',
+        userEmail: localStorage.getItem('userEmail') || 'unknown@example.com',
+        company: 'Test Company',
+        shipment: {
+          mode: 'ground',
+          serviceType: serviceType,
+          origin: {
+            city: formData.originCity,
+            state: formData.originState,
+            zipCode: formData.originZip
+          },
+          destination: {
+            city: formData.destCity,
+            state: formData.destState,
+            zipCode: formData.destZip
+          },
+          cargo: {
+            pieces: formData.commodities.map(c => ({
+              quantity: parseInt(c.quantity) || 1,
+              weight: parseFloat(c.weight) || 0,
+              weightKg: (parseFloat(c.weight) || 0) * 0.453592,
+              length: parseFloat(c.length) || 0,
+              width: parseFloat(c.width) || 0,
+              height: parseFloat(c.height) || 0,
+              commodity: c.description || 'General Cargo',
+              cargoType: 'General',
+              stackable: true,
+              handling: []
+            }))
+          }
         },
-        body: JSON.stringify({
-          serviceType,
-          formData
-        })
-      });
+        insurance: {
+          requested: false
+        },
+        formData: formData // Keep the original form data too
+      })
+    });
 
-      const responseText = await response.text();
-      this.log('Raw response', responseText);
-
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}`);
-      }
-
-      if (!response.ok) {
-        throw new Error(data?.error || `HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      if (!data?.success) {
-        throw new Error(data?.error || 'Request failed without error message');
-      }
-
-      // Validate response structure
-      if (!data.data?._id) {
-        throw new Error('Invalid response structure: missing request ID');
-      }
-
-      // Store the complete quote data with immutable flag
-      const completeQuoteData = {
-        requestId: data.data._id,
-        requestNumber: data.data.requestNumber,
-        serviceType: serviceType,
-        formData: { ...formData }, // Clone to prevent mutations
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-        immutable: true, // Flag to prevent edits
-        originalFormData: { ...formData } // Keep original for comparison
-      };
-
-      // Save with versioning
-      localStorage.setItem(
-        `quote_complete_${data.data._id}`, 
-        JSON.stringify(completeQuoteData)
-      );
-
-      this.log('Quote created successfully', {
-        requestId: data.data._id,
-        requestNumber: data.data.requestNumber
-      });
-
-      return {
-        success: true,
-        requestId: data.data._id,
-        requestNumber: data.data.requestNumber
-      };
-
-    } catch (error) {
-      console.error('❌ Quote creation failed:', error);
-      
-      // Show detailed error to user
-      const errorMessage = `
-API Error: ${error.message}
-Endpoint: ${API_BASE}/ground-quotes/create
-Token: ${this.getToken() ? 'Present' : 'Missing'}
-
-To use mock data, run in console:
-localStorage.setItem('FORCE_MOCK', 'true')
-
-To enable debug mode:
-localStorage.setItem('DEBUG_MODE', 'true')
-      `.trim();
-      
-      alert(errorMessage);
-      
-      // Don't automatically fall back to mock - let user decide
-      if (confirm('Would you like to use mock data instead?')) {
-        return this.mockCreateQuoteRequest(formData, serviceType);
-      }
-      
-      throw error;
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      throw new Error(data?.error || 'Failed to create quote');
     }
+
+    return {
+      success: true,
+      requestId: data.data._id,
+      requestNumber: data.data.requestNumber
+    };
+
+  } catch (error) {
+    console.error('❌ Quote creation failed:', error);
+    alert(`Failed to create quote: ${error.message}`);
+    throw error; // NO MOCK FALLBACK!
   }
+}
 
   async getGroundQuoteResults(requestId) {
     this.log('Getting results for', requestId);
