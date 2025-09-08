@@ -1,4 +1,4 @@
-// src/services/quoteApi.js - NO MOCK DATA VERSION
+// src/services/quoteApi.js - NO MOCK FALLBACKS
 import API_BASE from '../config/api';
 
 class QuoteAPI {
@@ -23,7 +23,7 @@ class QuoteAPI {
         throw new Error('Failed to initialize quote');
       }
 
-      // Create the quote
+      // Create the quote using same structure as air/ocean
       const response = await fetch(`${API_BASE}/quotes/create`, {
         method: 'POST',
         headers: {
@@ -68,7 +68,7 @@ class QuoteAPI {
           },
           hasDangerousGoods: formData.commodities.some(c => c.hazmat),
           status: 'processing',
-          formData: formData
+          formData: formData // Store original form data
         })
       });
 
@@ -78,6 +78,17 @@ class QuoteAPI {
         throw new Error(data?.error || 'Failed to create quote');
       }
 
+      // Store in localStorage for reference
+      const completeData = {
+        requestId: data.data._id,
+        requestNumber: data.data.requestNumber,
+        serviceType: serviceType,
+        formData: formData,
+        status: 'processing',
+        createdAt: new Date().toISOString()
+      };
+      localStorage.setItem(`quote_complete_${data.data._id}`, JSON.stringify(completeData));
+
       return {
         success: true,
         requestId: data.data._id,
@@ -86,7 +97,8 @@ class QuoteAPI {
 
     } catch (error) {
       console.error('Quote creation failed:', error);
-      throw error;
+      alert(`Failed to create quote: ${error.message}`);
+      throw error; // NO MOCK FALLBACK
     }
   }
 
@@ -97,8 +109,8 @@ class QuoteAPI {
     }
 
     try {
-      // Use the general quotes endpoint
-      const response = await fetch(`${API_BASE}/quotes/recent`, {
+      // Get all recent quotes and find this one
+      const response = await fetch(`${API_BASE}/quotes/recent?limit=50`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -107,28 +119,25 @@ class QuoteAPI {
       const data = await response.json();
       
       if (data.success) {
-        // Find the specific quote
         const quote = data.requests.find(r => r._id === requestId);
         if (quote) {
+          // For ground quotes, we don't have real carrier quotes yet
+          // Just return the quote status
           return {
             success: true,
             status: quote.status,
             requestNumber: quote.requestNumber,
             formData: quote.formData || {},
-            quotes: [] // No quotes for ground yet
+            quotes: [] // No carrier quotes available yet
           };
         }
       }
 
-      return {
-        success: true,
-        status: 'processing',
-        quotes: []
-      };
+      throw new Error('Quote not found');
 
     } catch (error) {
       console.error('Failed to get results:', error);
-      throw error;
+      throw error; // NO MOCK FALLBACK
     }
   }
 
