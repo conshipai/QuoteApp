@@ -2,7 +2,6 @@ const express = require('express');
 const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
-const storageRoutes = require('./routes/storage');
 
 // CORS headers for Module Federation
 app.use((req, res, next) => {
@@ -12,13 +11,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Add body parsing middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Mount storage routes
-app.use('/api/storage', storageRoutes);
-
 // Serve the built dist folder
 app.use(express.static(path.join(__dirname, 'dist')));
 
@@ -27,12 +19,11 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', app: 'quotes' });
 });
 
-// Catch all - serve index.html (MUST BE LAST!)
+// Catch all - serve index.html
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 app.listen(PORT, () => {
   console.log(`Quotes module server running on port ${PORT}`);
-  console.log(`Storage API available at http://localhost:${PORT}/api/storage`);
 });
