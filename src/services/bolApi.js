@@ -1,11 +1,10 @@
 // src/services/bolApi.js
 import API_BASE from '../config/api';
-import documentApi from './documentApi';
 
 class BolAPI {
   async createBOL({ bookingId, bolNumber, bolData, htmlContent }) {
     try {
-      console.log('Starting BOL creation for:', bolNumber);
+      console.log('🔄 Starting BOL creation for:', bolNumber);
       
       // Get the booking data to extract requestId/requestNumber
       const bookingKey = `booking_${bookingId}`;
@@ -24,9 +23,9 @@ class BolAPI {
         throw new Error('Request ID not found in booking data');
       }
       
-      console.log('Using Request ID for storage:', requestId);
+      console.log('📋 Using Request ID for storage:', requestId);
       
-      // First, try to generate and upload PDF to Cloudflare
+      // Generate and upload PDF to S3/R2
       let fileUrl = null;
       let fileKey = null;
 
@@ -35,7 +34,7 @@ class BolAPI {
         const bolElement = document.getElementById('bol-template');
         
         if (bolElement) {
-          console.log('Generating PDF from HTML...');
+          console.log('📄 Generating PDF from HTML...');
           
           // Generate PDF from HTML with better options
           const opt = {
@@ -45,7 +44,8 @@ class BolAPI {
             html2canvas: { 
               scale: 2,
               useCORS: true,
-              logging: false
+              logging: false,
+              backgroundColor: '#ffffff'
             },
             jsPDF: { 
               unit: 'in', 
@@ -60,7 +60,7 @@ class BolAPI {
               .from(bolElement)
               .outputPdf('blob');
               
-            console.log('PDF generated successfully, size:', pdfBlob.size);
+            console.log('✅ PDF generated successfully, size:', pdfBlob.size);
             
             // Validate PDF size
             if (pdfBlob.size < 1000) {
@@ -72,20 +72,20 @@ class BolAPI {
               type: 'application/pdf' 
             });
 
-            // Upload to Cloudflare R2 using requestId for consistent folder structure
-            console.log('Uploading to Cloudflare with requestId:', requestId);
-            const uploadResult = await documentApi.uploadDocument(
+            // Upload to backend storage service
+            console.log('📤 Uploading to storage service...');
+            const uploadResult = await this.uploadDocument(
               pdfFile,
-              requestId,  // Use requestId instead of bookingId
-              'bol'       // Document type
+              requestId,
+              'bol'
             );
 
-            console.log('✅ BOL uploaded to Cloudflare:', uploadResult);
+            console.log('✅ BOL uploaded successfully:', uploadResult);
             fileUrl = uploadResult.fileUrl;
             fileKey = uploadResult.key;
             
           } catch (pdfError) {
-            console.error('❌ PDF generation failed:', pdfError);
+            console.error('❌ PDF generation/upload failed:', pdfError);
             throw new Error(`PDF generation failed: ${pdfError.message}`);
           }
         } else {
@@ -95,11 +95,11 @@ class BolAPI {
         throw new Error('html2pdf library not loaded. Please ensure it is included in your HTML.');
       }
 
-      // Save BOL metadata with proper structure
+      // Save BOL metadata locally
       const bolMetadata = {
         bolId: `BOL-${Date.now()}`,
         bookingId,
-        requestId,  // Store requestId for reference
+        requestId,
         bolNumber,
         fileUrl,
         fileKey,
@@ -107,12 +107,12 @@ class BolAPI {
         documentType: 'bol'
       };
 
-      // Store in localStorage as backup
+      // Store in localStorage
       const bols = JSON.parse(localStorage.getItem('bols') || '[]');
       bols.push(bolMetadata);
       localStorage.setItem('bols', JSON.stringify(bols));
       
-      // Also update the booking record
+      // Update the booking record
       bookingData.hasBOL = true;
       bookingData.bolNumber = bolNumber;
       bookingData.bolId = bolMetadata.bolId;
@@ -140,10 +140,10 @@ class BolAPI {
         }
       }
 
-      console.log('✅ BOL saved with Cloudflare URL:', fileUrl);
+      console.log('✅ BOL saved with URL:', fileUrl);
       
       // Show success with proper file location
-      alert(`BOL ${bolNumber} saved successfully!\n\nStored at: ${requestId}/bol/${pdfFile.name}\nView at: ${fileUrl}`);
+      alert(`BOL ${bolNumber} saved successfully!\n\nStored at: ${fileKey}\nView at: ${fileUrl}`);
 
       return {
         success: true,
@@ -152,7 +152,7 @@ class BolAPI {
         fileUrl,
         fileKey,
         requestId,
-        message: 'BOL created and uploaded to Cloudflare'
+        message: 'BOL created and uploaded successfully'
       };
 
     } catch (error) {
@@ -169,6 +169,52 @@ class BolAPI {
     }
   }
 
+  async uploadDocument(file, requestId, documentType) {
+    console.log('📤 Uploading document:', {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      requestId,
+      documentType
+    });
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('requestId', requestId);
+    formData.append('documentType', documentType);
+
+    try {
+      const response = await fetch(`${API_BASE}/storage/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+        },
+        body: formData
+      });
+
+      console.log('📥 Upload response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Upload failed:', errorText);
+        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Upload successful:', result);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Upload failed');
+      }
+      
+      return result;
+
+    } catch (error) {
+      console.error('❌ Upload error:', error);
+      throw error;
+    }
+  }
+
   async getBOLByBooking(bookingId) {
     try {
       // First check localStorage
@@ -182,7 +228,7 @@ class BolAPI {
       
       console.log('BOL found:', bol);
       
-      // If we have a Cloudflare URL, return it
+      // If we have a file URL, return it
       if (bol.fileUrl) {
         return {
           success: true,
@@ -193,7 +239,7 @@ class BolAPI {
                 <h3>Bill of Lading</h3>
                 <p><strong>BOL Number:</strong> ${bol.bolNumber}</p>
                 <p><strong>Created:</strong> ${new Date(bol.createdAt).toLocaleString()}</p>
-                <p><strong>Storage Path:</strong> ${bol.requestId}/bol/</p>
+                <p><strong>Storage Path:</strong> ${bol.fileKey}</p>
                 <p>
                   <a href="${bol.fileUrl}" 
                      target="_blank" 
@@ -216,7 +262,7 @@ class BolAPI {
 
   async getAllDocumentsByRequestId(requestId) {
     try {
-      // This would call your backend to get all documents for a request
+      // Call backend to get all documents for a request
       const response = await fetch(`${API_BASE}/storage/documents/${requestId}`, {
         headers: {
           'Authorization': `Bearer ${this.getToken()}`
@@ -227,8 +273,13 @@ class BolAPI {
         throw new Error('Failed to fetch documents');
       }
       
-      const documents = await response.json();
-      return { success: true, documents };
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch documents');
+      }
+      
+      return { success: true, documents: result.documents };
     } catch (error) {
       console.error('Error fetching documents:', error);
       
