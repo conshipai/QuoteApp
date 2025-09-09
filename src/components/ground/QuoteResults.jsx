@@ -4,7 +4,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   Check, Clock, Truck, AlertCircle, Package, MapPin,
   FileText, Upload, Download, X, RefreshCw, AlertTriangle,
-  DollarSign, Shield, Star, Zap, ChevronDown, ChevronUp
+  DollarSign, ShieldCheck, Star, Zap, ChevronDown, ChevronUp
 } from 'lucide-react';
 import API_BASE from '../../config/api';
 import quoteApi from '../../services/quoteApi';
