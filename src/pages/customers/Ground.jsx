@@ -1,4 +1,4 @@
-// src/pages/customers/Ground.jsx - SIMPLIFIED VERSION
+// src/pages/customers/Ground.jsx - FIXED VERSION
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import quoteApi from '../../services/quoteApi';
@@ -21,7 +21,7 @@ const Ground = ({ isDarkMode, userRole }) => {
   const [showResults, setShowResults] = useState(false);
   const [quoteRequest, setQuoteRequest] = useState(null);
 
-  // Default form data
+  // Default form data - FIXED: loadType only for FTL/Expedited
   const getDefaultFormData = () => ({
     // Origin
     originZip: '77002',
@@ -37,8 +37,8 @@ const Ground = ({ isDarkMode, userRole }) => {
     destCompany: '',
     // Dates
     pickupDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-    // Service-specific fields
-    loadType: 'custom', // 'legal' or 'custom'
+    // Service-specific fields - NO loadType for LTL
+    // loadType: undefined, // Will be set only for FTL/Expedited
     legalLoadWeight: '45000',
     legalLoadPallets: '26',
     // FTL specific
@@ -53,7 +53,7 @@ const Ground = ({ isDarkMode, userRole }) => {
     truckType: '',
     serviceMode: '',
     asap: false,
-    // Commodities
+    // Commodities - Always required for LTL
     commodities: [
       {
         unitType: 'Pallets',
@@ -94,9 +94,9 @@ const Ground = ({ isDarkMode, userRole }) => {
     }
   }, [serviceType]);
 
-  // Calculate initial density
+  // Calculate initial density for LTL
   useEffect(() => {
-    if (formData.commodities[0].weight && formData.commodities[0].length) {
+    if (serviceType === 'ltl' && formData.commodities[0].weight && formData.commodities[0].length) {
       const densityData = calculateDensity(formData.commodities[0]);
       setFormData(prev => ({
         ...prev,
@@ -106,7 +106,7 @@ const Ground = ({ isDarkMode, userRole }) => {
         }]
       }));
     }
-  }, []);
+  }, [serviceType]);
 
   const loadAvailableCarriers = async () => {
     try {
@@ -145,25 +145,42 @@ const Ground = ({ isDarkMode, userRole }) => {
       if (!formData.equipmentType) errors.push('Equipment type required for FTL');
     }
 
-    // Load configuration validation
-    if (formData.loadType === 'legal') {
-      if (!formData.legalLoadWeight) errors.push('Weight required for legal truckload');
-    } else {
-      // Validate commodities only for custom loads
+    // FIXED: LTL ALWAYS requires commodity details with dimensions
+    if (serviceType === 'ltl') {
       if (formData.commodities.length === 0) {
-        errors.push('At least one commodity required');
+        errors.push('At least one commodity required for LTL');
+      }
+      
+      // Validate each commodity for LTL - dimensions are REQUIRED
+      formData.commodities.forEach((item, idx) => {
+        if (!item.weight) errors.push(`Item ${idx + 1}: Weight required for freight class calculation`);
+        if (!item.length || !item.width || !item.height) {
+          errors.push(`Item ${idx + 1}: All dimensions required for freight class calculation`);
+        }
+        if (!item.quantity) errors.push(`Item ${idx + 1}: Quantity required`);
+        
+        // Hazmat validation
+        if (item.hazmat && item.hazmatDetails) {
+          if (!item.hazmatDetails.unNumber) errors.push(`Item ${idx + 1}: UN Number required for hazmat`);
+          if (!item.hazmatDetails.properShippingName) errors.push(`Item ${idx + 1}: Shipping name required for hazmat`);
+          if (!item.hazmatDetails.hazardClass) errors.push(`Item ${idx + 1}: Hazard class required for hazmat`);
+        }
+      });
+    }
+
+    // FTL/Expedited validation for load configuration
+    if ((serviceType === 'ftl' || serviceType === 'expedited') && formData.loadType === 'legal') {
+      if (!formData.legalLoadWeight) errors.push('Weight required for legal truckload');
+    } else if ((serviceType === 'ftl' || serviceType === 'expedited') && formData.loadType === 'custom') {
+      // Validate commodities for custom loads
+      if (formData.commodities.length === 0) {
+        errors.push('At least one commodity required for custom load');
       }
       
       formData.commodities.forEach((item, idx) => {
         if (!item.weight) errors.push(`Item ${idx + 1}: Weight required`);
-        if (!item.length || !item.width || !item.height) {
-          errors.push(`Item ${idx + 1}: All dimensions required`);
-        }
-        if (item.hazmat && item.hazmatDetails) {
-          if (!item.hazmatDetails.unNumber) errors.push(`Item ${idx + 1}: UN Number required`);
-          if (!item.hazmatDetails.properShippingName) errors.push(`Item ${idx + 1}: Shipping name required`);
-          if (!item.hazmatDetails.hazardClass) errors.push(`Item ${idx + 1}: Hazard class required`);
-        }
+        if (!item.quantity) errors.push(`Item ${idx + 1}: Quantity required`);
+        // Dimensions optional for FTL/Expedited custom loads
       });
     }
 
@@ -188,12 +205,14 @@ const Ground = ({ isDarkMode, userRole }) => {
     console.log('📦 Form data being submitted:', formData);
 
     try {
-      // Prepare the complete form data
+      // FIXED: Prepare the complete form data - loadType only for FTL/Expedited
       const completeFormData = {
         ...formData,
         serviceType,
+        // Only set loadType for FTL/Expedited, undefined for LTL
+        loadType: serviceType === 'ltl' ? undefined : (formData.loadType || 'custom'),
         // For legal truckload, create a single commodity entry
-        commodities: formData.loadType === 'legal' 
+        commodities: (serviceType !== 'ltl' && formData.loadType === 'legal')
           ? [{
               unitType: 'Pallets',
               quantity: formData.legalLoadPallets || '26',
@@ -208,7 +227,7 @@ const Ground = ({ isDarkMode, userRole }) => {
           : formData.commodities
       };
 
-      console.log('📤 Calling API...');
+      console.log('📤 Calling API with cleaned data...');
       const result = await quoteApi.createGroundQuoteRequest(
         completeFormData,
         serviceType
@@ -310,11 +329,18 @@ const Ground = ({ isDarkMode, userRole }) => {
       isDarkMode={isDarkMode}
       availableCarriers={availableCarriers}
     >
-      {/* Service-specific options */}
+      {/* Service-specific options - FIXED: Pass loadType handler for FTL/Expedited only */}
       {serviceType === 'expedited' && (
         <ExpeditedOptions
           formData={formData}
-          onChange={(field, value) => setFormData(prev => ({ ...prev, [field]: value }))}
+          onChange={(field, value) => {
+            // Set loadType only for expedited
+            if (field === 'loadType' && serviceType === 'expedited') {
+              setFormData(prev => ({ ...prev, [field]: value }));
+            } else {
+              setFormData(prev => ({ ...prev, [field]: value }));
+            }
+          }}
           isDarkMode={isDarkMode}
         />
       )}
@@ -322,7 +348,14 @@ const Ground = ({ isDarkMode, userRole }) => {
       {serviceType === 'ftl' && (
         <FTLOptions
           formData={formData}
-          onChange={(field, value) => setFormData(prev => ({ ...prev, [field]: value }))}
+          onChange={(field, value) => {
+            // Set loadType only for FTL
+            if (field === 'loadType' && serviceType === 'ftl') {
+              setFormData(prev => ({ ...prev, [field]: value }));
+            } else {
+              setFormData(prev => ({ ...prev, [field]: value }));
+            }
+          }}
           isDarkMode={isDarkMode}
         />
       )}
