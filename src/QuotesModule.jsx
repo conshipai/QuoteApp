@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import QuoteLayout from './layouts/QuoteLayout';
 import useUserRole from './hooks/useUserRole';
 import CarrierQuoteSubmission from './pages/CarrierQuoteSubmission';
+import CostsManagement from './pages/CostsManagement';
 
 // Lazy load pages
 const QuoteDashboard = lazy(() => import('./pages/QuoteDashboard'));
@@ -62,6 +63,7 @@ const QuotesModule = ({ shellContext, basename }) => {
           <Route path="ocean-export" element={<Placeholder title="Ocean Export" isDarkMode={isDarkMode} />} />
           <Route path="/carrier/quote/:token" element={<CarrierQuoteSubmission />} />
           <Route path="project" element={<Placeholder title="Project Cargo" isDarkMode={isDarkMode} />} />
+          <Route path="costs" element={<CostsManagement isDarkMode={isDarkMode} userRole={userRole} />} />
           <Route path="ground/results/:requestId" element={<GroundQuoteResults isDarkMode={isDarkMode} userRole={userRole} />} />
           <Route path="*" element={<Navigate to="" replace />} />
         </Routes>
