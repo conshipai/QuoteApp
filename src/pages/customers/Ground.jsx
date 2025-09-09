@@ -1,8 +1,12 @@
-// src/pages/customers/Ground.jsx - FIXED VERSION
+// src/pages/customers/Ground.jsx - UPDATED VERSION WITH FTL/EXPEDITED
 import quoteApi from '../../services/quoteApi';
+import carrierApi from '../../services/carrierApi';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Building2, X, AlertCircle } from 'lucide-react';
+import { 
+  Calendar, Building2, X, AlertCircle, Truck, 
+  Clock, Info, Package, AlertTriangle 
+} from 'lucide-react';
 import LocationSection from '../../components/ground/LocationSection';
 import CommodityList from '../../components/ground/CommodityList';
 import AccessorialOptions from '../../components/ground/AccessorialOptions';
@@ -22,12 +26,13 @@ const Ground = ({ isDarkMode, userRole }) => {
   const [zipLoading, setZipLoading] = useState({ origin: false, dest: false });
   const [showAddressBook, setShowAddressBook] = useState(null);
   const [savedAddresses, setSavedAddresses] = useState([]);
+  const [availableCarriers, setAvailableCarriers] = useState([]);
 
   // Results state
   const [showResults, setShowResults] = useState(false);
   const [quoteRequest, setQuoteRequest] = useState(null);
 
-  // Form state - with default test values for easier testing
+  // Form state - with default test values
   const [formData, setFormData] = useState({
     // Origin - Default test values
     originZip: '77002',
@@ -43,6 +48,14 @@ const Ground = ({ isDarkMode, userRole }) => {
     destCompany: '',
     // Pickup - Default to tomorrow
     pickupDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+    
+    // NEW: FTL Equipment Type
+    equipmentType: 'dry_van', // default
+    
+    // NEW: Expedited Delivery Requirements
+    deliveryDate: '', // for expedited
+    deliveryTime: '', // for expedited
+    
     // Commodities - Default test commodity
     commodities: [
       {
@@ -70,10 +83,20 @@ const Ground = ({ isDarkMode, userRole }) => {
     residentialDelivery: false,
     insideDelivery: false,
     limitedAccessPickup: false,
-    limitedAccessDelivery: false
+    limitedAccessDelivery: false,
+    
+    // NEW: Special Instructions for carriers
+    specialInstructions: ''
   });
 
-  // Calculate density on component mount for default values
+  // Load carriers when service type changes
+  useEffect(() => {
+    if (serviceType === 'ftl' || serviceType === 'expedited') {
+      loadAvailableCarriers();
+    }
+  }, [serviceType]);
+
+  // Calculate density on component mount
   useEffect(() => {
     if (formData.commodities[0].weight && formData.commodities[0].length) {
       const densityData = calculateDensity(formData.commodities[0]);
@@ -97,7 +120,6 @@ const Ground = ({ isDarkMode, userRole }) => {
       if (result?.success) {
         setSavedAddresses(result.companies || []);
 
-        // Auto-fill with default shipper if exists
         const defaultShipper = (result.companies || []).find(
           (c) => c.type === 'shipper' && c.isDefault
         );
@@ -105,6 +127,18 @@ const Ground = ({ isDarkMode, userRole }) => {
       }
     } catch (err) {
       console.error('Failed to load addresses:', err);
+    }
+  };
+
+  const loadAvailableCarriers = async () => {
+    try {
+      const result = await carrierApi.getCarriersForService(serviceType);
+      if (result?.success) {
+        setAvailableCarriers(result.carriers || []);
+        console.log(`Found ${result.carriers.length} carriers for ${serviceType}`);
+      }
+    } catch (err) {
+      console.error('Failed to load carriers:', err);
     }
   };
 
@@ -229,9 +263,10 @@ const Ground = ({ isDarkMode, userRole }) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
-  // Enhanced handleSubmit with better error handling
+  // Enhanced handleSubmit for FTL/Expedited
   const handleSubmit = async () => {
     console.log('🚀 Starting quote submission...');
+    console.log('📦 Service Type:', serviceType);
     setError(null);
     
     // Validation
@@ -243,6 +278,16 @@ const Ground = ({ isDarkMode, userRole }) => {
     if (!formData.destCity) errors.push('Destination city required');
     if (!formData.destState) errors.push('Destination state required');
     if (!formData.pickupDate) errors.push('Pickup date required');
+
+    // Service-specific validation
+    if (serviceType === 'expedited') {
+      if (!formData.deliveryDate) errors.push('Delivery date required for expedited');
+      if (!formData.deliveryTime) errors.push('Delivery time required for expedited');
+    }
+
+    if (serviceType === 'ftl' && !formData.equipmentType) {
+      errors.push('Equipment type required for FTL');
+    }
 
     formData.commodities.forEach((item, idx) => {
       if (!item.weight) errors.push(`Item ${idx + 1}: Weight required`);
@@ -265,7 +310,6 @@ const Ground = ({ isDarkMode, userRole }) => {
 
     setLoading(true);
     console.log('📦 Form data being submitted:', formData);
-    console.log('🏷️ Service type:', serviceType);
 
     try {
       const completeFormData = {
@@ -286,22 +330,19 @@ const Ground = ({ isDarkMode, userRole }) => {
 
       if (result?.success && result?.requestId) {
         console.log('✅ Quote created successfully!');
-        console.log('Request ID:', result.requestId);
-        console.log('Request Number:', result.requestNumber);
         
-        // Save to localStorage for backup
+        // Save to localStorage
         localStorage.setItem(
           `quote_formdata_${result.requestId}`,
           JSON.stringify(completeFormData)
         );
         
-        // Save the complete quote data
         const completeQuoteData = {
           requestId: result.requestId,
           requestNumber: result.requestNumber,
           serviceType: serviceType,
           formData: completeFormData,
-          status: 'pending',
+          status: serviceType === 'ltl' ? 'pending' : 'pending_carrier_response',
           createdAt: new Date().toISOString()
         };
         
@@ -312,18 +353,26 @@ const Ground = ({ isDarkMode, userRole }) => {
         
         console.log('💾 Quote data saved to localStorage');
 
-        // Set the quote request data
-        setQuoteRequest({
-          requestId: result.requestId,
-          requestNumber: result.requestNumber
-        });
+        // For FTL/Expedited, show different message
+        if (serviceType === 'ftl' || serviceType === 'expedited') {
+          alert(`✅ ${serviceType.toUpperCase()} Quote Request Sent!\n\n` +
+                `Request #${result.requestNumber}\n\n` +
+                `Carriers have been notified and have 30 minutes to respond.\n` +
+                `You'll be notified when quotes are ready for review.`);
+          
+          // Navigate to quote history instead of results
+          navigate('/app/quotes/history');
+        } else {
+          // LTL - show results immediately
+          setQuoteRequest({
+            requestId: result.requestId,
+            requestNumber: result.requestNumber
+          });
+          setShowResults(true);
+        }
         
-        // Navigate to results
-        console.log('🔄 Showing results...');
-        setShowResults(true);
         setError(null);
       } else {
-        // Handle unexpected response format
         const errorMsg = result?.error || 'Unexpected response format from server';
         console.error('❌ Quote creation failed:', errorMsg);
         setError(errorMsg);
@@ -347,8 +396,8 @@ const Ground = ({ isDarkMode, userRole }) => {
     );
   }
 
-  // Show results
-  if (showResults && quoteRequest) {
+  // Show results (only for LTL)
+  if (showResults && quoteRequest && serviceType === 'ltl') {
     console.log('📊 Rendering quote results with:', quoteRequest);
     return (
       <GroundQuoteResults
@@ -389,9 +438,33 @@ const Ground = ({ isDarkMode, userRole }) => {
             </button>
           </div>
           <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            Fill in the form below to generate your freight quote
+            {serviceType === 'ltl' 
+              ? 'Fill in the form below to generate instant LTL quotes'
+              : serviceType === 'ftl'
+              ? 'Request FTL quotes from multiple carriers (30 min response time)'
+              : 'Request expedited quotes for time-critical shipments'}
           </p>
         </div>
+
+        {/* Info Banner for FTL/Expedited */}
+        {(serviceType === 'ftl' || serviceType === 'expedited') && (
+          <div className={`mb-6 p-4 rounded-lg border flex items-start gap-3 ${
+            isDarkMode 
+              ? 'bg-blue-900/20 border-blue-800 text-blue-400' 
+              : 'bg-blue-50 border-blue-200 text-blue-800'
+          }`}>
+            <Info className="w-5 h-5 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-medium">How {serviceType.toUpperCase()} Quotes Work:</p>
+              <ul className="text-sm mt-1 list-disc list-inside space-y-1">
+                <li>Your request will be sent to {availableCarriers.length || 'multiple'} qualified carriers</li>
+                <li>Carriers have 30 minutes to submit their best rates</li>
+                <li>You'll review all submissions and select the best option</li>
+                <li>Pricing will be customized based on carrier responses</li>
+              </ul>
+            </div>
+          </div>
+        )}
 
         {/* Error Display */}
         {error && (
@@ -405,17 +478,6 @@ const Ground = ({ isDarkMode, userRole }) => {
               <p className="font-medium">Error creating quote</p>
               <p className="text-sm mt-1 whitespace-pre-line">{error}</p>
             </div>
-          </div>
-        )}
-
-        {/* Debug Info (only in development) */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className={`mb-4 p-3 rounded text-xs ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
-            <p>Debug Info:</p>
-            <p>Service Type: {serviceType}</p>
-            <p>Show Results: {showResults ? 'true' : 'false'}</p>
-            <p>Quote Request: {quoteRequest ? `${quoteRequest.requestId}` : 'null'}</p>
-            <p>Loading: {loading ? 'true' : 'false'}</p>
           </div>
         )}
 
@@ -542,29 +604,145 @@ const Ground = ({ isDarkMode, userRole }) => {
           </div>
         </div>
 
-        {/* Pickup Date */}
+        {/* Dates Section - Enhanced for Expedited */}
         <div className={`p-6 rounded-lg mb-6 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
           <div className="flex items-center mb-4">
             <Calendar className={`w-5 h-5 mr-2 ${isDarkMode ? 'text-conship-orange' : 'text-conship-purple'}`} />
             <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              Pickup Date
+              Shipment Dates
             </h2>
           </div>
 
-          <input
-            type="date"
-            value={formData.pickupDate}
-            onChange={(e) =>
-              setFormData((prev) => ({ ...prev, pickupDate: e.target.value }))
-            }
-            min={new Date().toISOString().split('T')[0]}
-            className={`px-3 py-2 rounded border ${
-              isDarkMode
-                ? 'bg-gray-700 border-gray-600 text-white'
-                : 'bg-white border-gray-300 text-gray-900'
-            }`}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Pickup Date *
+              </label>
+              <input
+                type="date"
+                value={formData.pickupDate}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, pickupDate: e.target.value }))
+                }
+                min={new Date().toISOString().split('T')[0]}
+                className={`px-3 py-2 rounded border ${
+                  isDarkMode
+                    ? 'bg-gray-700 border-gray-600 text-white'
+                    : 'bg-white border-gray-300 text-gray-900'
+                }`}
+              />
+            </div>
+
+            {/* Expedited Delivery Requirements */}
+            {serviceType === 'expedited' && (
+              <>
+                <div>
+                  <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Required Delivery Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.deliveryDate}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, deliveryDate: e.target.value }))
+                    }
+                    min={formData.pickupDate || new Date().toISOString().split('T')[0]}
+                    className={`px-3 py-2 rounded border ${
+                      isDarkMode
+                        ? 'bg-gray-700 border-gray-600 text-white'
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Delivery Time *
+                  </label>
+                  <input
+                    type="time"
+                    value={formData.deliveryTime}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, deliveryTime: e.target.value }))
+                    }
+                    className={`px-3 py-2 rounded border ${
+                      isDarkMode
+                        ? 'bg-gray-700 border-gray-600 text-white'
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <div className={`p-3 rounded-lg flex items-start gap-2 ${
+                    isDarkMode ? 'bg-yellow-900/20 text-yellow-400' : 'bg-yellow-50 text-yellow-700'
+                  }`}>
+                    <AlertTriangle className="w-4 h-4 mt-0.5" />
+                    <p className="text-sm">
+                      Expedited shipments are time-critical. Carriers will provide guaranteed delivery options.
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
+
+        {/* FTL Equipment Type */}
+        {serviceType === 'ftl' && (
+          <div className={`p-6 rounded-lg mb-6 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
+            <div className="flex items-center mb-4">
+              <Truck className={`w-5 h-5 mr-2 ${isDarkMode ? 'text-conship-orange' : 'text-conship-purple'}`} />
+              <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                Equipment Requirements
+              </h2>
+            </div>
+
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Equipment Type *
+              </label>
+              <select
+                value={formData.equipmentType}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, equipmentType: e.target.value }))
+                }
+                className={`w-full max-w-md px-3 py-2 rounded border ${
+                  isDarkMode
+                    ? 'bg-gray-700 border-gray-600 text-white'
+                    : 'bg-white border-gray-300 text-gray-900'
+                }`}
+              >
+                <option value="dry_van">Dry Van (53')</option>
+                <option value="dry_van_48">Dry Van (48')</option>
+                <option value="flatbed">Flatbed</option>
+                <option value="step_deck">Step Deck</option>
+                <option value="reefer">Refrigerated (Reefer)</option>
+                <option value="lowboy">Lowboy</option>
+                <option value="conestoga">Conestoga</option>
+                <option value="power_only">Power Only</option>
+                <option value="other">Other (specify in instructions)</option>
+              </select>
+            </div>
+
+            {formData.equipmentType === 'reefer' && (
+              <div className="mt-4 grid grid-cols-2 gap-4 max-w-md">
+                <div>
+                  <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Temperature (°F)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="e.g., 35"
+                    className={`w-full px-3 py-2 rounded border ${
+                      isDarkMode
+                        ? 'bg-gray-700 border-gray-600 text-white'
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Commodities */}
         <CommodityList
@@ -582,6 +760,63 @@ const Ground = ({ isDarkMode, userRole }) => {
           onChange={handleAccessorialChange}
           isDarkMode={isDarkMode}
         />
+
+        {/* Special Instructions (Enhanced for FTL/Expedited) */}
+        <div className={`p-6 rounded-lg mb-6 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
+          <div className="flex items-center mb-4">
+            <Info className={`w-5 h-5 mr-2 ${isDarkMode ? 'text-conship-orange' : 'text-conship-purple'}`} />
+            <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              Special Instructions
+            </h2>
+          </div>
+          
+          <textarea
+            rows="3"
+            value={formData.specialInstructions}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, specialInstructions: e.target.value }))
+            }
+            placeholder={
+              serviceType === 'ftl' 
+                ? "Loading/unloading requirements, appointment needs, driver instructions..."
+                : serviceType === 'expedited'
+                ? "Time-critical requirements, special handling, contact information..."
+                : "Any special handling or delivery instructions..."
+            }
+            className={`w-full px-3 py-2 rounded border ${
+              isDarkMode 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-300 text-gray-900'
+            }`}
+          />
+        </div>
+
+        {/* Carrier Info (for FTL/Expedited) */}
+        {(serviceType === 'ftl' || serviceType === 'expedited') && availableCarriers.length > 0 && (
+          <div className={`p-6 rounded-lg mb-6 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
+            <div className="flex items-center mb-4">
+              <Package className={`w-5 h-5 mr-2 ${isDarkMode ? 'text-conship-orange' : 'text-conship-purple'}`} />
+              <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                Available Carriers
+              </h2>
+            </div>
+            <p className={`text-sm mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              Your quote request will be sent to {availableCarriers.length} qualified carriers:
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {availableCarriers.map(carrier => (
+                <span
+                  key={carrier.id}
+                  className={`px-3 py-1 rounded text-sm ${
+                    isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  {carrier.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Submit Buttons */}
         <div className="flex justify-end gap-3">
@@ -606,7 +841,11 @@ const Ground = ({ isDarkMode, userRole }) => {
                 : 'bg-conship-purple text-white hover:bg-purple-700'
             }`}
           >
-            {loading ? 'Generating Quote...' : 'Generate Quote'}
+            {loading 
+              ? 'Sending Request...' 
+              : serviceType === 'ltl'
+              ? 'Generate Quote'
+              : 'Request Quotes'}
           </button>
         </div>
       </div>
