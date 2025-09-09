@@ -3,9 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Clock, Truck, MapPin, ChevronRight, Anchor, Plane, 
-  ArrowUp, ArrowDown, CheckCircle, Search, Filter,
-  Calendar, Package, FileText, AlertCircle, RefreshCw,
-  Plus, DollarSign, Save
+  ArrowUp, ArrowDown, CheckCircle, Search,
+  Calendar, FileText, AlertCircle, RefreshCw,
+  Plus, Save
 } from 'lucide-react';
 import bookingApi from '../services/bookingApi';
 
@@ -159,6 +159,8 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
         case 'quarter':
           startDate.setMonth(now.getMonth() - 3);
           break;
+        default:
+          break;
       }
       
       filtered = filtered.filter(quote => new Date(quote.createdAt) >= startDate);
@@ -226,26 +228,33 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
 
   // NEW: Check if quote is eligible for manual booking
   const canManualBook = (quote) => {
-    // Only for FTL and Expedited that are not yet booked and still pending
     return (quote.serviceType === 'ftl' || quote.serviceType === 'expedited') && 
            !quote.isBooked &&
            (quote.status === 'pending' || quote.status === 'pending_carrier_response');
   };
 
-  // NEW: Manual Booking Modal Component
+  // 1) ENHANCED ManualBookingModal Component with all fields
   const ManualBookingModal = ({ quote, onClose, onConfirm }) => {
+    // Pre-populate with existing quote data
     const [bookingData, setBookingData] = useState({
       carrier: '',
       price: '',
       transitDays: '',
       pickupNumber: '',
       confirmationNumber: `MANUAL-${Date.now()}`,
-      notes: ''
+      notes: '',
+      // Add weight and pieces fields
+      weight: quote.formData?.weight || quote.weight || '',
+      pieces: quote.formData?.pieces || quote.pieces || ''
     });
 
     const handleSubmit = () => {
       if (!bookingData.carrier || !bookingData.price) {
         alert('Carrier name and price are required');
+        return;
+      }
+      if (!bookingData.weight || !bookingData.pieces) {
+        alert('Weight and pieces are required for BOL creation');
         return;
       }
       onConfirm(bookingData);
@@ -255,7 +264,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div className={`max-w-lg w-full rounded-lg ${
           isDarkMode ? 'bg-gray-800' : 'bg-white'
-        } p-6`}>
+        } p-6 max-h-[90vh] overflow-y-auto`}>
           <h2 className={`text-xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             Manual Booking - {quote.requestNumber}
           </h2>
@@ -268,9 +277,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
 
           <div className="space-y-4">
             <div>
-              <label className={`block text-sm font-medium mb-1 ${
-                isDarkMode ? 'text-gray-300' : 'text-gray-700'
-              }`}>
+              <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Carrier Name *
               </label>
               <input
@@ -278,19 +285,13 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
                 value={bookingData.carrier}
                 onChange={(e) => setBookingData({...bookingData, carrier: e.target.value})}
                 placeholder="Enter carrier name"
-                className={`w-full px-3 py-2 rounded border ${
-                  isDarkMode 
-                    ? 'bg-gray-700 border-gray-600 text-white' 
-                    : 'bg-white border-gray-300 text-gray-900'
-                }`}
+                className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
               />
             </div>
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className={`block text-sm font-medium mb-1 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>
+                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                   Total Price *
                 </label>
                 <input
@@ -299,18 +300,12 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
                   value={bookingData.price}
                   onChange={(e) => setBookingData({...bookingData, price: e.target.value})}
                   placeholder="0.00"
-                  className={`w-full px-3 py-2 rounded border ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
+                  className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                 />
               </div>
               
               <div>
-                <label className={`block text-sm font-medium mb-1 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>
+                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                   Transit Days
                 </label>
                 <input
@@ -318,19 +313,42 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
                   value={bookingData.transitDays}
                   onChange={(e) => setBookingData({...bookingData, transitDays: e.target.value})}
                   placeholder="e.g., 2"
-                  className={`w-full px-3 py-2 rounded border ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
+                  className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                />
+              </div>
+            </div>
+
+            {/* NEW: Weight and Pieces fields */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Weight (lbs) *
+                </label>
+                <input
+                  type="number"
+                  value={bookingData.weight}
+                  onChange={(e) => setBookingData({...bookingData, weight: e.target.value})}
+                  placeholder="Enter weight"
+                  className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                />
+              </div>
+              
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Pieces/Pallets *
+                </label>
+                <input
+                  type="number"
+                  value={bookingData.pieces}
+                  onChange={(e) => setBookingData({...bookingData, pieces: e.target.value})}
+                  placeholder="Number of pieces"
+                  className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                 />
               </div>
             </div>
 
             <div>
-              <label className={`block text-sm font-medium mb-1 ${
-                isDarkMode ? 'text-gray-300' : 'text-gray-700'
-              }`}>
+              <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Pickup/PRO Number
               </label>
               <input
@@ -338,18 +356,12 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
                 value={bookingData.pickupNumber}
                 onChange={(e) => setBookingData({...bookingData, pickupNumber: e.target.value})}
                 placeholder="Optional"
-                className={`w-full px-3 py-2 rounded border ${
-                  isDarkMode 
-                    ? 'bg-gray-700 border-gray-600 text-white' 
-                    : 'bg-white border-gray-300 text-gray-900'
-                }`}
+                className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
               />
             </div>
 
             <div>
-              <label className={`block text-sm font-medium mb-1 ${
-                isDarkMode ? 'text-gray-300' : 'text-gray-700'
-              }`}>
+              <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Notes
               </label>
               <textarea
@@ -357,11 +369,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
                 value={bookingData.notes}
                 onChange={(e) => setBookingData({...bookingData, notes: e.target.value})}
                 placeholder="Any notes about this booking..."
-                className={`w-full px-3 py-2 rounded border ${
-                  isDarkMode 
-                    ? 'bg-gray-700 border-gray-600 text-white' 
-                    : 'bg-white border-gray-300 text-gray-900'
-                }`}
+                className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
               />
             </div>
           </div>
@@ -369,10 +377,10 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
           <div className="flex gap-3 mt-6">
             <button
               onClick={handleSubmit}
-              className={`flex-1 px-4 py-2 rounded font-medium ${
+              className={`flex-1 px-4 py-2 rounded font-medium transition-colors ${
                 isDarkMode 
-                  ? 'bg-orange-500 text-white hover:bg-orange-600' 
-                  : 'bg-purple-600 text-white hover:bg-purple-700'
+                  ? 'bg-blue-600 text-white hover:bg-blue-700 border border-blue-500' 
+                  : 'bg-blue-600 text-white hover:bg-blue-700 border border-blue-500'
               }`}
             >
               <Save className="inline w-4 h-4 mr-2" />
@@ -394,37 +402,101 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
     );
   };
 
-  // NEW: Handle manual booking
+  // 2) UPDATED handleManualBooking function with complete data transfer
   const handleManualBooking = async (quote, bookingData) => {
     try {
+      // Extract all necessary data
+      const originZip = quote.formData?.originZip || quote.origin?.zipCode || '';
+      const destZip = quote.formData?.destZip || quote.destination?.zipCode || '';
+      
       const payload = {
         requestId: quote.requestId,
+        requestNumber: quote.requestNumber,
+        mode: 'ground',
+        serviceType: quote.serviceType || 'ftl',
+        
+        // Complete quote data with all fields
         quoteData: {
           carrier: bookingData.carrier,
+          carrierName: bookingData.carrier, // Duplicate for compatibility
           price: parseFloat(bookingData.price),
-          transitDays: bookingData.transitDays || 0,
+          rate: parseFloat(bookingData.price), // Duplicate as 'rate' for compatibility
+          transitDays: parseInt(bookingData.transitDays) || 0,
           pickupNumber: bookingData.pickupNumber || '',
+          proNumber: bookingData.pickupNumber || '', // Duplicate as PRO number
           confirmationNumber: bookingData.confirmationNumber,
           isManualBooking: true,
-          notes: bookingData.notes
+          notes: bookingData.notes,
+          // Critical shipment details
+          weight: parseFloat(bookingData.weight),
+          pieces: parseInt(bookingData.pieces),
+          originZip: originZip,
+          destinationZip: destZip
         },
+        
+        // Complete shipment data
         shipmentData: {
-          formData: quote.formData,
-          serviceType: quote.serviceType || 'ftl'
+          // All form data
+          formData: {
+            ...quote.formData,
+            // Ensure all fields are present
+            originCity: quote.formData?.originCity || quote.origin?.city || '',
+            originState: quote.formData?.originState || quote.origin?.state || '',
+            originZip: originZip,
+            originZipCode: originZip, // Duplicate for compatibility
+            destCity: quote.formData?.destCity || quote.destination?.city || '',
+            destState: quote.formData?.destState || quote.destination?.state || '',
+            destZip: destZip,
+            destinationZipCode: destZip, // Duplicate for compatibility
+            weight: parseFloat(bookingData.weight),
+            totalWeight: parseFloat(bookingData.weight), // Duplicate for compatibility
+            pieces: parseInt(bookingData.pieces),
+            pallets: parseInt(bookingData.pieces), // Assuming pieces are pallets for FTL
+            pickupDate: quote.formData?.pickupDate || new Date().toISOString(),
+            deliveryDate: quote.formData?.deliveryDate,
+            // Include carrier in formData too
+            selectedCarrier: bookingData.carrier,
+            selectedRate: parseFloat(bookingData.price)
+          },
+          serviceType: quote.serviceType || 'ftl',
+          // Carrier information
+          carrierInfo: {
+            name: bookingData.carrier,
+            carrierName: bookingData.carrier,
+            rate: parseFloat(bookingData.price),
+            transitDays: parseInt(bookingData.transitDays) || 0,
+            proNumber: bookingData.pickupNumber || ''
+          }
         }
       };
+
+      console.log('Manual booking payload:', JSON.stringify(payload, null, 2));
 
       const result = await bookingApi.createBooking(payload);
       
       if (result.success) {
         showNotification('Booking created successfully!', 'success');
         setManualBookingModal(null);
-        loadAllQuotes(); // Refresh the list
-        
-        // Navigate to booking confirmation
+
+        // Store the booking data for BOL creation
         if (result.booking?.bookingId) {
+          const bookingDataForBOL = {
+            bookingId: result.booking.bookingId,
+            carrier: bookingData.carrier,
+            rate: parseFloat(bookingData.price),
+            weight: parseFloat(bookingData.weight),
+            pieces: parseInt(bookingData.pieces),
+            originZip: originZip,
+            destinationZip: destZip,
+            ...payload.shipmentData.formData
+          };
+          localStorage.setItem(`booking_${result.booking.bookingId}`, JSON.stringify(bookingDataForBOL));
+          
+          // Navigate to booking confirmation
           navigate(`/app/quotes/bookings/${result.booking.bookingId}`);
         }
+
+        loadAllQuotes(); // Refresh the list
       } else {
         throw new Error(result.error || 'Failed to create booking');
       }
@@ -629,9 +701,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
               {filteredQuotes.map((quote) => (
                 <div
                   key={quote.requestId || quote._id}
-                  className={`p-4 transition-all ${
-                    isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
-                  }`}
+                  className={`p-4 transition-all ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}
                 >
                   <div className="flex items-center justify-between">
                     <div 
@@ -650,9 +720,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
 
                         {/* Add service type badge for FTL/Expedited */}
                         {(quote.serviceType === 'ftl' || quote.serviceType === 'expedited') && (
-                          <span className={`text-xs px-2 py-0.5 rounded ${
-                            isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
-                          }`}>
+                          <span className={`text-xs px-2 py-0.5 rounded ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
                             {quote.serviceType?.toUpperCase()}
                           </span>
                         )}
@@ -689,7 +757,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
                         </div>
                         <div className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          {new Date(quote.createdAt).toLocaleString()}
+                          {quote.createdAt ? new Date(quote.createdAt).toLocaleString() : '—'}
                         </div>
                       </div>
                     </div>
