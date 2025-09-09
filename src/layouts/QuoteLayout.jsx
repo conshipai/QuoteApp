@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   ShieldCheck,
+  Grid3x3,
   Home,
   Plane, 
   Ship, 
@@ -42,7 +43,7 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
     {
     path: '/app/quotes/costs',
     label: 'Costs',
-    icon: Calculator, // Import from lucide-react
+    icon: Grid3x3, // Import from lucide-react
     color: 'yellow',
     available: userRole === 'conship_employee' || userRole === 'system_admin'
     },
