@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
+  ShieldCheck,
   Home,
   Plane, 
   Ship, 
@@ -56,7 +57,7 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
      {
       path: '/app/quotes/carriers',
       label: 'Carriers',
-      icon: Shield,
+      icon: ShieldCheck,
       color: 'red',
       available: userRole === 'conship_employee' || userRole === 'system_admin'
     },
