@@ -39,6 +39,13 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
       color: 'blue',
       available: true
     },
+    {
+    path: '/app/quotes/costs',
+    label: 'Costs',
+    icon: Calculator, // Import from lucide-react
+    color: 'yellow',
+    available: userRole === 'conship_employee' || userRole === 'system_admin'
+    },
     // Bookings link
     {
       path: '/app/quotes/bookings',
