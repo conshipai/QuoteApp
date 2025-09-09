@@ -53,6 +53,13 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
       color: 'green',
       available: true
     },
+     {
+      path: '/app/quotes/carriers',
+      label: 'Carriers',
+      icon: Shield,
+      color: 'red',
+      available: userRole === 'conship_employee' || userRole === 'system_admin'
+    },
     // Quote History
     {
       path: '/app/quotes/history',
