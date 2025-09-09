@@ -227,4 +227,331 @@ const CarrierQuoteSubmission = () => {
                 {request.serviceType?.toUpperCase()} Service
               </p>
             </div>
-            <div classNam
+            <div className="text-right">
+              <p className="text-sm text-gray-600">Response Deadline</p>
+              <p className="text-lg font-semibold text-purple-600">
+                {request.minutesRemaining} minutes remaining
+              </p>
+            </div>
+          </div>
+          
+          {request.serviceType === 'expedited' && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+              <div>
+                <p className="font-semibold text-red-900">EXPEDITED SERVICE</p>
+                <p className="text-sm text-red-700">
+                  Required delivery: {new Date(formData.deliveryDate).toLocaleDateString()} at {formData.deliveryTime}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Shipment Details */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Truck className="w-5 h-5 text-purple-600" />
+            Shipment Details
+          </h2>
+          
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <div className="mb-4">
+                <p className="text-sm text-gray-600">Pickup Location</p>
+                <p className="font-medium">
+                  {formData.originCity}, {formData.originState} {formData.originZip}
+                </p>
+                <p className="text-sm text-gray-600 mt-1">
+                  Date: {new Date(formData.pickupDate).toLocaleDateString()}
+                </p>
+              </div>
+              
+              <div>
+                <p className="text-sm text-gray-600">Delivery Location</p>
+                <p className="font-medium">
+                  {formData.destCity}, {formData.destState} {formData.destZip}
+                </p>
+              </div>
+            </div>
+            
+            <div>
+              <div className="mb-4">
+                <p className="text-sm text-gray-600">Total Weight</p>
+                <p className="font-medium">{totalWeight.toLocaleString()} lbs</p>
+              </div>
+              
+              <div className="mb-4">
+                <p className="text-sm text-gray-600">Total Pieces</p>
+                <p className="font-medium">{totalPieces}</p>
+              </div>
+              
+              {formData.equipmentType && (
+                <div>
+                  <p className="text-sm text-gray-600">Equipment Required</p>
+                  <p className="font-medium">{formData.equipmentType}</p>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Additional Stops */}
+          {request.additionalStops?.length > 0 && (
+            <div className="mt-4 p-3 bg-yellow-50 rounded-lg">
+              <p className="font-medium text-yellow-900 mb-2">Milk Run - Additional Stops:</p>
+              {request.additionalStops.map((stop, i) => (
+                <p key={i} className="text-sm text-yellow-800">
+                  {stop.sequence}. {stop.type === 'pickup' ? 'Pickup' : 'Delivery'}: 
+                  {stop.city}, {stop.state} {stop.zipCode}
+                </p>
+              ))}
+            </div>
+          )}
+          
+          {/* Commodities */}
+          <div className="mt-6">
+            <h3 className="font-medium mb-2">Commodities</h3>
+            <div className="space-y-2">
+              {formData.commodities?.map((item, i) => (
+                <div key={i} className="bg-gray-50 p-3 rounded">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-medium">{item.description || 'General Freight'}</p>
+                      <p className="text-sm text-gray-600">
+                        {item.quantity} {item.unitType} • {item.weight} lbs each • 
+                        {item.length}"×{item.width}"×{item.height}"
+                      </p>
+                    </div>
+                    {item.hazmat && (
+                      <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">
+                        HAZMAT
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {formData.specialInstructions && (
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm font-medium text-blue-900">Special Instructions:</p>
+              <p className="text-sm text-blue-800 mt-1">{formData.specialInstructions}</p>
+            </div>
+          )}
+        </div>
+        
+        {/* Quote Form */}
+        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm p-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-purple-600" />
+            Your Quote
+          </h2>
+          
+          {/* Pricing Toggle */}
+          <div className="mb-6">
+            <label className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={useDetailedPricing}
+                onChange={(e) => setUseDetailedPricing(e.target.checked)}
+                className="w-4 h-4 text-purple-600"
+              />
+              <span className="text-sm">Use detailed pricing breakdown</span>
+            </label>
+          </div>
+          
+          {useDetailedPricing ? (
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Linehaul Rate *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={quoteData.linehaul}
+                  onChange={(e) => setQuoteData({...quoteData, linehaul: e.target.value})}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="0.00"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Fuel Surcharge
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={quoteData.fuelSurcharge}
+                  onChange={(e) => setQuoteData({...quoteData, fuelSurcharge: e.target.value})}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="0.00"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Total Accessorials
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={quoteData.totalAccessorials}
+                  onChange={(e) => setQuoteData({...quoteData, totalAccessorials: e.target.value})}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="0.00"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Calculated Total
+                </label>
+                <div className="px-3 py-2 bg-gray-100 rounded-lg font-semibold">
+                  ${calculateTotal().toFixed(2)}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Total Quote Amount *
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={quoteData.totalCost}
+                onChange={(e) => setQuoteData({...quoteData, totalCost: e.target.value})}
+                className="w-full px-3 py-2 border rounded-lg text-lg font-semibold"
+                placeholder="Enter total amount"
+                required
+              />
+            </div>
+          )}
+          
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Transit Days *
+              </label>
+              <input
+                type="number"
+                value={quoteData.transitDays}
+                onChange={(e) => setQuoteData({...quoteData, transitDays: e.target.value})}
+                className="w-full px-3 py-2 border rounded-lg"
+                placeholder="e.g., 2"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Equipment Type
+              </label>
+              <select
+                value={quoteData.equipmentType}
+                onChange={(e) => setQuoteData({...quoteData, equipmentType: e.target.value})}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value="">Select...</option>
+                <option value="dry_van">Dry Van</option>
+                <option value="reefer">Refrigerated</option>
+                <option value="flatbed">Flatbed</option>
+                <option value="step_deck">Step Deck</option>
+                <option value="lowboy">Lowboy</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Free Time - Loading (hours)
+              </label>
+              <input
+                type="number"
+                value={quoteData.freeTimeLoadingHours}
+                onChange={(e) => setQuoteData({...quoteData, freeTimeLoadingHours: e.target.value})}
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Free Time - Unloading (hours)
+              </label>
+              <input
+                type="number"
+                value={quoteData.freeTimeUnloadingHours}
+                onChange={(e) => setQuoteData({...quoteData, freeTimeUnloadingHours: e.target.value})}
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Detention Rate (per hour)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={quoteData.detentionRatePerHour}
+                onChange={(e) => setQuoteData({...quoteData, detentionRatePerHour: e.target.value})}
+                className="w-full px-3 py-2 border rounded-lg"
+                placeholder="75.00"
+              />
+            </div>
+            
+            <div className="flex items-center">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={quoteData.guaranteed}
+                  onChange={(e) => setQuoteData({...quoteData, guaranteed: e.target.checked})}
+                  className="w-4 h-4 text-purple-600"
+                />
+                <span className="text-sm">Guaranteed Service</span>
+              </label>
+            </div>
+          </div>
+          
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Special Conditions / Notes
+            </label>
+            <textarea
+              rows="3"
+              value={quoteData.specialConditions}
+              onChange={(e) => setQuoteData({...quoteData, specialConditions: e.target.value})}
+              className="w-full px-3 py-2 border rounded-lg"
+              placeholder="Any special conditions or notes about this quote..."
+            />
+          </div>
+          
+          {/* Submit Buttons */}
+          <div className="flex gap-3">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 font-medium"
+            >
+              {submitting ? 'Submitting...' : 'Submit Quote'}
+            </button>
+            
+            <button
+              type="button"
+              onClick={handleDecline}
+              disabled={submitting}
+              className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+            >
+              Decline
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default CarrierQuoteSubmission;
