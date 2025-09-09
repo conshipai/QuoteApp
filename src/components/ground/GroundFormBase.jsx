@@ -1,4 +1,4 @@
-// src/components/ground/GroundFormBase.jsx
+// src/components/ground/GroundFormBase.jsx - FIXED VERSION
 import React, { useState, useEffect } from 'react';
 import { Calendar, Building2, X, AlertCircle, Info } from 'lucide-react';
 import LocationSection from './LocationSection';
@@ -103,7 +103,7 @@ const GroundFormBase = ({
         newCommodities[index][field] = value;
       }
 
-      // Recalculate density when dimensions or weight change
+      // Recalculate density when dimensions or weight change (IMPORTANT FOR LTL)
       if (['weight', 'length', 'width', 'height', 'quantity'].includes(field)) {
         const densityData = calculateDensity(newCommodities[index]);
         newCommodities[index] = { ...newCommodities[index], ...densityData };
@@ -164,6 +164,19 @@ const GroundFormBase = ({
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
+  // FIXED: Determine if commodity list should be shown
+  const shouldShowCommodityList = () => {
+    // LTL ALWAYS shows commodity list
+    if (serviceType === 'ltl') {
+      return true;
+    }
+    // FTL/Expedited show commodity list only for custom loads
+    if ((serviceType === 'ftl' || serviceType === 'expedited') && formData.loadType !== 'legal') {
+      return true;
+    }
+    return false;
+  };
+
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="max-w-7xl mx-auto p-6">
@@ -186,12 +199,32 @@ const GroundFormBase = ({
           </div>
           <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
             {serviceType === 'ltl' 
-              ? 'Fill in the form below to generate instant LTL quotes'
+              ? 'Fill in the form below to generate instant LTL quotes. Dimensions are required for accurate freight class calculation.'
               : serviceType === 'ftl'
               ? 'Request FTL quotes from multiple carriers'
               : 'Request expedited quotes for time-critical shipments'}
           </p>
         </div>
+
+        {/* LTL-specific info banner */}
+        {serviceType === 'ltl' && (
+          <div className={`mb-6 p-4 rounded-lg border flex items-start gap-3 ${
+            isDarkMode 
+              ? 'bg-blue-900/20 border-blue-800 text-blue-400' 
+              : 'bg-blue-50 border-blue-200 text-blue-800'
+          }`}>
+            <Info className="w-5 h-5 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-medium">LTL Quote Requirements:</p>
+              <ul className="text-sm mt-1 list-disc list-inside space-y-1">
+                <li>All commodity dimensions are required for freight class calculation</li>
+                <li>Freight class is automatically calculated based on density</li>
+                <li>You can override the calculated class if needed</li>
+                <li>Quotes are generated instantly from multiple carriers</li>
+              </ul>
+            </div>
+          </div>
+        )}
 
         {/* Info Banner for FTL/Expedited */}
         {(serviceType === 'ftl' || serviceType === 'expedited') && (
@@ -205,7 +238,7 @@ const GroundFormBase = ({
               <p className="font-medium">How {serviceType.toUpperCase()} Quotes Work:</p>
               <ul className="text-sm mt-1 list-disc list-inside space-y-1">
                 <li>Your request will be sent to {availableCarriers.length || 'multiple'} qualified carriers</li>
-                <li>Carriers have 30 minutes to submit their best rates</li>
+                <li>Carriers have {serviceType === 'expedited' ? '15' : '30'} minutes to submit their best rates</li>
                 <li>You'll review all submissions and select the best option</li>
               </ul>
             </div>
@@ -318,8 +351,8 @@ const GroundFormBase = ({
         {/* Service-Specific Options (passed as children) */}
         {children}
 
-        {/* Commodities - Only show if not using legal truckload */}
-        {(serviceType === 'ltl' || formData.loadType !== 'legal') && (
+        {/* FIXED: Commodity List - Clear conditional for LTL */}
+        {shouldShowCommodityList() && (
           <CommodityList
             commodities={formData.commodities}
             onCommodityChange={handleCommodityChange}
@@ -330,7 +363,7 @@ const GroundFormBase = ({
           />
         )}
 
-        {/* Legal Truckload Summary */}
+        {/* Legal Truckload Summary - Only for FTL/Expedited with legal load */}
         {formData.loadType === 'legal' && (serviceType === 'ftl' || serviceType === 'expedited') && (
           <div className={`p-6 rounded-lg mb-6 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
             <h2 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -380,8 +413,10 @@ const GroundFormBase = ({
             {loading 
               ? 'Sending Request...' 
               : serviceType === 'ltl'
-              ? 'Generate Quote'
-              : 'Request Quotes'}
+              ? 'Generate Instant Quote'
+              : serviceType === 'expedited'
+              ? 'Request Expedited Quotes'
+              : 'Request FTL Quotes'}
           </button>
         </div>
       </div>
