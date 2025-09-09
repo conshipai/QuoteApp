@@ -587,7 +587,7 @@ const GroundQuoteResults = ({
                           {quote?.service_details?.service || 'Service'}
                           {quote?.service_details?.guaranteed && (
                             <span className="ml-2 text-xs text-green-600 dark:text-green-400 flex items-center gap-1 inline-flex">
-                              <Shield className="w-3 h-3" />
+                              <ShieldCheck className="w-3 h-3" />
                               Guaranteed
                             </span>
                           )}
