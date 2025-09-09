@@ -1,4 +1,4 @@
-// src/pages/QuoteHistory.jsx - Fixed version with manual booking
+// src/pages/QuoteHistory.jsx - ACTUAL FIX keeping original working logic
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -29,94 +29,86 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
     filterQuotes();
   }, [quotes, searchTerm, filterStatus, filterMode, dateRange]);
 
-  // KEEP THE ORIGINAL LOADING LOGIC
+  // KEEP YOUR EXACT WORKING LOADING LOGIC
   const loadAllQuotes = async () => {
-    setLoading(true);
     try {
-      // First try to get ground quotes
-      const groundResponse = await fetch('https://api.gcc.conship.ai/api/ground-quotes/recent', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
-        }
-      });
+      setLoading(true);
       
-      let allQuotes = [];
-      
-      if (groundResponse.ok) {
-        const groundData = await groundResponse.json();
-        if (groundData.success && groundData.requests) {
-          const groundQuotes = groundData.requests.map(req => ({
-            ...req,
-            requestId: req.requestId || req._id,
-            mode: 'ground',
-            serviceType: req.serviceType || 'ltl',
-            direction: null,
-            formData: req.formData || {},
-            origin: {
-              city: req.formData?.originCity,
-              state: req.formData?.originState,
-              zipCode: req.formData?.originZip
-            },
-            destination: {
-              city: req.formData?.destCity,
-              state: req.formData?.destState,
-              zipCode: req.formData?.destZip
-            }
-          }));
-          allQuotes = [...allQuotes, ...groundQuotes];
-        }
-      }
-
-      // Also get air/ocean quotes if available
-      const airOceanResponse = await fetch('https://api.gcc.conship.ai/api/quotes/recent', {
+      // Use the WORKING endpoint and data shape
+      const response = await fetch('https://api.gcc.conship.ai/api/quotes/recent?limit=50', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
         }
       });
 
-      if (airOceanResponse.ok) {
-        const airOceanData = await airOceanResponse.json();
-        if (airOceanData.success && airOceanData.requests) {
-          const aoQuotes = airOceanData.requests.map(req => ({
-            ...req,
-            requestId: req.requestId || req._id,
-            mode: req.shipment?.mode || 'air',
-            direction: req.shipment?.direction || 'export'
-          }));
-          allQuotes = [...allQuotes, ...aoQuotes];
-        }
-      }
-
-      // Check for bookings for each quote
-      const quotesWithBookingStatus = await Promise.all(
-        allQuotes.map(async (quote) => {
-          try {
-            const bookingResponse = await fetch(`https://api.gcc.conship.ai/api/bookings/by-request/${quote.requestId}`, {
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
-              }
-            });
+      if (response.ok) {
+        const data = await response.json();
+        console.log('API Response:', data);
+        
+        // Use data.quotes NOT data.requests
+        if (data.success && data.quotes) {
+          const quotesData = data.quotes.map(quote => ({
+            ...quote,
+            requestId: quote._id,
+            requestNumber: quote.requestNumber,
+            mode: quote.mode || 'ground',
+            status: quote.status || 'quoted',
+            createdAt: quote.createdAt,
+            isBooked: quote.isBooked || false,
+            bookingId: quote.bookingId,
             
-            if (bookingResponse.ok) {
-              const bookingData = await bookingResponse.json();
-              return {
-                ...quote,
-                isBooked: bookingData.success && bookingData.booking,
-                bookingId: bookingData.booking?.bookingId
-              };
-            }
-          } catch (e) {
-            console.error('Error checking booking status:', e);
-          }
-          return { ...quote, isBooked: false };
-        })
-      );
-
-      // Sort by date
-      quotesWithBookingStatus.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      setQuotes(quotesWithBookingStatus);
-      console.log(`Loaded ${quotesWithBookingStatus.length} quotes`);
-      
+            // Add serviceType for ground quotes (for manual booking eligibility)
+            serviceType: quote.serviceType || (quote.mode === 'ground' ? 'ltl' : quote.mode),
+            
+            // Handle both ground and air quote formats
+            origin: quote.origin || {
+              city: quote.originCity,
+              state: quote.originState,
+              zipCode: quote.originZip
+            },
+            destination: quote.destination || {
+              city: quote.destinationCity || quote.destCity,
+              state: quote.destinationState || quote.destState,
+              zipCode: quote.destinationZip || quote.destZip
+            },
+            
+            // Include formData if available
+            formData: quote.formData || {},
+            
+            weight: quote.weight || 0,
+            pieces: quote.pieces || 0,
+            bestPrice: quote.bestPrice,
+            carrierCount: quote.carrierCount
+          }));
+          
+          // Sort by date (newest first)
+          quotesData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          
+          // Save complete data for each quote
+          quotesData.forEach(quote => {
+            const requestId = quote.requestId;
+            const completeData = {
+              requestId,
+              requestNumber: quote.requestNumber,
+              mode: quote.mode,
+              serviceType: quote.serviceType || 'ltl',
+              formData: quote.formData || {},
+              status: quote.status,
+              createdAt: quote.createdAt
+            };
+            localStorage.setItem(`quote_complete_${requestId}`, JSON.stringify(completeData));
+          });
+          
+          setQuotes(quotesData);
+          console.log(`Loaded ${quotesData.length} quotes`);
+        } else {
+          console.log('No quotes found in response');
+          setQuotes([]);
+        }
+      } else {
+        console.error('Failed to fetch quotes:', response.status);
+        showNotification('Failed to load quotes', 'error');
+      }
     } catch (error) {
       console.error('Failed to load quotes:', error);
       showNotification('Failed to load quotes', 'error');
@@ -128,7 +120,6 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
   const filterQuotes = () => {
     let filtered = [...quotes];
 
-    // Search filter
     if (searchTerm) {
       filtered = filtered.filter(quote => 
         quote.requestNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -139,7 +130,6 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
       );
     }
 
-    // Status filter
     if (filterStatus !== 'all') {
       if (filterStatus === 'booked') {
         filtered = filtered.filter(quote => quote.isBooked);
@@ -148,12 +138,10 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
       }
     }
 
-    // Mode filter
     if (filterMode !== 'all') {
       filtered = filtered.filter(quote => quote.mode === filterMode);
     }
 
-    // Date range filter
     if (dateRange !== 'all') {
       const now = new Date();
       let startDate = new Date();
@@ -170,8 +158,6 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
           break;
         case 'quarter':
           startDate.setMonth(now.getMonth() - 3);
-          break;
-        default:
           break;
       }
       
@@ -225,7 +211,9 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
           requestId: requestId,
           requestNumber: quote.requestNumber,
           mode: quote.mode,
-          direction: quote.direction
+          direction: quote.direction,
+          formData: quote.formData || {},
+          status: quote.status
         }
       });
     }
@@ -236,14 +224,15 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
     loadAllQuotes();
   };
 
-  // Check if quote is eligible for manual booking
+  // NEW: Check if quote is eligible for manual booking
   const canManualBook = (quote) => {
+    // Only for FTL and Expedited that are not yet booked and still pending
     return (quote.serviceType === 'ftl' || quote.serviceType === 'expedited') && 
            !quote.isBooked &&
            (quote.status === 'pending' || quote.status === 'pending_carrier_response');
   };
 
-  // Manual Booking Modal Component
+  // NEW: Manual Booking Modal Component
   const ManualBookingModal = ({ quote, onClose, onConfirm }) => {
     const [bookingData, setBookingData] = useState({
       carrier: '',
@@ -271,10 +260,10 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
             Manual Booking - {quote.requestNumber}
           </h2>
 
-          <div className={`mb-4 p-3 rounded text-sm ${isDarkMode ? 'bg-gray-750' : 'bg-gray-100'}`}>
-            <div>Route: {quote.formData?.originCity} → {quote.formData?.destCity}</div>
+          <div className={`mb-4 p-3 rounded text-sm ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+            <div>Route: {quote.formData?.originCity || quote.origin?.city} → {quote.formData?.destCity || quote.destination?.city}</div>
             <div>Service: {quote.serviceType?.toUpperCase()}</div>
-            <div>Pickup: {new Date(quote.formData?.pickupDate).toLocaleDateString()}</div>
+            <div>Pickup: {quote.formData?.pickupDate ? new Date(quote.formData.pickupDate).toLocaleDateString() : 'TBD'}</div>
           </div>
 
           <div className="space-y-4">
@@ -288,6 +277,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
                 type="text"
                 value={bookingData.carrier}
                 onChange={(e) => setBookingData({...bookingData, carrier: e.target.value})}
+                placeholder="Enter carrier name"
                 className={`w-full px-3 py-2 rounded border ${
                   isDarkMode 
                     ? 'bg-gray-700 border-gray-600 text-white' 
@@ -308,6 +298,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
                   step="0.01"
                   value={bookingData.price}
                   onChange={(e) => setBookingData({...bookingData, price: e.target.value})}
+                  placeholder="0.00"
                   className={`w-full px-3 py-2 rounded border ${
                     isDarkMode 
                       ? 'bg-gray-700 border-gray-600 text-white' 
@@ -326,6 +317,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
                   type="number"
                   value={bookingData.transitDays}
                   onChange={(e) => setBookingData({...bookingData, transitDays: e.target.value})}
+                  placeholder="e.g., 2"
                   className={`w-full px-3 py-2 rounded border ${
                     isDarkMode 
                       ? 'bg-gray-700 border-gray-600 text-white' 
@@ -345,6 +337,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
                 type="text"
                 value={bookingData.pickupNumber}
                 onChange={(e) => setBookingData({...bookingData, pickupNumber: e.target.value})}
+                placeholder="Optional"
                 className={`w-full px-3 py-2 rounded border ${
                   isDarkMode 
                     ? 'bg-gray-700 border-gray-600 text-white' 
@@ -363,6 +356,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
                 rows="2"
                 value={bookingData.notes}
                 onChange={(e) => setBookingData({...bookingData, notes: e.target.value})}
+                placeholder="Any notes about this booking..."
                 className={`w-full px-3 py-2 rounded border ${
                   isDarkMode 
                     ? 'bg-gray-700 border-gray-600 text-white' 
@@ -377,8 +371,8 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
               onClick={handleSubmit}
               className={`flex-1 px-4 py-2 rounded font-medium ${
                 isDarkMode 
-                  ? 'bg-conship-orange text-white hover:bg-orange-600' 
-                  : 'bg-conship-purple text-white hover:bg-purple-700'
+                  ? 'bg-orange-500 text-white hover:bg-orange-600' 
+                  : 'bg-purple-600 text-white hover:bg-purple-700'
               }`}
             >
               <Save className="inline w-4 h-4 mr-2" />
@@ -400,6 +394,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
     );
   };
 
+  // NEW: Handle manual booking
   const handleManualBooking = async (quote, bookingData) => {
     try {
       const payload = {
@@ -407,10 +402,11 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
         quoteData: {
           carrier: bookingData.carrier,
           price: parseFloat(bookingData.price),
-          transitDays: bookingData.transitDays,
-          pickupNumber: bookingData.pickupNumber,
+          transitDays: bookingData.transitDays || 0,
+          pickupNumber: bookingData.pickupNumber || '',
           confirmationNumber: bookingData.confirmationNumber,
-          isManualBooking: true
+          isManualBooking: true,
+          notes: bookingData.notes
         },
         shipmentData: {
           formData: quote.formData,
@@ -423,8 +419,12 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
       if (result.success) {
         showNotification('Booking created successfully!', 'success');
         setManualBookingModal(null);
-        loadAllQuotes();
-        navigate(`/app/quotes/bookings/${result.booking.bookingId}`);
+        loadAllQuotes(); // Refresh the list
+        
+        // Navigate to booking confirmation
+        if (result.booking?.bookingId) {
+          navigate(`/app/quotes/bookings/${result.booking.bookingId}`);
+        }
       } else {
         throw new Error(result.error || 'Failed to create booking');
       }
@@ -434,7 +434,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
     }
   };
 
-  // KEEP THE REST OF THE ORIGINAL RENDER CODE
+  // Keep all your existing render code exactly the same, just add the manual booking button
   if (loading) {
     return (
       <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
@@ -469,7 +469,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
       )}
       
       <div className="p-6">
-        {/* Header */}
+        {/* Header - KEEP EXACTLY AS IS */}
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -492,7 +492,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
           </button>
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats Cards - KEEP EXACTLY AS IS */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
             <div className="flex items-center justify-between">
@@ -547,7 +547,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
           </div>
         </div>
 
-        {/* Filters */}
+        {/* Filters - KEEP EXACTLY AS IS */}
         <div className={`p-4 rounded-lg mb-6 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
           <div className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-[256px]">
@@ -616,7 +616,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
           </div>
         </div>
 
-        {/* Quotes List */}
+        {/* Quotes List - MODIFIED TO ADD MANUAL BOOKING BUTTON */}
         <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
           {filteredQuotes.length === 0 ? (
             <div className={`text-center py-12 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
@@ -648,6 +648,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
                           {getDirectionIcon(quote.direction)}
                         </div>
 
+                        {/* Add service type badge for FTL/Expedited */}
                         {(quote.serviceType === 'ftl' || quote.serviceType === 'expedited') && (
                           <span className={`text-xs px-2 py-0.5 rounded ${
                             isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
@@ -668,6 +669,8 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
                                 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                                 : quote.status === 'pending'
                                 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                : quote.status === 'failed'
+                                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                                 : 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'
                             }`}
                           >
@@ -692,6 +695,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
                     </div>
 
                     <div className="flex items-center gap-2">
+                      {/* NEW: Manual Booking Button */}
                       {canManualBook(quote) && (
                         <button
                           onClick={(e) => {
@@ -720,7 +724,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
         </div>
       </div>
 
-      {/* Manual Booking Modal */}
+      {/* NEW: Manual Booking Modal */}
       {manualBookingModal && (
         <ManualBookingModal
           quote={manualBookingModal}
