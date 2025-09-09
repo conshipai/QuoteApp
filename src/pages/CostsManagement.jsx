@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   DollarSign, Clock, Package, TrendingUp, Check, X, 
-  AlertCircle, Search, Filter, Calculator, Send, Eye,
+  AlertCircle, Search, Filter, Grid3x3, Send, Eye,
   ChevronDown, ChevronUp, Shield
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -403,7 +403,7 @@ const CostsManagement = ({ isDarkMode, userRole }) => {
                                       : 'bg-conship-purple text-white hover:bg-purple-700'
                                   }`}
                                 >
-                                  <Calculator className="w-4 h-4" />
+                                  <Grid3x3 className="w-4 h-4" />
                                   Apply Markup
                                 </button>
                               )}
