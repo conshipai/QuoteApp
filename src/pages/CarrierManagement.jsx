@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Truck, Plus, Search, Edit2, Trash2, Mail, Phone, 
-  Shield, X, Save, Filter, AlertCircle 
+  ShieldCheck, X, Save, Filter, AlertCircle 
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import carrierApi from '../services/carrierApi';
@@ -299,7 +299,7 @@ const CarrierManagement = ({ isDarkMode, userRole }) => {
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-4">
-            <Shield className={`w-6 h-6 ${isDarkMode ? 'text-conship-orange' : 'text-conship-purple'}`} />
+            <ShieldCheck className={`w-6 h-6 ${isDarkMode ? 'text-conship-orange' : 'text-conship-purple'}`} />
             <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               Carrier Management
             </h1>
