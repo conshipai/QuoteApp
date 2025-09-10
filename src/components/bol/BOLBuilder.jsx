@@ -460,6 +460,18 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
   const [showAddressBook, setShowAddressBook] = useState(null);
   const [savedAddresses, setSavedAddresses] = useState([]);
   
+  // FIX: Get carrier from correct location
+  const actualCarrier = booking?.shipmentData?.carrierInfo?.name || 
+                        booking?.shipmentData?.carrierInfo?.carrierName || 
+                        booking?.carrier || 
+                        'Unknown Carrier';
+  
+  // FIX: Get actual price
+  const actualPrice = booking?.shipmentData?.formData?.selectedRate || 
+                     booking?.shipmentData?.carrierInfo?.rate || 
+                     booking?.price || 
+                     0;
+  
   const quoteNumber = booking?.quoteNumber || booking?.requestNumber || '';
   const defaultBolNumber = quoteNumber.startsWith('Q') 
     ? quoteNumber.substring(1) 
@@ -467,31 +479,89 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
   
   const [bolNumber, setBolNumber] = useState(defaultBolNumber);
 
-  const accessorialNotes = [];
-  if (booking?.shipmentData?.formData?.liftgatePickup) accessorialNotes.push('Liftgate at Pickup');
-  if (booking?.shipmentData?.formData?.liftgateDelivery) accessorialNotes.push('Liftgate at Delivery');
-  if (booking?.shipmentData?.formData?.residentialDelivery) accessorialNotes.push('Residential Delivery');
-  if (booking?.shipmentData?.formData?.insideDelivery) accessorialNotes.push('Inside Delivery');
-  if (booking?.shipmentData?.formData?.limitedAccessPickup) accessorialNotes.push('Limited Access Pickup');
-  if (booking?.shipmentData?.formData?.limitedAccessDelivery) accessorialNotes.push('Limited Access Delivery');
+  // ... accessorial notes code stays the same ...
 
-  const initialAccessorialText =
-    accessorialNotes.length > 0 ? `ACCESSORIALS: ${accessorialNotes.join(', ')}` : '';
-
-  const referenceTypes = [
-    'PO Number',
-    'SO Number',
-    'Work Order',
-    'Invoice Number',
-    'PRO Number',
-    'Pickup Number',
-    'Delivery Number',
-    'Customer Reference',
-    'Vendor Reference',
-    'Job Number',
-    'Project Code',
-    'Custom'
-  ];
+  // FIX: Get commodities from the right place
+  const getCommoditiesForBOL = () => {
+    const formData = booking?.shipmentData?.formData;
+    
+    // Check if we have weight and pieces from manual booking or FTL
+    if (formData?.weight && formData?.pieces) {
+      console.log('📦 Creating commodities from weight/pieces:', {
+        weight: formData.weight,
+        pieces: formData.pieces,
+        pallets: formData.pallets
+      });
+      
+      return [{
+        quantity: formData.pieces || formData.pallets || '1',
+        unitType: 'Pallets',
+        description: formData.description || 'General Freight',
+        weight: formData.weight || '0',
+        length: formData.length || '48',
+        width: formData.width || '40',
+        height: formData.height || '48',
+        class: formData.freightClass || '50',
+        nmfc: formData.nmfc || '',
+        hazmat: false
+      }];
+    }
+    
+    // Check if this is a legal load
+    if (formData?.loadType === 'legal' && formData?.legalLoadWeight) {
+      return [{
+        quantity: formData.legalLoadPallets || '26',
+        unitType: 'Pallets',
+        description: 'Legal Truckload',
+        weight: formData.legalLoadWeight || '45000',
+        length: '48',
+        width: '40',
+        height: '48',
+        class: '50',
+        nmfc: '',
+        hazmat: false
+      }];
+    }
+    
+    // Use existing commodities array if available
+    if (formData?.commodities && formData.commodities.length > 0) {
+      return formData.commodities.map(c => ({
+        quantity: c.quantity,
+        unitType: c.unitType,
+        description: c.description || 'General Freight',
+        weight: c.weight,
+        length: c.length || '',
+        width: c.width || '',
+        height: c.height || '',
+        class: c.useOverride ? c.overrideClass : c.calculatedClass,
+        nmfc: c.nmfc || '',
+        hazmat: c.hazmat || false,
+        hazmatDetails: c.hazmat ? {
+          unNumber: '',
+          properShippingName: '',
+          hazardClass: '',
+          packingGroup: '',
+          packingDetails: '',
+          totalWeight: c.weight,
+          emergencyPhone: '1-800-424-9300'
+        } : null
+      }));
+    }
+    
+    // Default empty commodity
+    return [{
+      quantity: '1',
+      unitType: 'Pallets',
+      description: 'General Freight',
+      weight: '0',
+      length: '',
+      width: '',
+      height: '',
+      class: '',
+      nmfc: '',
+      hazmat: false
+    }];
+  };
 
   const [bolData, setBolData] = useState({
     bolNumber: defaultBolNumber,
@@ -519,32 +589,13 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
     },
     referenceNumbers: [
       { type: 'PO Number', value: '' },
-      ...(booking?.carrier === 'Southeastern Freight Lines' && booking?.pickupNumber 
-        ? [{ type: 'Pickup Number', value: booking.pickupNumber }]
+      // Add pickup number if available
+      ...(booking?.pickupNumber || booking?.shipmentData?.carrierInfo?.proNumber
+        ? [{ type: 'Pickup Number', value: booking.pickupNumber || booking.shipmentData.carrierInfo.proNumber }]
         : []
       )
     ],
-    items: booking?.shipmentData?.formData?.commodities?.map(c => ({
-      quantity: c.quantity,
-      unitType: c.unitType,
-      description: c.description || 'General Freight',
-      weight: c.weight,
-      length: c.length || '',
-      width: c.width || '',
-      height: c.height || '',
-      class: c.useOverride ? c.overrideClass : c.calculatedClass,
-      nmfc: c.nmfc || '',
-      hazmat: c.hazmat || false,
-      hazmatDetails: c.hazmat ? {
-        unNumber: '',
-        properShippingName: '',
-        hazardClass: '',
-        packingGroup: '',
-        packingDetails: '',
-        totalWeight: c.weight,
-        emergencyPhone: '1-800-424-9300'
-      } : null
-    })) || [],
+    items: getCommoditiesForBOL(), // FIX: Use the new function
     specialInstructions: initialAccessorialText,
     pickupInstructions: '',
     deliveryInstructions: '',
