@@ -198,7 +198,7 @@ const BOLTemplate = ({ bolData, booking }) => {
             Transportation Company
           </div>
           <div className="p-2" style={{ minHeight: '80px', fontSize: '12px' }}>  {/* INCREASED from 9px to 12px */}
-            <div className="font-semibold">{actualcarrier || '_______________________'}</div>
+            <div className="font-semibold">{actualCarrier || '_______________________'}</div>
             <div>{pickupNumber ? `Pickup #: ${pickupNumber}` : ''}</div>
             <div>{quoteNumber ? `Quote #: ${quoteNumber}` : ''}</div>
             <div>Tel: {carrierPhone}</div>
