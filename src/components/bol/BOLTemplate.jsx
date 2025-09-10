@@ -3,6 +3,14 @@ import React from 'react';
 import logo from '../../assets/images/logo.png'; 
 
 const BOLTemplate = ({ bolData, booking }) => {
+  const actualCarrier = booking?.shipmentData?.carrierInfo?.name || 
+                       booking?.shipmentData?.carrierInfo?.carrierName || 
+                       booking?.carrier || 
+                       'Unknown Carrier';
+  
+  const actualPickupNumber = booking?.pickupNumber || 
+                            booking?.shipmentData?.carrierInfo?.proNumber || 
+                            'PU-' + Date.now().toString().slice(-6);
   // Extract data
   const { 
     bolNumber, 
@@ -35,7 +43,7 @@ const BOLTemplate = ({ bolData, booking }) => {
     'Estes Express': '866-378-3748'
   };
 
-  const carrierPhone = carrierPhones[carrier] || '800-XXX-XXXX';
+  const carrierPhone = carrierPhones[actualcarrier] || '800-XXX-XXXX';
 
   // Determine billing party based on account type
   const isCustomerAccount = booking?.accountType === 'customer';
@@ -190,7 +198,7 @@ const BOLTemplate = ({ bolData, booking }) => {
             Transportation Company
           </div>
           <div className="p-2" style={{ minHeight: '80px', fontSize: '12px' }}>  {/* INCREASED from 9px to 12px */}
-            <div className="font-semibold">{carrier || '_______________________'}</div>
+            <div className="font-semibold">{actualcarrier || '_______________________'}</div>
             <div>{pickupNumber ? `Pickup #: ${pickupNumber}` : ''}</div>
             <div>{quoteNumber ? `Quote #: ${quoteNumber}` : ''}</div>
             <div>Tel: {carrierPhone}</div>
