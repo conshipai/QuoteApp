@@ -482,9 +482,8 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
   const defaultBolNumber = quoteNumber.startsWith('Q') 
     ? quoteNumber.substring(1) 
     : quoteNumber || `BOL-${Date.now()}`;
-  
-  const [bolNumber, setBolNumber] = useState(defaultBolNumber);
 
+  // MOVE THIS BEFORE STATE INITIALIZATION
   // Build accessorial notes
   const accessorialNotes = [];
   if (booking?.shipmentData?.formData?.liftgatePickup) accessorialNotes.push('Liftgate at Pickup');
@@ -513,7 +512,7 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
     'Custom'
   ];
 
-  // FIX: Get commodities from the right place
+  // FIX: Get commodities function - move it here before state
   const getCommoditiesForBOL = () => {
     const formData = booking?.shipmentData?.formData;
     console.log('📦 Getting commodities, formData:', formData);
@@ -601,7 +600,9 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
       hazmatDetails: null
     }];
   };
-
+  
+  // NOW initialize state with all variables defined
+  const [bolNumber, setBolNumber] = useState(defaultBolNumber);
   const [bolData, setBolData] = useState({
     bolNumber: defaultBolNumber,
     shipper: {
@@ -631,7 +632,7 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
       ...(actualPickupNumber ? [{ type: 'Pickup Number', value: actualPickupNumber }] : [])
     ],
     items: getCommoditiesForBOL(),
-    specialInstructions: initialAccessorialText,
+    specialInstructions: initialAccessorialText,  // Now this variable is defined
     pickupInstructions: '',
     deliveryInstructions: '',
     accessorials: {
