@@ -43,7 +43,7 @@ const BOLTemplate = ({ bolData, booking }) => {
     'Estes Express': '866-378-3748'
   };
 
-  const carrierPhone = carrierPhones[actualcarrier] || '800-XXX-XXXX';
+  const carrierPhone = carrierPhones[actualCarrier] || '800-XXX-XXXX';
 
   // Determine billing party based on account type
   const isCustomerAccount = booking?.accountType === 'customer';
