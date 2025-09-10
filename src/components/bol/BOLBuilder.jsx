@@ -460,17 +460,23 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
   const [showAddressBook, setShowAddressBook] = useState(null);
   const [savedAddresses, setSavedAddresses] = useState([]);
   
-  // FIX: Get carrier from correct location
+  // DEBUG: Log what we receive
+  console.log('📦 BOL Builder - Full Booking:', booking);
+  console.log('📦 BOL Builder - ShipmentData:', booking?.shipmentData);
+  console.log('📦 BOL Builder - FormData:', booking?.shipmentData?.formData);
+  console.log('📦 BOL Builder - Carrier Info:', booking?.shipmentData?.carrierInfo);
+  
+  // FIX: Extract the actual carrier name from the correct location
   const actualCarrier = booking?.shipmentData?.carrierInfo?.name || 
                         booking?.shipmentData?.carrierInfo?.carrierName || 
+                        booking?.shipmentData?.formData?.selectedCarrier ||
                         booking?.carrier || 
                         'Unknown Carrier';
   
-  // FIX: Get actual price
-  const actualPrice = booking?.shipmentData?.formData?.selectedRate || 
-                     booking?.shipmentData?.carrierInfo?.rate || 
-                     booking?.price || 
-                     0;
+  // FIX: Extract the actual pickup number
+  const actualPickupNumber = booking?.shipmentData?.carrierInfo?.proNumber || 
+                             booking?.pickupNumber || 
+                             '';
   
   const quoteNumber = booking?.quoteNumber || booking?.requestNumber || '';
   const defaultBolNumber = quoteNumber.startsWith('Q') 
@@ -479,36 +485,65 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
   
   const [bolNumber, setBolNumber] = useState(defaultBolNumber);
 
-  // ... accessorial notes code stays the same ...
+  // Build accessorial notes
+  const accessorialNotes = [];
+  if (booking?.shipmentData?.formData?.liftgatePickup) accessorialNotes.push('Liftgate at Pickup');
+  if (booking?.shipmentData?.formData?.liftgateDelivery) accessorialNotes.push('Liftgate at Delivery');
+  if (booking?.shipmentData?.formData?.residentialDelivery) accessorialNotes.push('Residential Delivery');
+  if (booking?.shipmentData?.formData?.insideDelivery) accessorialNotes.push('Inside Delivery');
+  if (booking?.shipmentData?.formData?.limitedAccessPickup) accessorialNotes.push('Limited Access Pickup');
+  if (booking?.shipmentData?.formData?.limitedAccessDelivery) accessorialNotes.push('Limited Access Delivery');
+
+  const initialAccessorialText = accessorialNotes.length > 0 
+    ? `ACCESSORIALS: ${accessorialNotes.join(', ')}`
+    : '';
+
+  const referenceTypes = [
+    'PO Number',
+    'SO Number',
+    'Work Order',
+    'Invoice Number',
+    'PRO Number',
+    'Pickup Number',
+    'Delivery Number',
+    'Customer Reference',
+    'Vendor Reference',
+    'Job Number',
+    'Project Code',
+    'Custom'
+  ];
 
   // FIX: Get commodities from the right place
   const getCommoditiesForBOL = () => {
     const formData = booking?.shipmentData?.formData;
-    
-    // Check if we have weight and pieces from manual booking or FTL
+    console.log('📦 Getting commodities, formData:', formData);
+
+    // CASE 1: FTL/Expedited with weight and pieces directly in formData
     if (formData?.weight && formData?.pieces) {
-      console.log('📦 Creating commodities from weight/pieces:', {
+      console.log('✅ Found weight/pieces in formData:', {
         weight: formData.weight,
         pieces: formData.pieces,
         pallets: formData.pallets
       });
       
       return [{
-        quantity: formData.pieces || formData.pallets || '1',
+        quantity: String(formData.pieces || formData.pallets || '1'),
         unitType: 'Pallets',
         description: formData.description || 'General Freight',
-        weight: formData.weight || '0',
+        weight: String(formData.weight || '0'),
         length: formData.length || '48',
         width: formData.width || '40',
         height: formData.height || '48',
         class: formData.freightClass || '50',
         nmfc: formData.nmfc || '',
-        hazmat: false
+        hazmat: false,
+        hazmatDetails: null
       }];
     }
     
-    // Check if this is a legal load
+    // CASE 2: Legal load type
     if (formData?.loadType === 'legal' && formData?.legalLoadWeight) {
+      console.log('✅ Found legal load data');
       return [{
         quantity: formData.legalLoadPallets || '26',
         unitType: 'Pallets',
@@ -519,15 +554,17 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
         height: '48',
         class: '50',
         nmfc: '',
-        hazmat: false
+        hazmat: false,
+        hazmatDetails: null
       }];
     }
     
-    // Use existing commodities array if available
+    // CASE 3: Existing commodities array
     if (formData?.commodities && formData.commodities.length > 0) {
+      console.log('✅ Found commodities array:', formData.commodities);
       return formData.commodities.map(c => ({
         quantity: c.quantity,
-        unitType: c.unitType,
+        unitType: c.unitType || 'Pallets',
         description: c.description || 'General Freight',
         weight: c.weight,
         length: c.length || '',
@@ -548,7 +585,8 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
       }));
     }
     
-    // Default empty commodity
+    // DEFAULT
+    console.log('⚠️ No commodity data found, using defaults');
     return [{
       quantity: '1',
       unitType: 'Pallets',
@@ -559,7 +597,8 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
       height: '',
       class: '',
       nmfc: '',
-      hazmat: false
+      hazmat: false,
+      hazmatDetails: null
     }];
   };
 
@@ -589,13 +628,9 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
     },
     referenceNumbers: [
       { type: 'PO Number', value: '' },
-      // Add pickup number if available
-      ...(booking?.pickupNumber || booking?.shipmentData?.carrierInfo?.proNumber
-        ? [{ type: 'Pickup Number', value: booking.pickupNumber || booking.shipmentData.carrierInfo.proNumber }]
-        : []
-      )
+      ...(actualPickupNumber ? [{ type: 'Pickup Number', value: actualPickupNumber }] : [])
     ],
-    items: getCommoditiesForBOL(), // FIX: Use the new function
+    items: getCommoditiesForBOL(),
     specialInstructions: initialAccessorialText,
     pickupInstructions: '',
     deliveryInstructions: '',
@@ -608,6 +643,18 @@ const BOLBuilder = ({ booking, isDarkMode, onComplete }) => {
       limitedAccessDelivery: booking?.shipmentData?.formData?.limitedAccessDelivery || false
     }
   });
+
+  // Log the initial state for debugging
+  useEffect(() => {
+    console.log('📦 BOL Data initialized with:', {
+      carrier: actualCarrier,
+      pickupNumber: actualPickupNumber,
+      items: bolData.items,
+      totalWeight: bolData.items.reduce((sum, item) => sum + parseInt(item.weight || 0), 0),
+      totalPieces: bolData.items.reduce((sum, item) => sum + parseInt(item.quantity || 0), 0)
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     loadSavedAddresses();
