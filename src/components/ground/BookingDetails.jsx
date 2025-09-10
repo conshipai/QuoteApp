@@ -191,43 +191,54 @@ const BookingDetails = ({ quoteData, isDarkMode }) => {
     return errors;
   };
 
-  // Save booking
-  const handleSave = async () => {
-    const errors = validateBooking();
-    if (errors.length > 0) {
-      alert('Please complete required fields:\n' + errors.join('\n'));
-      return;
-    }
+// In BookingDetails.jsx, update the handleSave function:
 
-    setSaving(true);
-    try {
-      // If using individual items, calculate totals
-      let finalData = { ...bookingData };
-      if (itemMode === 'individual') {
-        const totalWeight = bookingData.items.reduce((sum, item) => 
-          sum + (parseFloat(item.weight) || 0) * (parseInt(item.pieces) || 0), 0);
-        const totalPieces = bookingData.items.reduce((sum, item) => 
-          sum + (parseInt(item.pieces) || 0), 0);
-        
-        finalData.totalWeight = totalWeight;
-        finalData.totalPieces = totalPieces;
-      }
+const handleSave = async () => {
+  const errors = validateBooking();
+  if (errors.length > 0) {
+    alert('Please complete required fields:\n' + errors.join('\n'));
+    return;
+  }
 
-      const result = await bookingApi.createDetailedBooking(finalData);
+  setSaving(true);
+  try {
+    // Calculate totals if using individual items
+    let finalData = { ...bookingData };
+    if (itemMode === 'individual') {
+      const totalWeight = bookingData.items.reduce((sum, item) => 
+        sum + (parseFloat(item.weight) || 0) * (parseInt(item.pieces) || 0), 0);
+      const totalPieces = bookingData.items.reduce((sum, item) => 
+        sum + (parseInt(item.pieces) || 0), 0);
       
-      if (result.success) {
-        alert('Booking saved successfully!');
-        navigate(`/app/quotes/bookings`);
-      } else {
-        throw new Error(result.error || 'Failed to save booking');
-      }
-    } catch (error) {
-      console.error('Save error:', error);
-      alert('Failed to save booking: ' + error.message);
-    } finally {
-      setSaving(false);
+      finalData.totalWeight = totalWeight;
+      finalData.totalPieces = totalPieces;
     }
-  };
+
+    // Call your actual endpoint
+    const response = await fetch(`${API_BASE}/api/bookings/detailed`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+      },
+      body: JSON.stringify(finalData)
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      alert(`Booking created successfully!\nConfirmation: ${result.booking.confirmationNumber}`);
+      navigate('/app/quotes/bookings');
+    } else {
+      throw new Error(result.error || 'Failed to save booking');
+    }
+  } catch (error) {
+    console.error('Save error:', error);
+    alert('Failed to save booking: ' + error.message);
+  } finally {
+    setSaving(false);
+  }
+};
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
