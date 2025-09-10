@@ -231,7 +231,7 @@ const BookingConfirmation = ({ booking, onCreateBOL, isDarkMode }) => {
                 Carrier
               </p>
               <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {carrier}
+                {booking?.shipmentData?.carrierInfo?.name || booking?.carrier || 'Unknown Carrier'}
               </p>
             </div>
             <div>
