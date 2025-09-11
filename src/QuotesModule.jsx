@@ -14,6 +14,8 @@ const QuoteHistory = lazy(() => import('./pages/QuoteHistory'));
 const AddressBookPage = lazy(() => import('./pages/AddressBookPage'));  // NEW
 const ProductCatalogPage = lazy(() => import('./pages/ProductCatalogPage'));
 const GroundQuoteResults = lazy(() => import('./components/ground/QuoteResults'));
+const QuoteDebug = lazy(() => import('./components/debug/QuoteStatusDashboard'));
+
 // Create placeholder components for routes that don't have pages yet
 const Placeholder = ({ title, isDarkMode }) => (
   <div className={`p-6 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} min-h-screen`}>
@@ -66,6 +68,7 @@ const QuotesModule = ({ shellContext, basename }) => {
           <Route path="costs" element={<CostsManagement isDarkMode={isDarkMode} userRole={userRole} />} />
           <Route path="ground/results/:requestId" element={<GroundQuoteResults isDarkMode={isDarkMode} userRole={userRole} />} />
           <Route path="*" element={<Navigate to="" replace />} />
+          <Route path="debug" element={<QuoteDebug isDarkMode={isDarkMode} userRole={userRole} />} />
         </Routes>
       </Suspense>
     </QuoteLayout>
