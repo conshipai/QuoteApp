@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { 
   ShieldCheck,
   Grid3x3,
@@ -14,12 +14,14 @@ import {
   Share2,
   History,
   Book,     // Added for Address Book
-  Users     // Alternative icon option
+  Users,    // Alternative icon option
+  Bug       // Added for Debug Dashboard
 } from 'lucide-react';
 
 const QuoteLayout = ({ children, userRole, isDarkMode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const location = useLocation();
+  const navigate = useNavigate();
   const isForeignAgent = userRole === 'foreign_agent';
 
   // Navigation items based on user role
@@ -41,11 +43,11 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
       available: true
     },
     {
-    path: '/app/quotes/costs',
-    label: 'Costs',
-    icon: Grid3x3, // Import from lucide-react
-    color: 'yellow',
-    available: userRole === 'conship_employee' || userRole === 'system_admin'
+      path: '/app/quotes/costs',
+      label: 'Costs',
+      icon: Grid3x3, // Import from lucide-react
+      color: 'yellow',
+      available: userRole === 'conship_employee' || userRole === 'system_admin'
     },
     // Bookings link
     {
@@ -62,7 +64,7 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
       color: 'green',
       available: true
     },
-     {
+    {
       path: '/app/quotes/carriers',
       label: 'Carriers',
       icon: ShieldCheck,
@@ -145,7 +147,7 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
   };
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full relative">
       {/* Sidebar - Always visible, responsive width */}
       <div className={`transition-all duration-300 flex-shrink-0 ${
         sidebarOpen ? 'w-64' : 'w-20'
@@ -230,6 +232,21 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
       <div className="flex-1 overflow-auto">
         {children}
       </div>
+
+      {/* Debug Button - Only visible in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <button
+          onClick={() => navigate('/app/quotes/debug')}
+          className={`fixed bottom-4 right-4 z-50 p-3 rounded-full shadow-lg transition-all hover:scale-110 ${
+            isDarkMode 
+              ? 'bg-red-600 text-white hover:bg-red-500' 
+              : 'bg-red-500 text-white hover:bg-red-600'
+          }`}
+          title="Debug Dashboard"
+        >
+          <Bug className="w-5 h-5" />
+        </button>
+      )}
     </div>
   );
 };
