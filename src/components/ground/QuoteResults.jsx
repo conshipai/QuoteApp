@@ -1,4 +1,4 @@
-// src/components/ground/QuoteResults.jsx - Improved Version
+// src/components/ground/QuoteResults.jsx - Improved Version with Enhanced Logging
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
@@ -11,6 +11,7 @@ import quoteApi from '../../services/quoteApi';
 import bookingApi from '../../services/bookingApi';
 import BookingConfirmation from './BookingConfirmation';
 import BOLBuilder from '../bol/BOLBuilder';
+import { logQuoteFlow } from '../../utils/debugLogger';
 
 // DocumentUpload component remains the same
 const DocumentUpload = ({ requestId, isDarkMode }) => {
@@ -192,7 +193,7 @@ const DocumentUpload = ({ requestId, isDarkMode }) => {
   );
 };
 
-// Main QuoteResults Component with Improved Layout
+// Main QuoteResults Component with Improved Layout and Enhanced Logging
 const GroundQuoteResults = ({ 
   requestId: requestIdProp, 
   requestNumber: requestNumberProp, 
@@ -221,20 +222,37 @@ const GroundQuoteResults = ({
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingData, setBookingData] = useState(null);
   const [showBOL, setShowBOL] = useState(false);
-useEffect(() => {
-  logQuoteFlow('QUOTE_DISPLAY', {
-    requestId,
-    requestNumber,
-    quoteCount: quotes.length,
-    quotes: quotes.map(q => ({
-      quoteId: q.quoteId,
-      carrier: q.service_details?.carrier,
-      price: q.final_price,
-      rawCost: q.raw_cost,
-      markup: q.markup_percentage
-    }))
-  });
-}, [quotes]);
+
+  // Log component initialization
+  useEffect(() => {
+    logQuoteFlow('QUOTE_RESULTS_INIT', {
+      requestId,
+      requestNumber,
+      serviceType,
+      hasFormData: !!formData && Object.keys(formData).length > 0,
+      source: requestIdProp ? 'prop' : requestIdParam ? 'param' : 'location.state'
+    });
+  }, [requestId]);
+
+  // Log when quotes are displayed
+  useEffect(() => {
+    if (quotes.length > 0) {
+      logQuoteFlow('QUOTE_DISPLAY', {
+        requestId,
+        requestNumber,
+        quoteCount: quotes.length,
+        quotes: quotes.map(q => ({
+          quoteId: q.quoteId,
+          carrier: q.service_details?.carrier,
+          price: q.final_price,
+          rawCost: q.raw_cost,
+          markup: q.markup_percentage,
+          transit: q.transit_days
+        }))
+      });
+    }
+  }, [quotes, requestId, requestNumber]);
+
   // Load data from localStorage if available
   useEffect(() => {
     if (requestId && (!formData || Object.keys(formData).length === 0)) {
@@ -275,7 +293,7 @@ useEffect(() => {
     checkBookingStatus();
   }, [requestId, navigate]);
 
-  // Poll for quotes
+  // Poll for quotes with enhanced logging
   useEffect(() => {
     if (!requestId) {
       setError('No request ID provided. Please go back and create a new quote.');
@@ -287,11 +305,26 @@ useEffect(() => {
 
     const fetchResults = async () => {
       try {
+        logQuoteFlow('QUOTE_FETCH_ATTEMPT', {
+          requestId,
+          currentStatus: status
+        });
+
         const result = await quoteApi.getGroundQuoteResults(requestId);
         
         if (!isMounted) return;
 
         if (result.success) {
+          // Log status change
+          if (result.status && result.status !== status) {
+            logQuoteFlow('QUOTE_STATUS_CHANGE', {
+              requestId,
+              oldStatus: status,
+              newStatus: result.status,
+              quoteCount: result.quotes?.length || 0
+            });
+          }
+
           if (result.requestNumber) setRequestNumber(result.requestNumber);
           if (result.serviceType) setServiceType(result.serviceType);
           if (result.formData) setFormData(result.formData);
@@ -328,6 +361,10 @@ useEffect(() => {
           setLoading(false);
         }
       } catch (e) {
+        logQuoteFlow('QUOTE_FETCH_ERROR', {
+          requestId,
+          error: e.message
+        });
         if (!isMounted) return;
         setError('Failed to retrieve quotes. Please try again.');
         setLoading(false);
@@ -348,6 +385,19 @@ useEffect(() => {
     };
   }, [requestId, status]);
 
+  // Handle quote selection with logging
+  const handleQuoteSelection = (index) => {
+    setSelectedQuote(index);
+    const selected = quotes[index];
+    logQuoteFlow('QUOTE_SELECTED', {
+      requestId,
+      selectedIndex: index,
+      quoteId: selected?.quoteId,
+      carrier: selected?.service_details?.carrier,
+      price: selected?.final_price
+    });
+  };
+
   // Sort quotes
   const sortedQuotes = [...quotes].sort((a, b) => {
     switch(sortBy) {
@@ -364,11 +414,23 @@ useEffect(() => {
     }
   });
 
+  // Handle booking with enhanced logging
   const handleBookShipment = async () => {
     if (selectedQuote === null) return;
     
-    setBookingLoading(true);
     const selected = quotes[selectedQuote];
+    
+    logQuoteFlow('BOOKING_START', {
+      requestId,
+      requestNumber,
+      selectedQuote: {
+        quoteId: selected.quoteId,
+        carrier: selected.service_details?.carrier,
+        price: selected.final_price
+      }
+    });
+    
+    setBookingLoading(true);
 
     try {
       const bookingPayload = {
@@ -383,11 +445,24 @@ useEffect(() => {
       const result = await bookingApi.createBooking(bookingPayload);
 
       if (result.success) {
+        logQuoteFlow('BOOKING_SUCCESS', {
+          requestId,
+          bookingId: result.booking?.bookingId,
+          confirmationNumber: result.booking?.confirmationNumber
+        });
         setBookingData(result.booking);
       } else {
+        logQuoteFlow('BOOKING_FAILED', {
+          requestId,
+          error: result.error
+        });
         alert('Booking failed: ' + (result.error || 'Unknown error'));
       }
     } catch (err) {
+      logQuoteFlow('BOOKING_ERROR', {
+        requestId,
+        error: err.message
+      });
       console.error('Booking error:', err);
       alert('Failed to create booking');
     } finally {
@@ -551,7 +626,7 @@ useEffect(() => {
               return (
                 <div
                   key={quote.quoteId || index}
-                  onClick={() => setSelectedQuote(originalIndex)}
+                  onClick={() => handleQuoteSelection(originalIndex)}
                   className={`rounded-lg border-2 p-4 cursor-pointer transition-all ${
                     isSelected
                       ? isDarkMode 
