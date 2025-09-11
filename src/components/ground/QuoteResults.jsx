@@ -221,7 +221,20 @@ const GroundQuoteResults = ({
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingData, setBookingData] = useState(null);
   const [showBOL, setShowBOL] = useState(false);
-
+useEffect(() => {
+  logQuoteFlow('QUOTE_DISPLAY', {
+    requestId,
+    requestNumber,
+    quoteCount: quotes.length,
+    quotes: quotes.map(q => ({
+      quoteId: q.quoteId,
+      carrier: q.service_details?.carrier,
+      price: q.final_price,
+      rawCost: q.raw_cost,
+      markup: q.markup_percentage
+    }))
+  });
+}, [quotes]);
   // Load data from localStorage if available
   useEffect(() => {
     if (requestId && (!formData || Object.keys(formData).length === 0)) {
