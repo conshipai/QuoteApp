@@ -234,7 +234,7 @@ const QuoteLayout = ({ children, userRole, isDarkMode }) => {
       </div>
 
       {/* Debug Button - Only visible in development */}
-      {process.env.NODE_ENV === 'development' && (
+      {process.env.NODE_ENV === 'production' && (
         <button
           onClick={() => navigate('/app/quotes/debug')}
           className={`fixed bottom-4 right-4 z-50 p-3 rounded-full shadow-lg transition-all hover:scale-110 ${
