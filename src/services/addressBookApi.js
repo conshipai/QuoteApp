@@ -1,69 +1,79 @@
-// ============================================
-// 1. addressBookApi.js - NOW USES DATABASE
-// ============================================
+// src/services/addressBookApi.js
 import axios from 'axios';
-import API_BASE from '../config/api';
 
-class AddressBookAPI {
+class AddressBookApi {
   async getCompanies() {
     try {
-      const { data } = await axios.get(`${API_BASE}/address-book/companies`);
-      
-      if (!data.success) {
-        throw new Error(data?.error || 'Failed to fetch companies');
+      const response = await axios.get('/api/address-book/companies');
+      if (response.data.success) {
+        return response.data.companies;
       }
-      
-      return data;
+      throw new Error('Failed to fetch companies');
     } catch (error) {
       console.error('Error fetching companies:', error);
-      throw error;
+      return [];
     }
   }
 
   async saveCompany(companyData) {
     try {
-      const { data } = await axios.post(`${API_BASE}/address-book/companies`, companyData);
-      
-      if (!data.success) {
-        throw new Error(data?.error || 'Failed to save company');
-      }
-      
-      return data;
+      // Convert frontend format to backend format
+      const data = {
+        types: Array.isArray(companyData.types) ? companyData.types : [companyData.type],
+        name: companyData.name,
+        address: companyData.address,
+        city: companyData.city,
+        state: companyData.state,
+        zip: companyData.zip,
+        phone: companyData.phone,
+        contact: companyData.contact,
+        email: companyData.email,
+        notes: companyData.notes,
+        isDefault: companyData.isDefault || false
+      };
+
+      const response = await axios.post('/api/address-book/companies', data);
+      return response.data.company;
     } catch (error) {
       console.error('Error saving company:', error);
       throw error;
     }
   }
 
-  async updateCompany(companyId, companyData) {
+  async updateCompany(id, companyData) {
     try {
-      const { data } = await axios.put(`${API_BASE}/address-book/companies/${companyId}`, companyData);
-      
-      if (!data.success) {
-        throw new Error(data?.error || 'Failed to update company');
-      }
-      
-      return data;
+      const data = {
+        types: Array.isArray(companyData.types) ? companyData.types : [companyData.type],
+        name: companyData.name,
+        address: companyData.address,
+        city: companyData.city,
+        state: companyData.state,
+        zip: companyData.zip,
+        phone: companyData.phone,
+        contact: companyData.contact,
+        email: companyData.email,
+        notes: companyData.notes,
+        isDefault: companyData.isDefault || false
+      };
+
+      const response = await axios.put(`/api/address-book/companies/${id}`, data);
+      return response.data.company;
     } catch (error) {
       console.error('Error updating company:', error);
       throw error;
     }
   }
 
-  async deleteCompany(companyId) {
+  async deleteCompany(id) {
     try {
-      const { data } = await axios.delete(`${API_BASE}/address-book/companies/${companyId}`);
-      
-      if (!data.success) {
-        throw new Error(data?.error || 'Failed to delete company');
-      }
-      
-      return data;
+      await axios.delete(`/api/address-book/companies/${id}`);
+      return true;
     } catch (error) {
       console.error('Error deleting company:', error);
-      throw error;
+      return false;
     }
   }
 }
 
-export default new AddressBookAPI();
+const addressBookApi = new AddressBookApi();
+export default addressBookApi;
