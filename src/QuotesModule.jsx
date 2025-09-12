@@ -1,3 +1,4 @@
+// --- keep your existing imports ---
 import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import QuoteLayout from './layouts/QuoteLayout';
@@ -5,58 +6,112 @@ import useUserRole from './hooks/useUserRole';
 import CarrierQuoteSubmission from './pages/CarrierQuoteSubmission';
 import CostsManagement from './pages/CostsManagement';
 import { useShellAuth } from './hooks/useShellAuth';
- 
+
 // Lazy load pages
 const QuoteDashboard = lazy(() => import('./pages/QuoteDashboard'));
 const AirImport = lazy(() => import('./pages/shared/AirImport'));
 const Ground = lazy(() => import('./pages/customers/Ground'));
 const BookingsManagement = lazy(() => import('./pages/BookingsManagement'));
 const QuoteHistory = lazy(() => import('./pages/QuoteHistory'));
-const AddressBookPage = lazy(() => import('./pages/AddressBookPage'));  // NEW
+const AddressBookPage = lazy(() => import('./pages/AddressBookPage'));
 const ProductCatalogPage = lazy(() => import('./pages/ProductCatalogPage'));
 const GroundQuoteResults = lazy(() => import('./components/ground/QuoteResults'));
 const QuoteDebug = lazy(() => import('./components/debug/QuoteStatusDashboard'));
 
-// Create placeholder components for routes that don't have pages yet
+// =====================
+// Axios Global Setup
+// =====================
+import axios from 'axios';
+
+// Base URL
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://api.gcc.conship.ai';
+axios.defaults.baseURL = API_BASE_URL;
+
+// If you need cookies for auth, flip this to true; otherwise leave false.
+axios.defaults.withCredentials = false;
+
+// Helper to always pull the freshest token
+const getAuthToken = () =>
+  (window.shellAuth && window.shellAuth.token) || localStorage.getItem('auth_token') || null;
+
+// Seed the header once on boot (helps the very first request)
+(() => {
+  const initial = getAuthToken();
+  if (initial) {
+    axios.defaults.headers.common['Authorization'] = `Bearer ${initial}`;
+    console.log('Quotes app: Configured axios with initial token');
+  } else {
+    delete axios.defaults.headers.common['Authorization'];
+  }
+})();
+
+// Keep Authorization in sync for EVERY request
+axios.interceptors.request.use((config) => {
+  const token = getAuthToken();
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers['Authorization'] = `Bearer ${token}`;
+  } else if (config?.headers?.Authorization) {
+    delete config.headers.Authorization;
+  }
+  return config;
+});
+
+// Optional: central 401 handling (bubble up to shell, show login, etc.)
+axios.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err?.response?.status === 401) {
+      console.warn('Quotes app: 401 received – notifying shell');
+      window.dispatchEvent(new CustomEvent('quotes:unauthorized'));
+    }
+    return Promise.reject(err);
+  }
+);
+
+// Expose for debugging
+window.quotesAxios = axios;
+
+// =====================
+// Component starts here
+// =====================
+
+// Simple placeholder
 const Placeholder = ({ title, isDarkMode }) => (
   <div className={`p-6 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} min-h-screen`}>
-    <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-      {title}
-    </h1>
-    <p className={`mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-      This page is under construction
-    </p>
+    <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{title}</h1>
+    <p className={`mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>This page is under construction</p>
   </div>
 );
 
 const QuotesModule = ({ shellContext, basename }) => {
+  // Ensures shell populates window.shellAuth ASAP
   useShellAuth();
-  const { user, isDarkMode, token } = shellContext || {};
+
+  const { user, isDarkMode } = shellContext || {};
   const userRole = useUserRole({ user });
-  
+
   if (!userRole) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-          Loading quotes module...
-        </div>
+        <div className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Loading quotes module...</div>
       </div>
     );
   }
-  
+
   return (
     <QuoteLayout userRole={userRole} isDarkMode={isDarkMode}>
-      <Suspense fallback={
-        <div className="flex items-center justify-center h-64">
-          <div className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-            Loading...
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center h-64">
+            <div className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Loading...</div>
           </div>
-        </div>
-      }>
+        }
+      >
         <Routes>
           {/* All routes WITHOUT leading slashes - relative to basename */}
           <Route index element={<QuoteDashboard isDarkMode={isDarkMode} userRole={userRole} />} />
-          <Route path="address-book" element={<AddressBookPage isDarkMode={isDarkMode} userRole={userRole} />} />  {/* NEW */}
+          <Route path="address-book" element={<AddressBookPage isDarkMode={isDarkMode} userRole={userRole} />} />
           <Route path="product-catalog" element={<ProductCatalogPage isDarkMode={isDarkMode} userRole={userRole} />} />
           <Route path="bookings" element={<BookingsManagement isDarkMode={isDarkMode} userRole={userRole} />} />
           <Route path="history" element={<QuoteHistory isDarkMode={isDarkMode} userRole={userRole} />} />
