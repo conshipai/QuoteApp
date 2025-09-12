@@ -23,17 +23,15 @@ const QuoteDebug = lazy(() => import('./components/debug/QuoteStatusDashboard'))
 // =====================
 import axios from 'axios';
 
-// Base URL
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://api.gcc.conship.ai';
+// Hardcode for now - can add config later if needed
+const API_BASE_URL = 'https://api.gcc.conship.ai';
 axios.defaults.baseURL = API_BASE_URL;
 
-// If you need cookies for auth, flip this to true; otherwise leave false.
+// Rest of your axios setup stays the same...
 axios.defaults.withCredentials = false;
 
-// Helper to always pull the freshest token
 const getAuthToken = () =>
   (window.shellAuth && window.shellAuth.token) || localStorage.getItem('auth_token') || null;
-
 // Seed the header once on boot (helps the very first request)
 (() => {
   const initial = getAuthToken();
