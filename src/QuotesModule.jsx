@@ -4,7 +4,8 @@ import QuoteLayout from './layouts/QuoteLayout';
 import useUserRole from './hooks/useUserRole';
 import CarrierQuoteSubmission from './pages/CarrierQuoteSubmission';
 import CostsManagement from './pages/CostsManagement';
-
+import { useShellAuth } from './hooks/useShellAuth';
+ 
 // Lazy load pages
 const QuoteDashboard = lazy(() => import('./pages/QuoteDashboard'));
 const AirImport = lazy(() => import('./pages/shared/AirImport'));
@@ -29,6 +30,7 @@ const Placeholder = ({ title, isDarkMode }) => (
 );
 
 const QuotesModule = ({ shellContext, basename }) => {
+  useShellAuth();
   const { user, isDarkMode, token } = shellContext || {};
   const userRole = useUserRole({ user });
   
