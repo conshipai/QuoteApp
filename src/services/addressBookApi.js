@@ -2,19 +2,9 @@
 import axios from 'axios';
 
 class AddressBookApi {
-  // Helper to get current token
-  getAuthHeader() {
-    const token = window.shellAuth?.token || 
-                  window.shellContext?.token || 
-                  localStorage.getItem('auth_token');
-    return token ? { 'Authorization': `Bearer ${token}` } : {};
-  }
-
   async getCompanies() {
     try {
-      const response = await axios.get('/api/address-book/companies', {
-        headers: this.getAuthHeader()
-      });
+      const response = await axios.get('/api/address-book/companies');
       if (response.data.success) {
         return response.data.companies;
       }
@@ -27,6 +17,7 @@ class AddressBookApi {
 
   async saveCompany(companyData) {
     try {
+      // Convert frontend format to backend format
       const data = {
         types: Array.isArray(companyData.types) ? companyData.types : [companyData.type],
         name: companyData.name,
@@ -41,9 +32,7 @@ class AddressBookApi {
         isDefault: companyData.isDefault || false
       };
 
-      const response = await axios.post('/api/address-book/companies', data, {
-        headers: this.getAuthHeader()
-      });
+      const response = await axios.post('/api/address-book/companies', data);
       return response.data.company;
     } catch (error) {
       console.error('Error saving company:', error);
@@ -67,9 +56,7 @@ class AddressBookApi {
         isDefault: companyData.isDefault || false
       };
 
-      const response = await axios.put(`/api/address-book/companies/${id}`, data, {
-        headers: this.getAuthHeader()
-      });
+      const response = await axios.put(`/api/address-book/companies/${id}`, data);
       return response.data.company;
     } catch (error) {
       console.error('Error updating company:', error);
@@ -79,9 +66,7 @@ class AddressBookApi {
 
   async deleteCompany(id) {
     try {
-      await axios.delete(`/api/address-book/companies/${id}`, {
-        headers: this.getAuthHeader()
-      });
+      await axios.delete(`/api/address-book/companies/${id}`);
       return true;
     } catch (error) {
       console.error('Error deleting company:', error);
