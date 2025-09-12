@@ -1,4 +1,7 @@
-// src/services/bolApi.js
+// ============================================
+// 2. bolApi.js - UPDATED TO USE AXIOS
+// ============================================
+import axios from 'axios';
 import API_BASE from '../config/api';
 
 class BolAPI {
@@ -6,19 +9,16 @@ class BolAPI {
     try {
       console.log('🔄 Starting BOL creation for:', bolNumber);
 
-      // Prefer passed-in bookingData; fallback to localStorage if missing
+      // Get booking data from API if not provided
       if (!bookingData) {
-        const bookingKey = `booking_${bookingId}`;
-        const bookingDataStr = localStorage.getItem(bookingKey);
-
-        if (!bookingDataStr) {
+        const { data } = await axios.get(`${API_BASE}/bookings/${bookingId}`);
+        if (!data.success) {
           throw new Error('Booking data not found');
         }
-
-        bookingData = JSON.parse(bookingDataStr);
+        bookingData = data.booking;
       }
 
-      // Use requestNumber (e.g., REQ-xxxxx) or requestId from provided/loaded bookingData
+      // Use requestNumber or requestId from bookingData
       const requestId = bookingData.requestNumber || bookingData.requestId;
       if (!requestId) {
         throw new Error('Request ID not found in booking data');
@@ -26,7 +26,7 @@ class BolAPI {
 
       console.log('📋 Using Request ID for storage:', requestId);
 
-      // Generate and upload PDF to S3/R2
+      // Generate and upload PDF
       let fileUrl = null;
       let fileKey = null;
 
@@ -50,86 +50,56 @@ class BolAPI {
           jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
         };
 
-        try {
-          const pdfBlob = await window.html2pdf().set(opt).from(bolElement).outputPdf('blob');
+        const pdfBlob = await window.html2pdf().set(opt).from(bolElement).outputPdf('blob');
 
-          console.log('✅ PDF generated successfully, size:', pdfBlob.size);
-          if (pdfBlob.size < 1000) {
-            throw new Error('Generated PDF is too small, might be corrupted');
-          }
-
-          const pdfFile = new File([pdfBlob], `BOL-${bolNumber}.pdf`, { type: 'application/pdf' });
-
-          console.log('📤 Uploading to storage service...');
-          const uploadResult = await this.uploadDocument(pdfFile, requestId, 'bol');
-
-          console.log('✅ BOL uploaded successfully:', uploadResult);
-          fileUrl = uploadResult.fileUrl;
-          fileKey = uploadResult.key;
-        } catch (pdfError) {
-          console.error('❌ PDF generation/upload failed:', pdfError);
-          throw new Error(`PDF generation failed: ${pdfError.message}`);
+        console.log('✅ PDF generated successfully, size:', pdfBlob.size);
+        if (pdfBlob.size < 1000) {
+          throw new Error('Generated PDF is too small, might be corrupted');
         }
+
+        const pdfFile = new File([pdfBlob], `BOL-${bolNumber}.pdf`, { type: 'application/pdf' });
+
+        console.log('📤 Uploading to storage service...');
+        const uploadResult = await this.uploadDocument(pdfFile, requestId, 'bol');
+
+        console.log('✅ BOL uploaded successfully:', uploadResult);
+        fileUrl = uploadResult.fileUrl;
+        fileKey = uploadResult.key;
       } else {
         throw new Error('html2pdf library not loaded. Please ensure it is included in your HTML.');
       }
 
-      // Save BOL metadata locally
-      const bolMetadata = {
-        bolId: `BOL-${Date.now()}`,
+      // Save BOL metadata to database via API
+      const { data } = await axios.post(`${API_BASE}/bols`, {
         bookingId,
         requestId,
         bolNumber,
         fileUrl,
         fileKey,
-        createdAt: new Date().toISOString(),
         documentType: 'bol'
-      };
+      });
 
-      const bols = JSON.parse(localStorage.getItem('bols') || '[]');
-      bols.push(bolMetadata);
-      localStorage.setItem('bols', JSON.stringify(bols));
+      if (!data.success) {
+        throw new Error(data?.error || 'Failed to save BOL metadata');
+      }
 
-      // Update the booking record in cache (only if we have a bookingId to key off)
+      // Update the booking record via API
       if (bookingId) {
-        const bookingKey = `booking_${bookingId}`;
-        const updatedBooking = {
-          ...(bookingData || {}),
+        await axios.put(`${API_BASE}/bookings/${bookingId}/bol`, {
           hasBOL: true,
           bolNumber,
-          bolId: bolMetadata.bolId,
+          bolId: data.bolId,
           bolFileUrl: fileUrl,
-          bolFileKey: fileKey,
-          bolUpdatedAt: new Date().toISOString()
-        };
-        localStorage.setItem(bookingKey, JSON.stringify(updatedBooking));
-
-        // Update all bookings cache
-        const allBookingsKey = 'all_bookings_cache';
-        const allBookingsData = localStorage.getItem(allBookingsKey);
-        if (allBookingsData) {
-          const allBookings = JSON.parse(allBookingsData);
-          const bookingIndex = allBookings.findIndex(b => b.bookingId === bookingId);
-          if (bookingIndex !== -1) {
-            allBookings[bookingIndex] = {
-              ...allBookings[bookingIndex],
-              hasBOL: true,
-              bolNumber,
-              bolId: bolMetadata.bolId,
-              bolFileUrl: fileUrl,
-              bolFileKey: fileKey
-            };
-            localStorage.setItem(allBookingsKey, JSON.stringify(allBookings));
-          }
-        }
+          bolFileKey: fileKey
+        });
       }
 
       console.log('✅ BOL saved with URL:', fileUrl);
-      alert(`BOL ${bolNumber} saved successfully!\n\nStored at: ${fileKey}\nView at: ${fileUrl}`);
+      alert(`BOL ${bolNumber} saved successfully!\n\nView at: ${fileUrl}`);
 
       return {
         success: true,
-        bolId: bolMetadata.bolId,
+        bolId: data.bolId,
         bolNumber,
         fileUrl,
         fileKey,
@@ -159,23 +129,8 @@ class BolAPI {
     formData.append('documentType', documentType);
 
     try {
-      const response = await fetch(`${API_BASE}/storage/upload`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
-        },
-        body: formData
-      });
+      const { data: result } = await axios.post(`${API_BASE}/storage/upload`, formData);
 
-      console.log('📥 Upload response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Upload failed:', errorText);
-        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
-      }
-
-      const result = await response.json();
       console.log('✅ Upload successful:', result);
       
       if (!result.success) {
@@ -183,7 +138,6 @@ class BolAPI {
       }
       
       return result;
-
     } catch (error) {
       console.error('❌ Upload error:', error);
       throw error;
@@ -192,31 +146,29 @@ class BolAPI {
 
   async getBOLByBooking(bookingId) {
     try {
-      // First check localStorage
-      const bols = JSON.parse(localStorage.getItem('bols') || '[]');
-      const bol = bols.find(b => b.bookingId === bookingId);
+      const { data } = await axios.get(`${API_BASE}/bols/by-booking/${bookingId}`);
       
-      if (!bol) {
+      if (!data.success) {
         console.log('No BOL found for booking:', bookingId);
         return { success: false, error: 'BOL not found' };
       }
       
-      console.log('BOL found:', bol);
+      console.log('BOL found:', data.bol);
       
-      // If we have a file URL, return it
-      if (bol.fileUrl) {
+      // If we have a file URL, return it with a view link
+      if (data.bol && data.bol.fileUrl) {
         return {
           success: true,
           bol: {
-            ...bol,
+            ...data.bol,
             htmlContent: `
               <div style="padding: 20px; background: #f9f9f9; border-radius: 8px;">
                 <h3>Bill of Lading</h3>
-                <p><strong>BOL Number:</strong> ${bol.bolNumber}</p>
-                <p><strong>Created:</strong> ${new Date(bol.createdAt).toLocaleString()}</p>
-                <p><strong>Storage Path:</strong> ${bol.fileKey}</p>
+                <p><strong>BOL Number:</strong> ${data.bol.bolNumber}</p>
+                <p><strong>Created:</strong> ${new Date(data.bol.createdAt).toLocaleString()}</p>
+                <p><strong>Storage Path:</strong> ${data.bol.fileKey}</p>
                 <p>
-                  <a href="${bol.fileUrl}" 
+                  <a href="${data.bol.fileUrl}" 
                      target="_blank" 
                      style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px;">
                     View/Download BOL PDF
@@ -228,15 +180,11 @@ class BolAPI {
         };
       }
       
-      return { success: true, bol };
+      return { success: true, bol: data.bol };
     } catch (error) {
       console.error('Error getting BOL:', error);
       return { success: false, error: error.message };
     }
-  }
-
-  getToken() {
-    return localStorage.getItem('auth_token') || '';
   }
 }
 
