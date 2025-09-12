@@ -1,7 +1,9 @@
-// src/services/quoteApi.js - Updated version
+// src/services/quoteApi.js - Updated version (uses axios)
+import axios from 'axios';
 import { logQuoteFlow } from '../utils/debugLogger';
 
-const createGroundQuote = async (formData, serviceType) => {
+// Creates a ground quote request
+export const createGroundQuote = async (formData, serviceType) => {
   try {
     logQuoteFlow('REQUEST_CREATE', {
       serviceType,
@@ -10,17 +12,12 @@ const createGroundQuote = async (formData, serviceType) => {
       commodityCount: formData.commodities?.length
     });
 
-    const response = await fetch(`${API_BASE}/ground-quotes/create`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-      },
-      body: JSON.stringify({ formData, serviceType })
+    // Axios will attach Authorization via interceptor/defaults
+    const { data } = await axios.post('/api/ground-quotes/create', {
+      formData,
+      serviceType
     });
 
-    const data = await response.json();
-    
     logQuoteFlow('REQUEST_RESPONSE', {
       success: data.success,
       requestId: data.requestId,
@@ -34,7 +31,7 @@ const createGroundQuote = async (formData, serviceType) => {
       quoteMap[data.requestId] = {
         requestNumber: data.requestNumber,
         createdAt: new Date().toISOString(),
-        serviceType: serviceType,
+        serviceType,
         origin: `${formData.originCity}, ${formData.originState}`,
         destination: `${formData.destCity}, ${formData.destState}`
       };
@@ -43,7 +40,10 @@ const createGroundQuote = async (formData, serviceType) => {
 
     return data;
   } catch (error) {
-    logQuoteFlow('REQUEST_ERROR', { error: error.message });
+    logQuoteFlow('REQUEST_ERROR', { 
+      error: error?.response?.data?.message || error.message 
+    });
+    // Re-throw so callers can handle UI errors
     throw error;
   }
 };
