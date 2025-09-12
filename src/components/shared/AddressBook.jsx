@@ -103,7 +103,7 @@ const AddressBook = ({ isDarkMode, onSelect, type = 'all' }) => {
               Location Type(s) *
             </label>
             <div className="space-y-2">
-              {['shipper','consignee','thirdparty'].map(t => (
+              {['shipper','consignee','third_party'].map(t => (
                 <label key={t} className="flex items-center">
                   <input
                     type="checkbox"
@@ -112,7 +112,7 @@ const AddressBook = ({ isDarkMode, onSelect, type = 'all' }) => {
                     className="mr-2"
                   />
                   <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
-                    {t === 'thirdparty' ? 'Third Party' : t[0].toUpperCase()+t.slice(1)}
+                    {t === 'third_party' ? 'Third Party' : t[0].toUpperCase()+t.slice(1)}
                   </span>
                 </label>
               ))}
@@ -352,7 +352,7 @@ const AddressBook = ({ isDarkMode, onSelect, type = 'all' }) => {
             <option value="all">All Types</option>
             <option value="shipper">Shippers</option>
             <option value="consignee">Consignees</option>
-            <option value="thirdparty">Third Party</option>
+            <option value="third_party">Third Party</option>
           </select>
         </div>
       </div>
@@ -397,7 +397,7 @@ const AddressBook = ({ isDarkMode, onSelect, type = 'all' }) => {
                             : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
                         }`}
                       >
-                        {t === 'thirdparty' ? 'Third Party' : t}
+                        {t === 'third_party' ? 'Third Party' : t}
                       </span>
                     ))}
                   </div>
