@@ -1,4 +1,7 @@
-// src/services/documentApi.js
+// ============================================
+// 6. documentApi.js - UPDATED TO USE AXIOS
+// ============================================
+import axios from 'axios';
 import API_BASE from '../config/api';
 
 class DocumentAPI {
@@ -17,24 +20,8 @@ class DocumentAPI {
     formData.append('documentType', documentType);
 
     try {
-      const response = await fetch(`${API_BASE}/storage/upload`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
-        },
-        body: formData
-      });
+      const { data: result } = await axios.post(`${API_BASE}/storage/upload`, formData);
 
-      console.log('📥 Upload response status:', response.status);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        const errorText = errorData?.error || `HTTP ${response.status}`;
-        console.error('❌ Upload failed:', errorText);
-        throw new Error(`Upload failed: ${errorText}`);
-      }
-
-      const result = await response.json();
       console.log('✅ Upload successful:', result);
       
       if (!result.success) {
@@ -42,7 +29,6 @@ class DocumentAPI {
       }
       
       return result;
-
     } catch (error) {
       console.error('❌ Upload error:', error);
       throw error;
@@ -51,17 +37,7 @@ class DocumentAPI {
 
   async getDocumentsByRequestId(requestId) {
     try {
-      const response = await fetch(`${API_BASE}/storage/documents/${requestId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch documents: HTTP ${response.status}`);
-      }
-
-      const result = await response.json();
+      const { data: result } = await axios.get(`${API_BASE}/storage/documents/${requestId}`);
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch documents');
@@ -76,17 +52,7 @@ class DocumentAPI {
 
   async getSignedUrl(key) {
     try {
-      const response = await fetch(`${API_BASE}/storage/signed-url/${encodeURIComponent(key)}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to get signed URL: HTTP ${response.status}`);
-      }
-
-      const result = await response.json();
+      const { data: result } = await axios.get(`${API_BASE}/storage/signed-url/${encodeURIComponent(key)}`);
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to get signed URL');
@@ -95,6 +61,21 @@ class DocumentAPI {
       return result.url;
     } catch (error) {
       console.error('❌ Error getting signed URL:', error);
+      throw error;
+    }
+  }
+
+  async deleteDocument(documentId) {
+    try {
+      const { data: result } = await axios.delete(`${API_BASE}/storage/documents/${documentId}`);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete document');
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Error deleting document:', error);
       throw error;
     }
   }
