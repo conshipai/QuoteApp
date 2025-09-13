@@ -1,11 +1,12 @@
-// src/hooks/useGroundQuoteValidation.js
-export const useGroundQuoteValidation = () => {
+// src/hooks/useGroundValidation.js
+export const useGroundValidation = () => {
   const validateForm = (formData, serviceType) => {
     const errors = [];
     
-    // Move all your validation logic here from Ground.jsx
+    // Move all your validation logic here from the big Ground.jsx
     if (!formData.originZip) errors.push('Origin ZIP required');
-    // ... rest of validation
+    if (!formData.originCity) errors.push('Origin city required');
+    // ... all the rest of your validation
     
     return errors;
   };
