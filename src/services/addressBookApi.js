@@ -1,5 +1,5 @@
 // src/services/addressBookApi.js
-import axios from 'axios';
+import api from './api';
 
 class AddressBookApi {
   async getCompanies() {
