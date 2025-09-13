@@ -1,14 +1,13 @@
 // ============================================
-// 5. debugApi.js - UPDATED TO USE AXIOS
+// 4. debugApi.js - FIXED TO USE CENTRALIZED API
 // ============================================
-import axios from 'axios';
-import API_BASE from '../config/api';
+import api from './api';
 
 const debugApi = {
   getQuoteChain: async (requestId, type = 'ground') => {
     try {
       const endpoint = type === 'ground' ? 'ground-chain' : 'air-ocean-chain';
-      const { data } = await axios.get(`${API_BASE}/debug/${endpoint}/${requestId}`);
+      const { data } = await api.get(`/debug/${endpoint}/${requestId}`);
       return data;
     } catch (error) {
       console.error('Error fetching quote chain:', error);
@@ -18,7 +17,7 @@ const debugApi = {
   
   getAllQuotes: async (limit = 20) => {
     try {
-      const { data } = await axios.get(`${API_BASE}/debug/all-quotes`, {
+      const { data } = await api.get('/debug/all-quotes', {
         params: { limit }
       });
       return data;
@@ -30,7 +29,7 @@ const debugApi = {
   
   verifyQuote: async (requestId) => {
     try {
-      const { data } = await axios.get(`${API_BASE}/debug/verify/${requestId}`);
+      const { data } = await api.get(`/debug/verify/${requestId}`);
       return data;
     } catch (error) {
       console.error('Error verifying quote:', error);
