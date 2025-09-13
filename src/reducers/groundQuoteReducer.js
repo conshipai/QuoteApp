@@ -9,9 +9,25 @@ export const initialState = {
     destCity: '',
     destState: '',
     destZip: '',
-    pickupDate: '',
-    commodities: [],
-    accessorials: {},
+    pickupDate: : new Date(Date.now() + 86400000).toISOString().split('T')[0],
+    commodities: [{
+     unitType: 'Pallets',
+      quantity: '2',
+      weight: '1000',
+      length: '48',
+      width: '40',
+      height: '48',
+      description: 'General Freight',
+      calculatedClass: '',
+      overrideClass: '',
+      useOverride: false,
+      density: null,
+      cubicFeet: null
+    }],
+    //accessorials: 
+      liftgatePickup: false,
+      liftgateDelivery: false,
+      residentialDelivery: false,
     // FTL specific
     loadType: 'legal',
     equipmentType: '',
