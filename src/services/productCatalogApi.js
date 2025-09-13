@@ -1,13 +1,12 @@
 // ============================================
-// 7. productCatalogApi.js - NOW USES DATABASE
+// 6. productCatalogApi.js - FIXED TO USE CENTRALIZED API
 // ============================================
-import axios from 'axios';
-import API_BASE from '../config/api';
+import api from './api';
 
 class ProductCatalogAPI {
   async getProducts() {
     try {
-      const { data } = await axios.get(`${API_BASE}/products`);
+      const { data } = await api.get('/products');
       
       if (!data.success) {
         throw new Error(data?.error || 'Failed to fetch products');
@@ -22,7 +21,7 @@ class ProductCatalogAPI {
 
   async saveProduct(productData) {
     try {
-      const { data } = await axios.post(`${API_BASE}/products`, productData);
+      const { data } = await api.post('/products', productData);
       
       if (!data.success) {
         throw new Error(data?.error || 'Failed to save product');
@@ -37,7 +36,7 @@ class ProductCatalogAPI {
 
   async updateProduct(productId, productData) {
     try {
-      const { data } = await axios.put(`${API_BASE}/products/${productId}`, productData);
+      const { data } = await api.put(`/products/${productId}`, productData);
       
       if (!data.success) {
         throw new Error(data?.error || 'Failed to update product');
@@ -52,7 +51,7 @@ class ProductCatalogAPI {
 
   async deleteProduct(productId) {
     try {
-      const { data } = await axios.delete(`${API_BASE}/products/${productId}`);
+      const { data } = await api.delete(`/products/${productId}`);
       
       if (!data.success) {
         throw new Error(data?.error || 'Failed to delete product');
@@ -68,7 +67,7 @@ class ProductCatalogAPI {
   // Export products to CSV
   async exportToCSV() {
     try {
-      const { data } = await axios.get(`${API_BASE}/products/export`, {
+      const { data } = await api.get('/products/export', {
         responseType: 'blob'
       });
       
@@ -95,7 +94,7 @@ class ProductCatalogAPI {
       const formData = new FormData();
       formData.append('file', file);
       
-      const { data } = await axios.post(`${API_BASE}/products/import`, formData);
+      const { data } = await api.post('/products/import', formData);
       
       if (!data.success) {
         throw new Error(data?.error || 'Failed to import products');
