@@ -1,7 +1,7 @@
 // ============================================
 // 3. bookingApi.js - ALREADY UPDATED
 // ============================================
-import axios from 'axios';
+import api from './api';
 import API_BASE from '../config/api';
 
 class BookingAPI {
