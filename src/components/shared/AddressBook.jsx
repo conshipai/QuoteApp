@@ -76,19 +76,23 @@ const AddressBook = ({ isDarkMode, onSelect, type = 'all' }) => {
       if (next.length) setFormData({ ...formData, types: next });
     };
 
-    const handleSubmit = async (e) => {
-      e.preventDefault();
+   const handleSubmit = async (e) => {
+  e.preventDefault();
 
-      // Save with backward compatibility: keep .types as source of truth
-      // (backend can ignore legacy .type if present)
-      if (company?.id) {
-        await addressBookApi.updateCompany(company.id, { ...formData });
-      } else {
-        await addressBookApi.saveCompany({ ...formData });
-      }
-      await loadCompanies();
-      onSave();
-    };
+  let result;
+  if (company?.id) {
+    result = await addressBookApi.updateCompany(company.id, { ...formData });
+  } else {
+    result = await addressBookApi.saveCompany({ ...formData });
+  }
+  
+  if (result.success) {
+    await loadCompanies();
+    onSave();
+  } else {
+    alert(result.error || 'Failed to save company');
+  }
+};
 
     return (
       <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
@@ -436,8 +440,12 @@ const AddressBook = ({ isDarkMode, onSelect, type = 'all' }) => {
                     <button
                       onClick={async () => {
                         if (window.confirm('Delete this company?')) {
-                          await addressBookApi.deleteCompany(company.id);
-                          await loadCompanies();
+                          const result = await addressBookApi.deleteCompany(company.id);
+                          if (result.success) {
+                            await loadCompanies();
+                          } else {
+                            alert(result.error || 'Failed to delete company');
+                          }
                         }
                       }}
                       className={`p-1 rounded ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
