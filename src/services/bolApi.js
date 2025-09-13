@@ -1,7 +1,7 @@
 // ============================================
 // 2. bolApi.js - UPDATED TO USE AXIOS
 // ============================================
-import axios from 'axios';
+import api from './api';
 import API_BASE from '../config/api';
 
 class BolAPI {
