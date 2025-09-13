@@ -1,4 +1,6 @@
 // src/hooks/useQuotePolling.js
+import { useState, useEffect } from 'react';
+import quoteApi from '../services/quoteApi';
 export const useQuotePolling = (requestId, enabled) => {
   const [quotes, setQuotes] = useState([]);
   const [status, setStatus] = useState('polling');
