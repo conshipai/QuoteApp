@@ -1,8 +1,7 @@
 // ============================================
-// 2. bolApi.js - UPDATED TO USE AXIOS
+// 1. bolApi.js - FIXED TO USE CENTRALIZED API
 // ============================================
 import api from './api';
-import API_BASE from '../config/api';
 
 class BolAPI {
   async createBOL({ bookingId, bolNumber, bolData, htmlContent, bookingData }) {
@@ -11,7 +10,7 @@ class BolAPI {
 
       // Get booking data from API if not provided
       if (!bookingData) {
-        const { data } = await axios.get(`${API_BASE}/bookings/${bookingId}`);
+        const { data } = await api.get(`/bookings/${bookingId}`);
         if (!data.success) {
           throw new Error('Booking data not found');
         }
@@ -70,7 +69,7 @@ class BolAPI {
       }
 
       // Save BOL metadata to database via API
-      const { data } = await axios.post(`${API_BASE}/bols`, {
+      const { data } = await api.post('/bols', {
         bookingId,
         requestId,
         bolNumber,
@@ -85,7 +84,7 @@ class BolAPI {
 
       // Update the booking record via API
       if (bookingId) {
-        await axios.put(`${API_BASE}/bookings/${bookingId}/bol`, {
+        await api.put(`/bookings/${bookingId}/bol`, {
           hasBOL: true,
           bolNumber,
           bolId: data.bolId,
@@ -129,7 +128,7 @@ class BolAPI {
     formData.append('documentType', documentType);
 
     try {
-      const { data: result } = await axios.post(`${API_BASE}/storage/upload`, formData);
+      const { data: result } = await api.post('/storage/upload', formData);
 
       console.log('✅ Upload successful:', result);
       
@@ -146,7 +145,7 @@ class BolAPI {
 
   async getBOLByBooking(bookingId) {
     try {
-      const { data } = await axios.get(`${API_BASE}/bols/by-booking/${bookingId}`);
+      const { data } = await api.get(`/bols/by-booking/${bookingId}`);
       
       if (!data.success) {
         console.log('No BOL found for booking:', bookingId);
