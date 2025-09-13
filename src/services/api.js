@@ -1,5 +1,5 @@
 // src/services/api.js
-import axios from 'axios';
+import api from './api';
 
 // Use Shell's axios if available, otherwise create our own
 const api = window.shellAxios || axios.create({
