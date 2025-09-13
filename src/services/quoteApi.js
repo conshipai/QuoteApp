@@ -1,5 +1,7 @@
-// src/services/quoteApi.js - Updated version (uses axios)
-import axios from 'axios';
+// ============================================
+// 7. quoteApi.js - FIXED TO USE CENTRALIZED API
+// ============================================
+import api from './api';
 import { logQuoteFlow } from '../utils/debugLogger';
 
 // Creates a ground quote request
@@ -12,8 +14,8 @@ export const createGroundQuote = async (formData, serviceType) => {
       commodityCount: formData.commodities?.length
     });
 
-    // Axios will attach Authorization via interceptor/defaults
-    const { data } = await axios.post('/api/ground-quotes/create', {
+    // Use the centralized api instance (no /api prefix needed)
+    const { data } = await api.post('/ground-quotes/create', {
       formData,
       serviceType
     });
