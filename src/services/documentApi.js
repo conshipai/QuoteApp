@@ -1,8 +1,7 @@
 // ============================================
-// 6. documentApi.js - UPDATED TO USE AXIOS
+// 5. documentApi.js - FIXED TO USE CENTRALIZED API
 // ============================================
-import axios from 'axios';
-import API_BASE from '../config/api';
+import api from './api';
 
 class DocumentAPI {
   async uploadDocument(file, requestId, documentType) {
@@ -20,7 +19,7 @@ class DocumentAPI {
     formData.append('documentType', documentType);
 
     try {
-      const { data: result } = await axios.post(`${API_BASE}/storage/upload`, formData);
+      const { data: result } = await api.post('/storage/upload', formData);
 
       console.log('✅ Upload successful:', result);
       
@@ -37,7 +36,7 @@ class DocumentAPI {
 
   async getDocumentsByRequestId(requestId) {
     try {
-      const { data: result } = await axios.get(`${API_BASE}/storage/documents/${requestId}`);
+      const { data: result } = await api.get(`/storage/documents/${requestId}`);
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch documents');
@@ -52,7 +51,7 @@ class DocumentAPI {
 
   async getSignedUrl(key) {
     try {
-      const { data: result } = await axios.get(`${API_BASE}/storage/signed-url/${encodeURIComponent(key)}`);
+      const { data: result } = await api.get(`/storage/signed-url/${encodeURIComponent(key)}`);
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to get signed URL');
@@ -67,7 +66,7 @@ class DocumentAPI {
 
   async deleteDocument(documentId) {
     try {
-      const { data: result } = await axios.delete(`${API_BASE}/storage/documents/${documentId}`);
+      const { data: result } = await api.delete(`/storage/documents/${documentId}`);
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to delete document');
