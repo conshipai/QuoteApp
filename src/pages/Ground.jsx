@@ -24,7 +24,7 @@ const Ground = ({ isDarkMode }) => {
     
     try {
       // Use your actual API
-      const result = await quoteApi.createGroundQuoteRequest(
+      const result = await quoteApi.createGroundQuote(
         state.formData,
         state.serviceType
       );
@@ -58,7 +58,12 @@ const Ground = ({ isDarkMode }) => {
         <GroundFormBase
           serviceType={state.serviceType}
           formData={state.formData}
-          setFormData={(data) => dispatch({ type: 'UPDATE_FORM', payload: data })}
+          setFormData={(updater) => {
+  const newData = typeof updater === 'function' 
+    ? updater(state.formData) 
+    : updater;
+  dispatch({ type: 'UPDATE_FORM', payload: newData });
+}}
           onSubmit={handleFormSubmit}
           onCancel={() => dispatch({ type: 'RESET' })}
           loading={state.loading}
