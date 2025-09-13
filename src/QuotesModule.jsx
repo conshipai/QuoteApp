@@ -18,57 +18,6 @@ const ProductCatalogPage = lazy(() => import('./pages/ProductCatalogPage'));
 const GroundQuoteResults = lazy(() => import('./components/ground/QuoteResults'));
 const QuoteDebug = lazy(() => import('./components/debug/QuoteStatusDashboard'));
 
-// =====================
-// Axios Global Setup
-// =====================
-import axios from 'axios';
-
-// Hardcode for now - can add config later if needed
-const API_BASE_URL = 'https://api.gcc.conship.ai';
-axios.defaults.baseURL = API_BASE_URL;
-
-// Rest of your axios setup stays the same...
-axios.defaults.withCredentials = false;
-
-const getAuthToken = () =>
-  (window.shellAuth && window.shellAuth.token) || localStorage.getItem('auth_token') || null;
-// Seed the header once on boot (helps the very first request)
-(() => {
-  const initial = getAuthToken();
-  if (initial) {
-    axios.defaults.headers.common['Authorization'] = `Bearer ${initial}`;
-    console.log('Quotes app: Configured axios with initial token');
-  } else {
-    delete axios.defaults.headers.common['Authorization'];
-  }
-})();
-
-// Keep Authorization in sync for EVERY request
-axios.interceptors.request.use((config) => {
-  const token = getAuthToken();
-  if (token) {
-    config.headers = config.headers || {};
-    config.headers['Authorization'] = `Bearer ${token}`;
-  } else if (config?.headers?.Authorization) {
-    delete config.headers.Authorization;
-  }
-  return config;
-});
-
-// Optional: central 401 handling (bubble up to shell, show login, etc.)
-axios.interceptors.response.use(
-  (res) => res,
-  (err) => {
-    if (err?.response?.status === 401) {
-      console.warn('Quotes app: 401 received – notifying shell');
-      window.dispatchEvent(new CustomEvent('quotes:unauthorized'));
-    }
-    return Promise.reject(err);
-  }
-);
-
-// Expose for debugging
-window.quotesAxios = axios;
 
 // =====================
 // Component starts here
