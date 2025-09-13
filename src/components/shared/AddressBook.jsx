@@ -19,6 +19,10 @@ const AddressBook = ({ isDarkMode, onSelect, type = 'all' }) => {
     setLoading(true);
     const result = await addressBookApi.getCompanies();
     if (result.success) {
+      // Debug line to check company structure
+      if (result.companies && result.companies.length > 0) {
+        console.log('Company structure:', result.companies[0]);
+      }
       setCompanies(result.companies || []);
     }
     setLoading(false);
@@ -76,23 +80,25 @@ const AddressBook = ({ isDarkMode, onSelect, type = 'all' }) => {
       if (next.length) setFormData({ ...formData, types: next });
     };
 
-   const handleSubmit = async (e) => {
-  e.preventDefault();
+    const handleSubmit = async (e) => {
+      e.preventDefault();
 
-  let result;
-  if (company?.id) {
-    result = await addressBookApi.updateCompany(company.id, { ...formData });
-  } else {
-    result = await addressBookApi.saveCompany({ ...formData });
-  }
-  
-  if (result.success) {
-    await loadCompanies();
-    onSave();
-  } else {
-    alert(result.error || 'Failed to save company');
-  }
-};
+      let result;
+      const companyId = company?._id || company?.id; // Support both formats
+      
+      if (companyId) {
+        result = await addressBookApi.updateCompany(companyId, { ...formData });
+      } else {
+        result = await addressBookApi.saveCompany({ ...formData });
+      }
+      
+      if (result.success) {
+        await loadCompanies();
+        onSave();
+      } else {
+        alert(result.error || 'Failed to save company');
+      }
+    };
 
     return (
       <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
@@ -364,6 +370,7 @@ const AddressBook = ({ isDarkMode, onSelect, type = 'all' }) => {
       {/* Company List */}
       <div className="space-y-3">
         {filteredCompanies.map((company) => {
+          const companyId = company._id || company.id; // Support both formats
           const typesArr =
             Array.isArray(company.types) && company.types.length
               ? company.types
@@ -373,7 +380,7 @@ const AddressBook = ({ isDarkMode, onSelect, type = 'all' }) => {
 
           return (
             <div
-              key={company.id}
+              key={companyId}  // Use the correct ID
               className={`p-4 rounded-lg border ${
                 isDarkMode
                   ? 'bg-gray-800 border-gray-700 hover:border-gray-600'
@@ -440,7 +447,7 @@ const AddressBook = ({ isDarkMode, onSelect, type = 'all' }) => {
                     <button
                       onClick={async () => {
                         if (window.confirm('Delete this company?')) {
-                          const result = await addressBookApi.deleteCompany(company.id);
+                          const result = await addressBookApi.deleteCompany(companyId); // Use companyId
                           if (result.success) {
                             await loadCompanies();
                           } else {
