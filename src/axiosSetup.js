@@ -1,61 +1,51 @@
-// src/axiosSetup.js
 import axios from 'axios';
 
-// 1) SINGLETON: reuse shell's configured axios if it exists
-if (window.shellAxios) {
-  export default window.shellAxios;
-} else {
-  // 2) BASE URL: make sure calls go to your API
-  const API_BASE_URL =
-    window.__API_BASE_URL__ ||
-    process.env.REACT_APP_API_BASE_URL ||
-    'https://api.gcc.conship.ai';
+// Base URL (your services should call paths like "/api/address-book/companies")
+axios.defaults.baseURL = 'https://api.gcc.conship.ai';
+axios.defaults.withCredentials = false;
 
-  axios.defaults.baseURL = API_BASE_URL;
+// Robust token getter
+const getToken = () => (
+  (window.shellAuth && (window.shellAuth.getToken?.() || window.shellAuth.token)) ||
+  localStorage.getItem('auth_token') ||
+  null
+);
 
-  // Optional, since you use Bearer tokens (not cookies):
-  axios.defaults.withCredentials = false;
+// Guard against duplicate registration
+if (!window.__QUOTES_AXIOS_INSTALLED__) {
+  axios.interceptors.request.use((config) => {
+    config.headers = config.headers || {};
+    if (!config.headers.Authorization) {
+      const t = getToken();
+      if (t) config.headers.Authorization = `Bearer ${t}`;
+    }
+    if (window.DEBUG_HTTP) {
+      const url = (config.baseURL || '') + (config.url || '');
+      console.log('HTTP ➜', config.method?.toUpperCase(), url, { headers: config.headers, data: config.data });
+    }
+    return config;
+  });
 
-  // Utility: robust token getter (handles both function and value)
-  const getToken = () => {
-    const sa = window.shellAuth || {};
-    const fromFn = typeof sa.getToken === 'function' ? sa.getToken() : null;
-    const fromVal = sa.token || null;
-    return fromFn || fromVal || localStorage.getItem('auth_token') || null;
-  };
+  axios.interceptors.response.use(
+    (res) => {
+      if (window.DEBUG_HTTP) {
+        const url = (res.config.baseURL || '') + (res.config.url || '');
+        console.log('HTTP ✓', res.status, res.config.method?.toUpperCase(), url, res.data);
+      }
+      return res;
+    },
+    (err) => {
+      const s = err?.response?.status;
+      const cfg = err?.config || {};
+      if (s === 401) console.warn('Quotes axios: 401 on', (cfg.baseURL || '') + (cfg.url || ''));
+      if (window.DEBUG_HTTP) console.log('HTTP ✗', s, cfg.method?.toUpperCase(), (cfg.baseURL || '') + (cfg.url || ''), err?.response?.data || err);
+      return Promise.reject(err);
+    }
+  );
 
-  // Prevent duplicate interceptor registration
-  if (!window.__AXIOS_INTERCEPTORS_INSTALLED__) {
-    // 3) REQUEST: always inject token if missing
-    axios.interceptors.request.use(
-      (config) => {
-        // Ensure headers object exists
-        config.headers = config.headers || {};
-        if (!config.headers.Authorization) {
-          const token = getToken();
-          if (token) config.headers.Authorization = `Bearer ${token}`;
-        }
+  window.__QUOTES_AXIOS_INSTALLED__ = true;
+}
 
-        // Debug (toggle in console: window.DEBUG_HTTP = true)
-        if (window.DEBUG_HTTP) {
-          const url = (config.baseURL || '') + (config.url || '');
-          console.groupCollapsed(`HTTP ➜ ${config.method?.toUpperCase()} ${url}`);
-          console.log('headers:', config.headers);
-          if (config.data) console.log('data:', config.data);
-          console.groupEnd();
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
-
-    // 4) RESPONSE: do NOT auto-logout on 401
-    axios.interceptors.response.use(
-      (response) => {
-        if (window.DEBUG_HTTP) {
-          const url = (response.config.baseURL || '') + (response.config.url || '');
-          console.groupCollapsed(`HTTP ✓ ${response.status} ${response.config.method?.toUpperCase()} ${url}`);
-          console.log('data:', response.data);
-          console.groupEnd();
-        }
-        return r
+// Expose for debugging and for other MFEs to reuse if needed
+window.quotesAxios = axios;
+export default axios;
