@@ -1,12 +1,15 @@
-// src/pages/Ground.jsx
+// src/pages/customers/Ground.jsx (SIMPLIFIED)
 import React, { useReducer } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { groundQuoteReducer, initialState } from '../reducers/groundQuoteReducer';
-import GroundServiceSelector from '../components/ground/GroundServiceSelector';
-import GroundQuoteForm from '../components/ground/GroundQuoteForm';
-import GroundQuoteResults from '../components/ground/GroundQuoteResults';
-import GroundBookingForm from '../components/ground/GroundBookingForm';
-import GroundBookingConfirmation from '../components/ground/GroundBookingConfirmation';
+import { groundQuoteReducer, initialState } from '../../reducers/groundQuoteReducer';
+import quoteApi from '../../services/quoteApi';
+
+// Use YOUR EXISTING component names!
+import ServiceTypeSelector from '../../components/ground/ServiceTypeSelector';
+import GroundFormBase from '../../components/ground/GroundFormBase';
+import GroundQuoteResults from '../../components/ground/QuoteResults';
+import FTLOptions from '../../components/ground/FTLOptions';
+import ExpeditedOptions from '../../components/ground/ExpeditedOptions';
 
 const Ground = ({ isDarkMode }) => {
   const [state, dispatch] = useReducer(groundQuoteReducer, initialState);
@@ -16,99 +19,88 @@ const Ground = ({ isDarkMode }) => {
     dispatch({ type: 'SELECT_SERVICE', payload: serviceType });
   };
 
-  const handleFormSubmit = async (formData) => {
+  const handleFormSubmit = async () => {
     dispatch({ type: 'SUBMIT_QUOTE' });
     
     try {
-      // API call to create quote
-      const response = await api.post('/ground-quotes/create', {
-        formData,
-        serviceType: state.serviceType
-      });
+      // Use your actual API
+      const result = await quoteApi.createGroundQuoteRequest(
+        state.formData,
+        state.serviceType
+      );
       
-      dispatch({ 
-        type: 'QUOTE_CREATED', 
-        payload: {
-          requestId: response.data.requestId,
-          requestNumber: response.data.requestNumber
+      if (result?.success) {
+        dispatch({ 
+          type: 'QUOTE_CREATED', 
+          payload: {
+            requestId: result.requestId,
+            requestNumber: result.requestNumber
+          }
+        });
+        
+        // Navigate for FTL/Expedited
+        if (state.serviceType !== 'ltl') {
+          navigate('/app/quotes/history');
         }
-      });
-      
-      // For FTL/Expedited, might redirect instead of showing results
-      if (state.serviceType !== 'ltl' && response.data.status === 'pending') {
-        navigate('/app/quotes/history');
       }
     } catch (error) {
-      dispatch({ 
-        type: 'SET_ERROR', 
-        payload: error.response?.data?.error || 'Failed to create quote'
-      });
+      dispatch({ type: 'SET_ERROR', payload: error.message });
     }
   };
 
-  const renderStep = () => {
-    switch (state.step) {
-      case 'service_selection':
-        return (
-          <GroundServiceSelector 
-            onSelect={handleServiceSelect}
-            isDarkMode={isDarkMode}
-          />
-        );
+  // Render based on step
+  switch (state.step) {
+    case 'service_selection':
+      return <ServiceTypeSelector onSelect={handleServiceSelect} isDarkMode={isDarkMode} />;
       
-      case 'form':
-        return (
-          <GroundQuoteForm
-            serviceType={state.serviceType}
-            formData={state.formData}
-            dispatch={dispatch}
-            onSubmit={handleFormSubmit}
-            loading={state.loading}
-            error={state.error}
-            isDarkMode={isDarkMode}
-          />
-        );
+    case 'form':
+      return (
+        <GroundFormBase
+          serviceType={state.serviceType}
+          formData={state.formData}
+          setFormData={(data) => dispatch({ type: 'UPDATE_FORM', payload: data })}
+          onSubmit={handleFormSubmit}
+          onCancel={() => dispatch({ type: 'RESET' })}
+          loading={state.loading}
+          error={state.error}
+          isDarkMode={isDarkMode}
+        >
+          {state.serviceType === 'ftl' && (
+            <FTLOptions 
+              formData={state.formData}
+              onChange={(field, value) => 
+                dispatch({ type: 'UPDATE_FORM', payload: { [field]: value } })
+              }
+              isDarkMode={isDarkMode}
+            />
+          )}
+          {state.serviceType === 'expedited' && (
+            <ExpeditedOptions
+              formData={state.formData}
+              onChange={(field, value) => 
+                dispatch({ type: 'UPDATE_FORM', payload: { [field]: value } })
+              }
+              isDarkMode={isDarkMode}
+            />
+          )}
+        </GroundFormBase>
+      );
       
-      case 'results':
-        return (
-          <GroundQuoteResults
-            requestId={state.quoteRequest.requestId}
-            serviceType={state.serviceType}
-            dispatch={dispatch}
-            isDarkMode={isDarkMode}
-          />
-        );
+    case 'results':
+      return (
+        <GroundQuoteResults
+          requestId={state.quoteRequest?.requestId}
+          requestNumber={state.quoteRequest?.requestNumber}
+          serviceType={state.serviceType}
+          formData={state.formData}
+          onBack={() => dispatch({ type: 'RESET' })}
+          isDarkMode={isDarkMode}
+        />
+      );
       
-      case 'booking':
-        return (
-          <GroundBookingForm
-            quote={state.selectedQuote}
-            dispatch={dispatch}
-            isDarkMode={isDarkMode}
-          />
-        );
-      
-      case 'confirmation':
-        return (
-          <GroundBookingConfirmation
-            booking={state.booking}
-            onCreateBOL={() => navigate(`/app/quotes/bol/${state.booking.id}`)}
-            isDarkMode={isDarkMode}
-          />
-        );
-      
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      <div className="max-w-4xl mx-auto p-6">
-        {renderStep()}
-      </div>
-    </div>
-  );
+    default:
+      return null;
+  }
 };
 
 export default Ground;
