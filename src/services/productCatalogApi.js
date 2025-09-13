@@ -1,6 +1,4 @@
-// ============================================
-// 6. productCatalogApi.js - FIXED TO USE CENTRALIZED API
-// ============================================
+// src/services/productCatalogApi.js
 import api from './api';
 
 class ProductCatalogAPI {
@@ -21,7 +19,24 @@ class ProductCatalogAPI {
 
   async saveProduct(productData) {
     try {
-      const { data } = await api.post('/products', productData);
+      // Map frontend fields to backend fields
+      // Backend expects productName, but frontend might send name
+      const mappedData = {
+        productName: productData.name || productData.productName,
+        description: productData.description,
+        weight: productData.weight,
+        length: productData.length,
+        width: productData.width,
+        height: productData.height,
+        freightClass: productData.freightClass,
+        nmfc: productData.nmfc,
+        hazmat: productData.hazmat || false,
+        stackable: productData.stackable !== undefined ? productData.stackable : true,
+        notes: productData.notes,
+        // Include any other fields your backend expects
+      };
+
+      const { data } = await api.post('/products', mappedData);
       
       if (!data.success) {
         throw new Error(data?.error || 'Failed to save product');
@@ -36,7 +51,22 @@ class ProductCatalogAPI {
 
   async updateProduct(productId, productData) {
     try {
-      const { data } = await api.put(`/products/${productId}`, productData);
+      // Map frontend fields to backend fields for updates too
+      const mappedData = {
+        productName: productData.name || productData.productName,
+        description: productData.description,
+        weight: productData.weight,
+        length: productData.length,
+        width: productData.width,
+        height: productData.height,
+        freightClass: productData.freightClass,
+        nmfc: productData.nmfc,
+        hazmat: productData.hazmat || false,
+        stackable: productData.stackable !== undefined ? productData.stackable : true,
+        notes: productData.notes,
+      };
+
+      const { data } = await api.put(`/products/${productId}`, mappedData);
       
       if (!data.success) {
         throw new Error(data?.error || 'Failed to update product');
