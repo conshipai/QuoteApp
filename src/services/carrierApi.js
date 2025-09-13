@@ -1,14 +1,13 @@
 // ============================================
-// 4. carrierApi.js - NOW USES DATABASE
+// 3. carrierApi.js - FIXED TO USE CENTRALIZED API
 // ============================================
-import axios from 'axios';
-import API_BASE from '../config/api';
+import api from './api';
 
 class CarrierAPI {
   async getCarriers(serviceType = null) {
     try {
       const params = serviceType ? { serviceType } : {};
-      const { data } = await axios.get(`${API_BASE}/carriers`, { params });
+      const { data } = await api.get('/carriers', { params });
       
       if (!data.success) {
         throw new Error(data?.error || 'Failed to fetch carriers');
@@ -23,7 +22,7 @@ class CarrierAPI {
 
   async saveCarrier(carrierData) {
     try {
-      const { data } = await axios.post(`${API_BASE}/carriers`, carrierData);
+      const { data } = await api.post('/carriers', carrierData);
       
       if (!data.success) {
         throw new Error(data?.error || 'Failed to save carrier');
@@ -38,7 +37,7 @@ class CarrierAPI {
 
   async updateCarrier(carrierId, carrierData) {
     try {
-      const { data } = await axios.put(`${API_BASE}/carriers/${carrierId}`, carrierData);
+      const { data } = await api.put(`/carriers/${carrierId}`, carrierData);
       
       if (!data.success) {
         throw new Error(data?.error || 'Failed to update carrier');
@@ -53,7 +52,7 @@ class CarrierAPI {
 
   async deleteCarrier(carrierId) {
     try {
-      const { data } = await axios.delete(`${API_BASE}/carriers/${carrierId}`);
+      const { data } = await api.delete(`/carriers/${carrierId}`);
       
       if (!data.success) {
         throw new Error(data?.error || 'Failed to delete carrier');
