@@ -4,7 +4,7 @@ import api from './api';
 class AddressBookApi {
   async getCompanies() {
     try {
-      const response = await axios.get('/api/address-book/companies');
+      const response = await api.get('/address-book/companies');
       if (response.data.success) {
         return response.data.companies;
       }
