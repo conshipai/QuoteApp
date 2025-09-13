@@ -32,7 +32,7 @@ class AddressBookApi {
         isDefault: companyData.isDefault || false
       };
 
-      const response = await axios.post('/api/address-book/companies', data);
+      const response = await api.post('/api/address-book/companies', data);
       return response.data.company;
     } catch (error) {
       console.error('Error saving company:', error);
@@ -56,7 +56,7 @@ class AddressBookApi {
         isDefault: companyData.isDefault || false
       };
 
-      const response = await axios.put(`/api/address-book/companies/${id}`, data);
+      const response = await api.put(`/api/address-book/companies/${id}`, data);
       return response.data.company;
     } catch (error) {
       console.error('Error updating company:', error);
@@ -66,7 +66,7 @@ class AddressBookApi {
 
   async deleteCompany(id) {
     try {
-      await axios.delete(`/api/address-book/companies/${id}`);
+      await api.delete(`/api/address-book/companies/${id}`);
       return true;
     } catch (error) {
       console.error('Error deleting company:', error);
