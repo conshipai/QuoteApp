@@ -1,39 +1,81 @@
-// QuotesModule.jsx - ADD REAL DASHBOARD
+// --- keep your existing imports ---
 import React, { Suspense, lazy } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import QuoteLayout from './layouts/QuoteLayout';
+import useUserRole from './hooks/useUserRole';
+import CarrierQuoteSubmission from './pages/CarrierQuoteSubmission';
+import CostsManagement from './pages/CostsManagement';
+import { useShellAuth } from './hooks/useShellAuth';
 
-// Try loading the real dashboard
+// Lazy load pages
 const QuoteDashboard = lazy(() => import('./pages/QuoteDashboard'));
+const AirImport = lazy(() => import('./pages/shared/AirImport'));
+const Ground = lazy(() => import('./pages/customers/Ground'));
+const BookingsManagement = lazy(() => import('./pages/BookingsManagement'));
+const QuoteHistory = lazy(() => import('./pages/QuoteHistory'));
+const AddressBookPage = lazy(() => import('./pages/AddressBookPage'));
+const ProductCatalogPage = lazy(() => import('./pages/ProductCatalogPage'));
+const GroundQuoteResults = lazy(() => import('./components/ground/QuoteResults'));
+const QuoteDebug = lazy(() => import('./components/debug/QuoteStatusDashboard'));
 
-// Keep simple layout for now
-const SimpleLayout = ({ children, userRole, isDarkMode }) => (
-  <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
-    <div className="flex">
-      <div className="w-64 bg-gray-100 p-4">
-        <h2>Simple Sidebar</h2>
-        <p>Role: {userRole}</p>
-      </div>
-      <div className="flex-1">
-        {children}
-      </div>
-    </div>
+
+// =====================
+// Component starts here
+// =====================
+
+// Simple placeholder
+const Placeholder = ({ title, isDarkMode }) => (
+  <div className={`p-6 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} min-h-screen`}>
+    <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{title}</h1>
+    <p className={`mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>This page is under construction</p>
   </div>
 );
 
 const QuotesModule = ({ shellContext, basename }) => {
-  const { user, isDarkMode = false } = shellContext || {};
-  const userRole = user?.role || 'guest';
+  // Ensures shell populates window.shellAuth ASAP
+  useShellAuth();
+
+  const { user, isDarkMode } = shellContext || {};
+  const userRole = useUserRole({ user });
+
+  if (!userRole) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Loading quotes module...</div>
+      </div>
+    );
+  }
 
   return (
-    <SimpleLayout userRole={userRole} isDarkMode={isDarkMode}>
-      <Suspense fallback={<div className="p-6">Loading dashboard...</div>}>
+    <QuoteLayout userRole={userRole} isDarkMode={isDarkMode}>
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center h-64">
+            <div className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Loading...</div>
+          </div>
+        }
+      >
         <Routes>
+          {/* All routes WITHOUT leading slashes - relative to basename */}
           <Route index element={<QuoteDashboard isDarkMode={isDarkMode} userRole={userRole} />} />
-          <Route path="ground" element={<div>Ground Page</div>} />
-          <Route path="*" element={<div>404 - Not Found</div>} />
+          <Route path="address-book" element={<AddressBookPage isDarkMode={isDarkMode} userRole={userRole} />} />
+          <Route path="product-catalog" element={<ProductCatalogPage isDarkMode={isDarkMode} userRole={userRole} />} />
+          <Route path="bookings" element={<BookingsManagement isDarkMode={isDarkMode} userRole={userRole} />} />
+          <Route path="history" element={<QuoteHistory isDarkMode={isDarkMode} userRole={userRole} />} />
+          <Route path="ground" element={<Ground isDarkMode={isDarkMode} userRole={userRole} />} />
+          <Route path="air-import" element={<AirImport isDarkMode={isDarkMode} userRole={userRole} />} />
+          <Route path="air-export" element={<Placeholder title="Air Export" isDarkMode={isDarkMode} />} />
+          <Route path="ocean-import" element={<Placeholder title="Ocean Import" isDarkMode={isDarkMode} />} />
+          <Route path="ocean-export" element={<Placeholder title="Ocean Export" isDarkMode={isDarkMode} />} />
+          <Route path="/carrier/quote/:token" element={<CarrierQuoteSubmission />} />
+          <Route path="project" element={<Placeholder title="Project Cargo" isDarkMode={isDarkMode} />} />
+          <Route path="costs" element={<CostsManagement isDarkMode={isDarkMode} userRole={userRole} />} />
+          <Route path="ground/results/:requestId" element={<GroundQuoteResults isDarkMode={isDarkMode} userRole={userRole} />} />
+          <Route path="*" element={<Navigate to="" replace />} />
+          <Route path="debug" element={<QuoteDebug isDarkMode={isDarkMode} userRole={userRole} />} />
         </Routes>
       </Suspense>
-    </SimpleLayout>
+    </QuoteLayout>
   );
 };
 
