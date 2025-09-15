@@ -1,19 +1,21 @@
 // src/services/api.js - DEBUG VERSION
 import axios from 'axios';
 
-// Debug function to inspect token
-const debugToken = (token) => {
-  if (token) {
-    console.log('Token details:', {
-      length: token.length,
-      startsWith: token.substring(0, 20),
-      includesBearer: token.includes('Bearer'),
-      isJWT: token.split('.').length === 3
+// ADD THIS DEBUG CODE AT THE TOP
+if (window.shellAxios) {
+  console.log('=== USING SHELL AXIOS ===');
+  
+  // Intercept shellAxios to see what it's sending
+  const originalRequest = window.shellAxios.request;
+  window.shellAxios.request = function(config) {
+    console.log('ShellAxios Request:', {
+      url: config.url,
+      headers: config.headers,
+      authHeader: config.headers?.Authorization ? config.headers.Authorization.substring(0, 50) + '...' : 'NO AUTH HEADER'
     });
-  }
-  return token;
-};
-
+    return originalRequest.call(this, config);
+  };
+}
 // Create axios instance
 const api = window.shellAxios || axios.create({
   baseURL: 'https://api.gcc.conship.ai/api',
