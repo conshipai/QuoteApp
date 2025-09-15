@@ -1,47 +1,64 @@
 // src/reducers/groundQuoteReducer.js
 export const initialState = {
-  step: 'service_selection', // 'service_selection' | 'form' | 'results' | 'booking' | 'bol'
-  serviceType: null, // 'ltl' | 'ftl' | 'expedited'
+  step: 'service_selection', // 'service_selection', 'form', 'results'
+  serviceType: null, // 'ltl', 'ftl', 'expedited'
   formData: {
+    // Origin
+    originZip: '',
     originCity: '',
     originState: '',
-    originZip: '',
+    // Destination
+    destZip: '',
     destCity: '',
     destState: '',
-    destZip: '',
-    pickupDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-    commodities: [{
-     unitType: 'Pallets',
-      quantity: '2',
-      weight: '1000',
-      length: '48',
-      width: '40',
-      height: '48',
-      description: 'General Freight',
-      calculatedClass: '',
-      overrideClass: '',
-      useOverride: false,
-      density: null,
-      cubicFeet: null
-    }],
-    //accessorials: 
-      liftgatePickup: false,
-      liftgateDelivery: false,
-      residentialDelivery: false,
-    // FTL specific
-    loadType: 'legal',
+    pickupDate: new Date(Date.now() + 86400000).toISOString().split('T')[0], // Fixed: removed double colon
+    // Commodities
+    commodities: [
+      {
+        unitType: 'Pallets',
+        quantity: '1',
+        weight: '',
+        length: '',
+        width: '',
+        height: '',
+        description: '',
+        nmfc: '',
+        calculatedClass: '',
+        overrideClass: '',
+        useOverride: false,
+        density: null,
+        cubicFeet: null,
+        hazmat: false,
+        hazmatDetails: null,
+        notes: '',
+        useMetric: false // Add metric support
+      }
+    ],
+    // Accessorials
+    liftgatePickup: false,
+    liftgateDelivery: false,
+    residentialDelivery: false,
+    insideDelivery: false,
+    limitedAccessPickup: false,
+    limitedAccessDelivery: false,
+    // Service-specific fields
     equipmentType: '',
-    // Expedited specific
-    vehicleType: '',
-    teamDrivers: false
+    truckType: '',
+    serviceMode: 'dedicated',
+    asap: false,
+    pickup24Hour: false,
+    delivery24Hour: false,
+    pickupHours: '',
+    deliveryHours: '',
+    loadType: 'custom',
+    legalLoadWeight: '',
+    legalLoadPallets: '',
+    dropTrailer: false,
+    teamService: false
   },
-  quoteRequest: null, // { requestId, requestNumber }
-  quotes: [],
-  selectedQuote: null,
-  booking: null,
   loading: false,
   error: null,
-  pollingStatus: null
+  quoteRequest: null // { requestId, requestNumber }
 };
 
 export const groundQuoteReducer = (state, action) => {
@@ -52,63 +69,38 @@ export const groundQuoteReducer = (state, action) => {
         serviceType: action.payload,
         step: 'form'
       };
-    
+      
     case 'UPDATE_FORM':
       return {
         ...state,
-        formData: {
-          ...state.formData,
-          ...action.payload
-        }
+        formData: action.payload
       };
-    
+      
     case 'SUBMIT_QUOTE':
       return {
         ...state,
         loading: true,
         error: null
       };
-    
+      
     case 'QUOTE_CREATED':
       return {
         ...state,
-        quoteRequest: action.payload,
-        step: 'results',
-        loading: false
-      };
-    
-    case 'QUOTES_RECEIVED':
-      return {
-        ...state,
-        quotes: action.payload,
         loading: false,
-        pollingStatus: 'complete'
+        quoteRequest: action.payload,
+        step: state.serviceType === 'ltl' ? 'results' : state.step
       };
-    
-    case 'SELECT_QUOTE':
-      return {
-        ...state,
-        selectedQuote: action.payload,
-        step: 'booking'
-      };
-    
-    case 'BOOKING_CREATED':
-      return {
-        ...state,
-        booking: action.payload,
-        step: 'confirmation'
-      };
-    
-    case 'RESET':
-      return initialState;
-    
+      
     case 'SET_ERROR':
       return {
         ...state,
-        error: action.payload,
-        loading: false
+        loading: false,
+        error: action.payload
       };
-    
+      
+    case 'RESET':
+      return initialState;
+      
     default:
       return state;
   }
