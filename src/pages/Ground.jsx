@@ -2,7 +2,7 @@
 import React, { useReducer } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { groundQuoteReducer, initialState } from '../reducers/groundQuoteReducer';
-import quoteApi from '../services/quoteApi';
+import { createGroundQuote } from '../services/quoteApi';
 import ServiceTypeSelector from '../components/ground/ServiceTypeSelector';
 import GroundFormBase from '../components/ground/GroundFormBase';
 import GroundQuoteResults from '../components/ground/QuoteResults';
@@ -22,7 +22,7 @@ const Ground = ({ isDarkMode }) => {
     
     try {
           // Use your actual API
-          const result = await quoteApi.createGroundQuote(
+          const result = await createGroundQuote(
           state.formData,     // <- Changed from completeFormData
           state.serviceType   // <- Changed from serviceType
         );
