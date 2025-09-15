@@ -23,23 +23,23 @@ const Ground = ({ isDarkMode }) => {
     dispatch({ type: 'SUBMIT_QUOTE' });
     
     try {
-      // Use your actual API
-      const result = await quoteApi.createGroundQuote(
-        completeFormData,
-        serviceType
-      );
-      
-      if (result?.success) {
-        dispatch({ 
-          type: 'QUOTE_CREATED', 
-          payload: {
-            requestId: result.requestId,
-            requestNumber: result.requestNumber
-          }
-        });
+          // Use your actual API
+          const result = await quoteApi.createGroundQuote(
+          state.formData,     // <- Changed from completeFormData
+          state.serviceType   // <- Changed from serviceType
+        );
+        
+        if (result?.success) {
+          dispatch({ 
+            type: 'QUOTE_CREATED', 
+            payload: {
+              requestId: result.requestId,
+              requestNumber: result.requestNumber
+            }
+          });
         
         // Navigate for FTL/Expedited
-        if (state.serviceType !== 'ltl') {
+          if (state.serviceType !== 'ltl') {
           navigate('/app/quotes/history');
         }
       }
