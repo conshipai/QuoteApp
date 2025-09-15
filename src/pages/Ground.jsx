@@ -136,3 +136,67 @@ const Ground = ({ isDarkMode }) => {
 };
 
 export default Ground;
+
+  // Render based on step
+  switch (state.step) {
+    case 'service_selection':
+      return <ServiceTypeSelector onSelect={handleServiceSelect} isDarkMode={isDarkMode} />;
+      
+    case 'form':
+      return (
+        <GroundFormBase
+          serviceType={state.serviceType}
+          formData={state.formData}
+          setFormData={(updater) => {
+            const newData = typeof updater === 'function' 
+              ? updater(state.formData) 
+              : updater;
+            dispatch({ type: 'UPDATE_FORM', payload: newData });
+          }}
+          onSubmit={handleFormSubmit}
+          onCancel={() => dispatch({ type: 'RESET' })}
+          loading={state.loading}
+          error={state.error}
+          isDarkMode={isDarkMode}
+        >
+          {state.serviceType === 'ftl' && (
+            <FTLOptions 
+              formData={state.formData}
+              onChange={(field, value) => {
+                const newFormData = { ...state.formData, [field]: value };
+                dispatch({ type: 'UPDATE_FORM', payload: newFormData });
+              }}
+              isDarkMode={isDarkMode}
+            />
+          )}
+          {state.serviceType === 'expedited' && (
+            <ExpeditedOptions
+              formData={state.formData}
+              onChange={(field, value) => {
+                const newFormData = { ...state.formData, [field]: value };
+                dispatch({ type: 'UPDATE_FORM', payload: newFormData });
+              }}
+              isDarkMode={isDarkMode}
+            />
+          )}
+        </GroundFormBase>
+      );
+      
+    case 'results':
+      return (
+        <GroundQuoteResults
+          requestId={state.quoteRequest?.requestId}
+          requestNumber={state.quoteRequest?.requestNumber}
+          serviceType={state.serviceType}
+          formData={state.formData}
+          onBack={() => dispatch({ type: 'RESET' })}
+          isDarkMode={isDarkMode}
+        />
+      );
+      
+    default:
+      return null;
+  }
+};
+
+export default Ground;
