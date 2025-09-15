@@ -9,7 +9,7 @@ export const initialState = {
     destCity: '',
     destState: '',
     destZip: '',
-    pickupDate: : new Date(Date.now() + 86400000).toISOString().split('T')[0],
+    pickupDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
     commodities: [{
      unitType: 'Pallets',
       quantity: '2',
