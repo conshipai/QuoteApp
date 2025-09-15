@@ -78,6 +78,16 @@ export const groundQuoteReducer = (state, action) => {
         formData: action.payload
       };
       
+    case 'UPDATE_FORM_FIELD':
+      // For single field updates
+      return {
+        ...state,
+        formData: {
+          ...state.formData,
+          [action.payload.field]: action.payload.value
+        }
+      };
+      
     case 'SUBMIT_QUOTE':
       return {
         ...state,
