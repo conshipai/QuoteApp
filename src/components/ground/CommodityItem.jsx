@@ -1,7 +1,7 @@
 // src/components/ground/CommodityItem.jsx
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, Package, Search, X, AlertTriangle } from 'lucide-react';
-import { UNIT_TYPES, FREIGHT_CLASSES } from './constants';
+import { AlertCircle, Package, Search, X, AlertTriangle, ToggleLeft, ToggleRight } from 'lucide-react';
+import { UNIT_TYPES, FREIGHT_CLASSES, calculateDensity } from './constants';
 import productCatalogApi from '../../services/productCatalogApi';
 
 const CommodityItem = ({ 
@@ -17,6 +17,7 @@ const CommodityItem = ({
   const [products, setProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [useMetric, setUseMetric] = useState(commodity.useMetric || false);
 
   // Load products when search is opened
   useEffect(() => {
@@ -24,6 +25,13 @@ const CommodityItem = ({
       loadProducts();
     }
   }, [showProductSearch]);
+
+  // Recalculate when units change or values change
+  useEffect(() => {
+    if (commodity.weight && commodity.length && commodity.width && commodity.height) {
+      recalculateDensity();
+    }
+  }, [commodity.weight, commodity.length, commodity.width, commodity.height, commodity.quantity, useMetric]);
 
   const loadProducts = async () => {
     setLoadingProducts(true);
@@ -38,8 +46,86 @@ const CommodityItem = ({
     setLoadingProducts(false);
   };
 
+  // Unit conversion helpers
+  const convertToImperial = (value, type) => {
+    if (!value || !useMetric) return value;
+    if (type === 'weight') {
+      return (parseFloat(value) * 2.20462).toFixed(2); // kg to lbs
+    } else if (type === 'dimension') {
+      return (parseFloat(value) / 2.54).toFixed(2); // cm to inches
+    }
+    return value;
+  };
+
+  const convertToMetric = (value, type) => {
+    if (!value || useMetric) return value;
+    if (type === 'weight') {
+      return (parseFloat(value) / 2.20462).toFixed(2); // lbs to kg
+    } else if (type === 'dimension') {
+      return (parseFloat(value) * 2.54).toFixed(2); // inches to cm
+    }
+    return value;
+  };
+
+  const toggleUnits = () => {
+    const newUseMetric = !useMetric;
+    setUseMetric(newUseMetric);
+    onChange(index, 'useMetric', newUseMetric);
+
+    // Convert existing values
+    if (newUseMetric) {
+      // Converting to metric
+      if (commodity.weight) onChange(index, 'weight', convertToMetric(commodity.weight, 'weight'));
+      if (commodity.length) onChange(index, 'length', convertToMetric(commodity.length, 'dimension'));
+      if (commodity.width) onChange(index, 'width', convertToMetric(commodity.width, 'dimension'));
+      if (commodity.height) onChange(index, 'height', convertToMetric(commodity.height, 'dimension'));
+    } else {
+      // Converting to imperial
+      if (commodity.weight) onChange(index, 'weight', convertToImperial(commodity.weight, 'weight'));
+      if (commodity.length) onChange(index, 'length', convertToImperial(commodity.length, 'dimension'));
+      if (commodity.width) onChange(index, 'width', convertToImperial(commodity.width, 'dimension'));
+      if (commodity.height) onChange(index, 'height', convertToImperial(commodity.height, 'dimension'));
+    }
+  };
+
+  const recalculateDensity = () => {
+    // Always calculate in imperial units for freight class
+    let weightLbs = parseFloat(commodity.weight) || 0;
+    let lengthIn = parseFloat(commodity.length) || 0;
+    let widthIn = parseFloat(commodity.width) || 0;
+    let heightIn = parseFloat(commodity.height) || 0;
+
+    // Convert to imperial if currently in metric
+    if (useMetric) {
+      weightLbs = weightLbs * 2.20462; // kg to lbs
+      lengthIn = lengthIn / 2.54; // cm to inches
+      widthIn = widthIn / 2.54;
+      heightIn = heightIn / 2.54;
+    }
+
+    const imperialCommodity = {
+      weight: weightLbs,
+      length: lengthIn,
+      width: widthIn,
+      height: heightIn,
+      quantity: commodity.quantity || 1
+    };
+
+    const densityData = calculateDensity(imperialCommodity);
+    
+    // Update the commodity with calculated values
+    onChange(index, 'density', densityData.density);
+    onChange(index, 'cubicFeet', densityData.cubicFeet);
+    onChange(index, 'calculatedClass', densityData.calculatedClass);
+  };
+
   const handleChange = (field, value) => {
     onChange(index, field, value);
+    
+    // Trigger density recalculation for dimension/weight changes
+    if (['weight', 'length', 'width', 'height', 'quantity'].includes(field)) {
+      setTimeout(() => recalculateDensity(), 100);
+    }
   };
 
   const handleProductSelect = (product) => {
@@ -77,6 +163,9 @@ const CommodityItem = ({
     
     setShowProductSearch(false);
     setSearchTerm('');
+    
+    // Recalculate after setting values
+    setTimeout(() => recalculateDensity(), 100);
   };
 
   const filteredProducts = products.filter(p => 
@@ -94,7 +183,22 @@ const CommodityItem = ({
           <h3 className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             Item {index + 1}
           </h3>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            {/* Unit Toggle */}
+            <button
+              type="button"
+              onClick={toggleUnits}
+              className={`px-3 py-1 text-sm rounded flex items-center gap-2 ${
+                isDarkMode 
+                  ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+              title={useMetric ? 'Switch to Imperial (lbs/inches)' : 'Switch to Metric (kg/cm)'}
+            >
+              {useMetric ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
+              {useMetric ? 'Metric' : 'Imperial'}
+            </button>
+            
             <button
               type="button"
               onClick={() => setShowProductSearch(true)}
@@ -158,10 +262,11 @@ const CommodityItem = ({
           
           <div>
             <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              Total Weight (lbs) *
+              Total Weight ({useMetric ? 'kg' : 'lbs'}) *
             </label>
             <input
               type="number"
+              step="0.01"
               value={commodity.weight}
               onChange={(e) => handleChange('weight', e.target.value)}
               className={`w-full px-2 py-1.5 rounded border text-sm ${
@@ -169,7 +274,7 @@ const CommodityItem = ({
                   ? 'bg-gray-700 border-gray-600 text-white' 
                   : 'bg-white border-gray-300 text-gray-900'
               }`}
-              placeholder="Total weight"
+              placeholder={`Total weight in ${useMetric ? 'kg' : 'lbs'}`}
             />
           </div>
         </div>
@@ -178,10 +283,11 @@ const CommodityItem = ({
         <div className="grid grid-cols-3 gap-3 mb-3">
           <div>
             <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              Length (inches) *
+              Length ({useMetric ? 'cm' : 'inches'}) *
             </label>
             <input
               type="number"
+              step="0.01"
               value={commodity.length}
               onChange={(e) => handleChange('length', e.target.value)}
               className={`w-full px-2 py-1.5 rounded border text-sm ${
@@ -189,16 +295,17 @@ const CommodityItem = ({
                   ? 'bg-gray-700 border-gray-600 text-white' 
                   : 'bg-white border-gray-300 text-gray-900'
               }`}
-              placeholder="48"
+              placeholder={useMetric ? '122' : '48'}
             />
           </div>
           
           <div>
             <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              Width (inches) *
+              Width ({useMetric ? 'cm' : 'inches'}) *
             </label>
             <input
               type="number"
+              step="0.01"
               value={commodity.width}
               onChange={(e) => handleChange('width', e.target.value)}
               className={`w-full px-2 py-1.5 rounded border text-sm ${
@@ -206,16 +313,17 @@ const CommodityItem = ({
                   ? 'bg-gray-700 border-gray-600 text-white' 
                   : 'bg-white border-gray-300 text-gray-900'
               }`}
-              placeholder="40"
+              placeholder={useMetric ? '102' : '40'}
             />
           </div>
           
           <div>
             <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              Height (inches) *
+              Height ({useMetric ? 'cm' : 'inches'}) *
             </label>
             <input
               type="number"
+              step="0.01"
               value={commodity.height}
               onChange={(e) => handleChange('height', e.target.value)}
               className={`w-full px-2 py-1.5 rounded border text-sm ${
@@ -223,7 +331,7 @@ const CommodityItem = ({
                   ? 'bg-gray-700 border-gray-600 text-white' 
                   : 'bg-white border-gray-300 text-gray-900'
               }`}
-              placeholder="48"
+              placeholder={useMetric ? '122' : '48'}
             />
           </div>
         </div>
@@ -285,12 +393,16 @@ const CommodityItem = ({
                   ))}
                 </select>
               ) : (
-                <div className={`flex-1 px-2 py-1.5 rounded border text-sm ${
-                  isDarkMode 
-                    ? 'bg-gray-800 border-gray-700 text-gray-300' 
-                    : 'bg-gray-100 border-gray-300 text-gray-700'
+                <div className={`flex-1 px-2 py-1.5 rounded border text-sm font-medium ${
+                  commodity.calculatedClass
+                    ? isDarkMode 
+                      ? 'bg-green-900/20 border-green-700 text-green-400' 
+                      : 'bg-green-50 border-green-300 text-green-700'
+                    : isDarkMode 
+                      ? 'bg-gray-800 border-gray-700 text-gray-300' 
+                      : 'bg-gray-100 border-gray-300 text-gray-700'
                 }`}>
-                  {commodity.calculatedClass || 'Enter dims to calculate'}
+                  {commodity.calculatedClass || 'Enter dims'}
                 </div>
               )}
               <button
@@ -415,18 +527,18 @@ const CommodityItem = ({
 
         {/* Density Info */}
         {commodity.density && (
-          <div className={`text-xs p-2 rounded ${
+          <div className={`text-xs p-2 rounded mt-3 ${
             isDarkMode ? 'bg-gray-900' : 'bg-blue-50'
           }`}>
             <div className="flex gap-4">
               <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>
-                Density: <strong>{commodity.density} lbs/ft³</strong>
+                Density: <strong className="text-blue-500">{commodity.density} lbs/ft³</strong>
               </span>
               <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>
                 Cubic Feet: <strong>{commodity.cubicFeet}</strong>
               </span>
               <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>
-                Calculated Class: <strong>{commodity.calculatedClass}</strong>
+                Calculated Class: <strong className="text-green-600">{commodity.calculatedClass}</strong>
               </span>
             </div>
           </div>
