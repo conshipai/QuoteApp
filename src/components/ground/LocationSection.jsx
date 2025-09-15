@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapPin } from 'lucide-react';
 
 const LocationSection = ({ 
@@ -10,9 +10,32 @@ const LocationSection = ({
   onCityChange = () => {},
   onStateChange = () => {},
   isDarkMode,
-  loading = false,
+  loading: externalLoading = false,
   onSetLoading,
 }) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [localZip, setLocalZip] = useState(zip || ''); // Local state for immediate updates
+  
+  // Debug: Log props on mount and updates
+  useEffect(() => {
+    console.log(`LocationSection ${type} mounted/updated:`, {
+      zip,
+      city,
+      state,
+      localZip,
+      hasCallbacks: {
+        onZipChange: typeof onZipChange === 'function',
+        onCityChange: typeof onCityChange === 'function',
+        onStateChange: typeof onStateChange === 'function'
+      }
+    });
+  }, [type, zip, city, state, localZip]);
+
+  // Sync external zip changes to local state
+  useEffect(() => {
+    setLocalZip(zip || '');
+  }, [zip]);
+  
   const title = type === 'origin' ? 'Origin' : 'Destination';
   const placeholders = {
     zip: type === 'origin' ? '29201' : '23838',
@@ -21,9 +44,16 @@ const LocationSection = ({
   };
 
   const fetchZipData = async (zipCode) => {
-    if (zipCode.length !== 5 || !/^\d{5}$/.test(zipCode)) return;
+    if (!zipCode || zipCode.length !== 5 || !/^\d{5}$/.test(zipCode)) return;
 
-    if (typeof onSetLoading === 'function') onSetLoading(true);
+    const setLoadingState = (loading) => {
+      setIsLoading(loading);
+      if (typeof onSetLoading === 'function') {
+        onSetLoading(loading);
+      }
+    };
+
+    setLoadingState(true);
     try {
       const response = await fetch(`https://api.zippopotam.us/us/${zipCode}`);
       if (response.ok) {
@@ -34,35 +64,61 @@ const LocationSection = ({
           onStateChange(place['state abbreviation'] || '');
         }
       } else if (response.status === 404) {
+        console.log(`Invalid ZIP code: ${zipCode}`);
         onCityChange('');
         onStateChange('');
-        console.log(`Invalid ZIP code: ${zipCode}`);
       }
     } catch (error) {
       console.error('Failed to fetch ZIP data:', error);
-    } finally {
-      if (typeof onSetLoading === 'function') onSetLoading(false);
-    }
-  };
-
-  const handleZipChange = (e) => {
-    const rawValue = e.target.value || '';
-    // Allow typing by not stripping characters immediately
-    // Only strip non-digits for the actual state value
-    const digitsOnly = rawValue.replace(/\D+/g, '').slice(0, 5);
-    
-    // Always update the state to allow typing
-    onZipChange(digitsOnly);
-
-    // Auto-fetch city/state when we have 5 digits
-    if (digitsOnly.length === 5) {
-      fetchZipData(digitsOnly);
-    } else {
-      // Clear city/state if ZIP is incomplete
       onCityChange('');
       onStateChange('');
+    } finally {
+      setLoadingState(false);
     }
   };
+
+  // Watch for ZIP changes from external sources (like address book)
+  useEffect(() => {
+    if (zip && zip.length === 5 && !city && !state) {
+      fetchZipData(zip);
+    }
+  }, [zip]);
+
+  const handleZipChange = (e) => {
+    const inputValue = e.target.value;
+    console.log('ZIP input value:', inputValue); // Debug log
+    
+    // Only allow digits
+    const digitsOnly = inputValue.replace(/\D/g, '').slice(0, 5);
+    console.log('ZIP digits only:', digitsOnly); // Debug log
+    
+    // Update local state immediately for responsive UI
+    setLocalZip(digitsOnly);
+    
+    // Update parent state
+    onZipChange(digitsOnly);
+
+    // Clear city/state when typing
+    if (digitsOnly.length < 5) {
+      onCityChange('');
+      onStateChange('');
+    } else if (digitsOnly.length === 5) {
+      // Fetch city/state when complete
+      fetchZipData(digitsOnly);
+    }
+  };
+
+  const handleCityChange = (e) => {
+    const newCity = e.target.value;
+    onCityChange(newCity);
+  };
+
+  const handleStateChange = (e) => {
+    const newState = e.target.value.toUpperCase().slice(0, 2);
+    onStateChange(newState);
+  };
+
+  const loading = externalLoading || isLoading;
 
   return (
     <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
@@ -76,7 +132,7 @@ const LocationSection = ({
       <div className="space-y-4">
         <div>
           <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-            ZIP Code *
+            ZIP Code * (Debug: localZip={localZip}, zip={zip})
           </label>
           <div className="relative">
             <input
@@ -85,8 +141,9 @@ const LocationSection = ({
               pattern="[0-9]*"
               autoComplete="postal-code"
               maxLength={5}
-              value={zip || ''}
+              value={localZip}
               onChange={handleZipChange}
+              onInput={(e) => console.log('ZIP onInput:', e.target.value)} // Additional debug
               className={`w-full px-3 py-2 rounded border ${
                 isDarkMode 
                   ? 'bg-gray-700 border-gray-600 text-white' 
@@ -110,14 +167,14 @@ const LocationSection = ({
             <input
               type="text"
               value={city || ''}
-              onChange={(e) => onCityChange(e.target.value)}
+              onChange={handleCityChange}
               className={`w-full px-3 py-2 rounded border ${
                 isDarkMode 
                   ? 'bg-gray-700 border-gray-600 text-white' 
                   : 'bg-white border-gray-300 text-gray-900'
-              } ${zip && zip.length === 5 && city ? 'bg-opacity-50' : ''}`}
+              } ${localZip && localZip.length === 5 && city ? 'bg-opacity-50' : ''}`}
               placeholder={placeholders.city}
-              readOnly={!!(zip && zip.length === 5 && city)}
+              readOnly={!!(localZip && localZip.length === 5 && city)}
             />
           </div>
 
@@ -129,14 +186,14 @@ const LocationSection = ({
               type="text"
               maxLength={2}
               value={state || ''}
-              onChange={(e) => onStateChange(e.target.value.toUpperCase())}
+              onChange={handleStateChange}
               className={`w-full px-3 py-2 rounded border ${
                 isDarkMode 
                   ? 'bg-gray-700 border-gray-600 text-white' 
                   : 'bg-white border-gray-300 text-gray-900'
-              } ${zip && zip.length === 5 && state ? 'bg-opacity-50' : ''}`}
+              } ${localZip && localZip.length === 5 && state ? 'bg-opacity-50' : ''}`}
               placeholder={placeholders.state}
-              readOnly={!!(zip && zip.length === 5 && state)}
+              readOnly={!!(localZip && localZip.length === 5 && state)}
             />
           </div>
         </div>
