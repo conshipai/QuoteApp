@@ -1,25 +1,18 @@
-import { useState, useEffect } from 'react';
-
-const useUserRole = ({ user }) => {
-  const [userRole, setUserRole] = useState(null);
+// src/hooks/useUserRole.js - FIXED VERSION
+export default function useUserRole() {
+  // Get user from multiple possible sources with fallbacks
+  const user = window.shellContext?.user || 
+               window.shellAuth?.user || 
+               JSON.parse(localStorage.getItem('user') || 'null');
   
-  useEffect(() => {
-    if (user?.role) {
-      // Map shell roles to quote module roles
-     if (user.role === 'partner_admin' || user.role === 'partner_user') {
-        setUserRole('partner');  // or 'customer' - we need to know which one the quotes app expects
-      } else if (user.role === 'system_admin' || user.role === 'conship_employee') {
-        setUserRole('admin');
-      } else {
-        setUserRole('customer');
-      }
-    } else {
-      // Default
-      setUserRole('customer');
-    }
-  }, [user]);
+  // Debug
+  if (!user) {
+    console.warn('useUserRole: No user found in context');
+    return 'guest'; // Return a default role
+  }
   
-  return userRole;
-};
-
-export default useUserRole;
+  console.log('useUserRole: User found:', user.email, 'Role:', user.role);
+  
+  // Return the user's role
+  return user.role || user.userRole || 'guest';
+}
