@@ -1,5 +1,5 @@
 // --- keep your existing imports ---
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';  // ADD useEffect
 import { Routes, Route, Navigate } from 'react-router-dom';
 import QuoteLayout from './layouts/QuoteLayout';
 import useUserRole from './hooks/useUserRole';
@@ -18,64 +18,84 @@ const ProductCatalogPage = lazy(() => import('./pages/ProductCatalogPage'));
 const GroundQuoteResults = lazy(() => import('./components/ground/QuoteResults'));
 const QuoteDebug = lazy(() => import('./components/debug/QuoteStatusDashboard'));
 
+// Your component function starts here
+const QuotesModule = () => {  // or whatever your component is named
+  const { isDarkMode } = useShellAuth();
+  const userRole = useUserRole();
 
-// =====================
-// Component starts here
-// =====================
-
-// Simple placeholder
-const Placeholder = ({ title, isDarkMode }) => (
-  <div className={`p-6 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} min-h-screen`}>
-    <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{title}</h1>
-    <p className={`mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>This page is under construction</p>
-  </div>
-);
-
-const QuotesModule = ({ shellContext, basename }) => {
-  // Ensures shell populates window.shellAuth ASAP
-  useShellAuth();
-
-  const { user, isDarkMode } = shellContext || {};
-  const userRole = useUserRole({ user });
-
-  if (!userRole) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Loading quotes module...</div>
-      </div>
-    );
-  }
-
-  return (
-    <QuoteLayout userRole={userRole} isDarkMode={isDarkMode}>
-      <Suspense
-        fallback={
-          <div className="flex items-center justify-center h-64">
-            <div className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Loading...</div>
-          </div>
+  // ADD THIS useEffect for debugging
+  useEffect(() => {
+    console.log('=== TOKEN DEBUG ===');
+    
+    if (window.shellContext?.token) {
+      console.log('Raw token from shell:', window.shellContext.token);
+      console.log('Token length:', window.shellContext.token.length);
+      console.log('Token first 50 chars:', window.shellContext.token.substring(0, 50));
+      console.log('Token includes Bearer?:', window.shellContext.token.includes('Bearer'));
+      console.log('Token parts (split by .):', window.shellContext.token.split('.').length);
+      
+      // Try to decode if it's a JWT
+      if (window.shellContext.token.split('.').length === 3) {
+        try {
+          const tokenWithoutBearer = window.shellContext.token.replace('Bearer ', '');
+          const payload = JSON.parse(atob(tokenWithoutBearer.split('.')[1]));
+          console.log('JWT payload:', payload);
+          console.log('Token expires:', new Date(payload.exp * 1000));
+        } catch (e) {
+          console.log('Could not decode as JWT:', e.message);
         }
-      >
-        <Routes>
-          {/* All routes WITHOUT leading slashes - relative to basename */}
-          <Route index element={<QuoteDashboard isDarkMode={isDarkMode} userRole={userRole} />} />
-          <Route path="address-book" element={<AddressBookPage isDarkMode={isDarkMode} userRole={userRole} />} />
-          <Route path="product-catalog" element={<ProductCatalogPage isDarkMode={isDarkMode} userRole={userRole} />} />
-          <Route path="bookings" element={<BookingsManagement isDarkMode={isDarkMode} userRole={userRole} />} />
-          <Route path="history" element={<QuoteHistory isDarkMode={isDarkMode} userRole={userRole} />} />
-          <Route path="ground" element={<Ground isDarkMode={isDarkMode} userRole={userRole} />} />
-          <Route path="air-import" element={<AirImport isDarkMode={isDarkMode} userRole={userRole} />} />
-          <Route path="air-export" element={<Placeholder title="Air Export" isDarkMode={isDarkMode} />} />
-          <Route path="ocean-import" element={<Placeholder title="Ocean Import" isDarkMode={isDarkMode} />} />
-          <Route path="ocean-export" element={<Placeholder title="Ocean Export" isDarkMode={isDarkMode} />} />
-          <Route path="/carrier/quote/:token" element={<CarrierQuoteSubmission />} />
-          <Route path="project" element={<Placeholder title="Project Cargo" isDarkMode={isDarkMode} />} />
-          <Route path="costs" element={<CostsManagement isDarkMode={isDarkMode} userRole={userRole} />} />
-          <Route path="ground/results/:requestId" element={<GroundQuoteResults isDarkMode={isDarkMode} userRole={userRole} />} />
-          <Route path="*" element={<Navigate to="" replace />} />
-          <Route path="debug" element={<QuoteDebug isDarkMode={isDarkMode} userRole={userRole} />} />
-        </Routes>
-      </Suspense>
-    </QuoteLayout>
+      }
+    }
+
+    // Also check localStorage
+    const storedToken = localStorage.getItem('auth_token');
+    if (storedToken) {
+      console.log('localStorage token first 50 chars:', storedToken.substring(0, 50));
+      console.log('localStorage token same as shell?:', storedToken === window.shellContext?.token);
+    }
+
+    // Shell API check
+    console.log('=== SHELL API CHECK ===');
+    console.log('window.shellAxios exists?', !!window.shellAxios);
+    console.log('window.shellApi exists?', !!window.shellApi);
+    console.log('window.shellAuth exists?', !!window.shellAuth);
+    console.log('window.shellContext exists?', !!window.shellContext);
+
+    // Test direct request
+    async function testDirectRequest() {
+      const token = window.shellContext?.token || localStorage.getItem('auth_token');
+      
+      console.log('=== DIRECT REQUEST TEST ===');
+      
+      // Try with Bearer prefix
+      try {
+        const response1 = await fetch('https://api.gcc.conship.ai/api/quotes/recent', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        console.log('With "Bearer token":', response1.status);
+        if (response1.status === 401) {
+          const error = await response1.json();
+          console.log('Error response:', error);
+        }
+      } catch (e) {
+        console.log('Request 1 failed:', e);
+      }
+    }
+
+    // Run test after a short delay
+    setTimeout(testDirectRequest, 1000);
+  }, []); // Empty dependency array means this runs once when component mounts
+
+  // Rest of your component code continues here...
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <Routes>
+        {/* Your routes... */}
+      </Routes>
+    </Suspense>
   );
 };
 
