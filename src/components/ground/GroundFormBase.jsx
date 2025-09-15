@@ -1,5 +1,5 @@
 // src/components/ground/GroundFormBase.jsx - FIXED VERSION
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Calendar, Building2, X, AlertCircle, Info } from 'lucide-react';
 import LocationSection from './LocationSection';
 import CommodityList from './CommodityList';
@@ -45,27 +45,79 @@ const GroundFormBase = ({
 
   const handleAddressSelect = (company, type) => {
     if (!company) return;
+    
+    const updates = {};
     if (type === 'origin') {
-      setFormData((prev) => ({
-        ...prev,
-        originZip: company.zip || '',
-        originCity: company.city || '',
-        originState: company.state || '',
-        originAddress: company.address || '',
-        originCompany: company.name || ''
-      }));
+      updates.originZip = company.zip || '';
+      updates.originCity = company.city || '';
+      updates.originState = company.state || '';
+      updates.originAddress = company.address || '';
+      updates.originCompany = company.name || '';
     } else {
-      setFormData((prev) => ({
-        ...prev,
-        destZip: company.zip || '',
-        destCity: company.city || '',
-        destState: company.state || '',
-        destAddress: company.address || '',
-        destCompany: company.name || ''
-      }));
+      updates.destZip = company.zip || '';
+      updates.destCity = company.city || '';
+      updates.destState = company.state || '';
+      updates.destAddress = company.address || '';
+      updates.destCompany = company.name || '';
     }
+    
+    // Update all fields at once
+    setFormData(prev => ({
+      ...prev,
+      ...updates
+    }));
+    
     setShowAddressBook(null);
   };
+
+  // Create stable callbacks for location updates
+  const handleOriginZipChange = useCallback((value) => {
+    console.log('handleOriginZipChange called with:', value);
+    setFormData(prev => ({
+      ...prev,
+      originZip: value
+    }));
+  }, [setFormData]);
+
+  const handleOriginCityChange = useCallback((value) => {
+    console.log('handleOriginCityChange called with:', value);
+    setFormData(prev => ({
+      ...prev,
+      originCity: value
+    }));
+  }, [setFormData]);
+
+  const handleOriginStateChange = useCallback((value) => {
+    console.log('handleOriginStateChange called with:', value);
+    setFormData(prev => ({
+      ...prev,
+      originState: value
+    }));
+  }, [setFormData]);
+
+  const handleDestZipChange = useCallback((value) => {
+    console.log('handleDestZipChange called with:', value);
+    setFormData(prev => ({
+      ...prev,
+      destZip: value
+    }));
+  }, [setFormData]);
+
+  const handleDestCityChange = useCallback((value) => {
+    console.log('handleDestCityChange called with:', value);
+    setFormData(prev => ({
+      ...prev,
+      destCity: value
+    }));
+  }, [setFormData]);
+
+  const handleDestStateChange = useCallback((value) => {
+    console.log('handleDestStateChange called with:', value);
+    setFormData(prev => ({
+      ...prev,
+      destState: value
+    }));
+  }, [setFormData]);
 
   const handleCommodityChange = (index, field, value) => {
     setFormData((prev) => {
@@ -129,7 +181,8 @@ const GroundFormBase = ({
     cubicFeet: null,
     hazmat: false,
     hazmatDetails: null,
-    notes: ''
+    notes: '',
+    useMetric: false
   };
 
   const addCommodity = () => {
@@ -164,7 +217,7 @@ const GroundFormBase = ({
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
-  // FIXED: Determine if commodity list should be shown
+  // Determine if commodity list should be shown
   const shouldShowCommodityList = () => {
     // LTL ALWAYS shows commodity list
     if (serviceType === 'ltl') {
@@ -283,9 +336,9 @@ const GroundFormBase = ({
               zip={formData.originZip}
               city={formData.originCity}
               state={formData.originState}
-              onZipChange={(v) => setFormData((p) => ({ ...p, originZip: v }))}
-              onCityChange={(v) => setFormData((p) => ({ ...p, originCity: v }))}
-              onStateChange={(v) => setFormData((p) => ({ ...p, originState: v }))}
+              onZipChange={handleOriginZipChange}
+              onCityChange={handleOriginCityChange}
+              onStateChange={handleOriginStateChange}
               isDarkMode={isDarkMode}
               loading={zipLoading.origin}
               onSetLoading={(loading) =>
@@ -315,9 +368,9 @@ const GroundFormBase = ({
               zip={formData.destZip}
               city={formData.destCity}
               state={formData.destState}
-              onZipChange={(v) => setFormData((p) => ({ ...p, destZip: v }))}
-              onCityChange={(v) => setFormData((p) => ({ ...p, destCity: v }))}
-              onStateChange={(v) => setFormData((p) => ({ ...p, destState: v }))}
+              onZipChange={handleDestZipChange}
+              onCityChange={handleDestCityChange}
+              onStateChange={handleDestStateChange}
               isDarkMode={isDarkMode}
               loading={zipLoading.dest}
               onSetLoading={(loading) =>
@@ -351,7 +404,7 @@ const GroundFormBase = ({
         {/* Service-Specific Options (passed as children) */}
         {children}
 
-        {/* FIXED: Commodity List - Clear conditional for LTL */}
+        {/* Commodity List - Clear conditional for LTL */}
         {shouldShowCommodityList() && (
           <CommodityList
             commodities={formData.commodities}
