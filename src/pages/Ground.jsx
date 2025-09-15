@@ -17,21 +17,21 @@ const Ground = ({ isDarkMode }) => {
     dispatch({ type: 'SELECT_SERVICE', payload: serviceType });
   };
 
-  const handleFormSubmit = async () => {
-    dispatch({ type: 'SUBMIT_QUOTE' });
-    
-    try {
-      // Check auth before making request
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        throw new Error('No authentication token found. Please log in.');
-      }
+      const handleFormSubmit = async () => {
+      dispatch({ type: 'SUBMIT_QUOTE' });
       
-      // Use the same method as the working file
-      const result = await quoteApi.createGroundQuoteRequest(
-        state.formData,
-        state.serviceType
-      );
+      try {
+        // This should work if shellAxios is being used
+        const token = window.shellAuth?.token || localStorage.getItem('auth_token');
+        if (!token) {
+          throw new Error('No authentication token found. Please log in.');
+        }
+        
+        // This will now work because quoteApi is properly exported
+        const result = await quoteApi.createGroundQuoteRequest(
+          state.formData,
+          state.serviceType
+        );
       
       if (result?.success) {
         dispatch({ 
