@@ -1,76 +1,148 @@
-Freight Forwarding - Ground Quote Fix Handoff
-Date: January 2025
-Issue: Switch to refactored Ground.jsx with reducer pattern
-Current Status: API works, but import/export mismatch causing errors
-🔴 The Error
-TypeError: Cannot read properties of undefined (reading 'createGroundQuoteRequest')
+import React from 'react';
+import { MapPin } from 'lucide-react';
 
-Cause: quoteApi is undefined because of import/export mismatch
-API Status: ✅ Working (tested with 200 response)
+const LocationSection = ({ 
+  type,
+  zip,
+  city,
+  state,
+  onZipChange = () => {},
+  onCityChange = () => {},
+  onStateChange = () => {},
+  isDarkMode,
+  loading = false,
+  onSetLoading,
+}) => {
+  const title = type === 'origin' ? 'Origin' : 'Destination';
+  const placeholders = {
+    zip: type === 'origin' ? '29201' : '23838',
+    city: type === 'origin' ? 'Columbia' : 'Chesterfield',
+    state: type === 'origin' ? 'SC' : 'VA'
+  };
 
-🛠️ Required Fixes (3 files only)
-1️⃣ Fix src/services/quoteApi.js
-Add this to the END of the file:
-javascript// Add default export (keep existing code above)
-const quoteApi = {
-  createGroundQuote,
-  createGroundQuoteRequest: createGroundQuote, // Alias for compatibility
-  getGroundQuoteResults: async (requestId) => {
-    const { data } = await axios.get(`/ground-quotes/results/${requestId}`);
-    return data;
-  }
+  const fetchZipData = async (zipCode) => {
+    if (zipCode.length !== 5 || !/^\d{5}$/.test(zipCode)) return;
+
+    if (typeof onSetLoading === 'function') onSetLoading(true);
+    try {
+      const response = await fetch(`https://api.zippopotam.us/us/${zipCode}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.places && data.places.length > 0) {
+          const place = data.places[0];
+          onCityChange(place['place name'] || '');
+          onStateChange(place['state abbreviation'] || '');
+        }
+      } else if (response.status === 404) {
+        onCityChange('');
+        onStateChange('');
+        console.log(`Invalid ZIP code: ${zipCode}`);
+      }
+    } catch (error) {
+      console.error('Failed to fetch ZIP data:', error);
+    } finally {
+      if (typeof onSetLoading === 'function') onSetLoading(false);
+    }
+  };
+
+  const handleZipChange = (e) => {
+    const rawValue = e.target.value || '';
+    // Allow typing by not stripping characters immediately
+    // Only strip non-digits for the actual state value
+    const digitsOnly = rawValue.replace(/\D+/g, '').slice(0, 5);
+    
+    // Always update the state to allow typing
+    onZipChange(digitsOnly);
+
+    // Auto-fetch city/state when we have 5 digits
+    if (digitsOnly.length === 5) {
+      fetchZipData(digitsOnly);
+    } else {
+      // Clear city/state if ZIP is incomplete
+      onCityChange('');
+      onStateChange('');
+    }
+  };
+
+  return (
+    <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
+      <div className="flex items-center mb-4">
+        <MapPin className={`w-5 h-5 mr-2 ${isDarkMode ? 'text-conship-orange' : 'text-conship-purple'}`} />
+        <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+          {title}
+        </h2>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            ZIP Code *
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              autoComplete="postal-code"
+              maxLength={5}
+              value={zip || ''}
+              onChange={handleZipChange}
+              className={`w-full px-3 py-2 rounded border ${
+                isDarkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white' 
+                  : 'bg-white border-gray-300 text-gray-900'
+              }`}
+              placeholder={placeholders.zip}
+            />
+            {loading && (
+              <div className="absolute right-2 top-2.5">
+                <div className="animate-spin h-4 w-4 border-2 border-gray-500 border-t-transparent rounded-full"></div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              City *
+            </label>
+            <input
+              type="text"
+              value={city || ''}
+              onChange={(e) => onCityChange(e.target.value)}
+              className={`w-full px-3 py-2 rounded border ${
+                isDarkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white' 
+                  : 'bg-white border-gray-300 text-gray-900'
+              } ${zip && zip.length === 5 && city ? 'bg-opacity-50' : ''}`}
+              placeholder={placeholders.city}
+              readOnly={!!(zip && zip.length === 5 && city)}
+            />
+          </div>
+
+          <div>
+            <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              State *
+            </label>
+            <input
+              type="text"
+              maxLength={2}
+              value={state || ''}
+              onChange={(e) => onStateChange(e.target.value.toUpperCase())}
+              className={`w-full px-3 py-2 rounded border ${
+                isDarkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white' 
+                  : 'bg-white border-gray-300 text-gray-900'
+              } ${zip && zip.length === 5 && state ? 'bg-opacity-50' : ''}`}
+              placeholder={placeholders.state}
+              readOnly={!!(zip && zip.length === 5 && state)}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-export default quoteApi;
-Also change line 2:
-javascript// From:
-import axios from 'axios';
-// To:
-const axios = window.shellAxios;  // Use authenticated axios from Shell
-2️⃣ Fix src/reducers/groundQuoteReducer.js
-Fix syntax error on line 12:
-javascript// From (double colon):
-pickupDate: : new Date(Date.now() + 86400000).toISOString().split('T')[0],
-// To:
-pickupDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-3️⃣ Switch to refactored version in src/QuotesModule.jsx
-Change line ~8:
-javascript// From:
-const Ground = lazy(() => import('./pages/customers/Ground'));
-// To:
-const Ground = lazy(() => import('./pages/Ground'));
-✅ Testing Steps
-
-Make the 3 changes above
-Navigate to /app/quotes/ground
-Select LTL service
-Submit form with default values
-Should see results without errors
-
-📝 Why This Works
-
-window.shellAxios already has authentication token
-Shell's baseURL is https://api.gcc.conship.ai/api
-The refactored Ground.jsx uses reducer pattern (cleaner)
-API endpoint /ground-quotes/create is confirmed working
-
-🚫 Do NOT
-
-Don't change axios baseURL
-Don't add /api prefix to routes (already in baseURL)
-Don't modify the working customers/Ground.jsx until this works
-
-🎯 Success Criteria
-
-No console errors about createGroundQuoteRequest
-Quote creates successfully
-Results display for LTL
-FTL/Expedited redirect to history
-
-
-Quick Test in Console:
-javascript// Verify setup after changes:
-import('/src/services/quoteApi.js').then(m => 
-  console.log('QuoteApi has:', Object.keys(m.default))
-);
-// Should show: ['createGroundQuote', 'createGroundQuoteRequest', 'getGroundQuoteResults']
+export default LocationSection;
