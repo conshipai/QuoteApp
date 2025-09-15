@@ -1,18 +1,17 @@
-// src/hooks/useUserRole.js - FIXED VERSION
-export default function useUserRole() {
-  // Get user from multiple possible sources with fallbacks
-  const user = window.shellContext?.user || 
-               window.shellAuth?.user || 
-               JSON.parse(localStorage.getItem('user') || 'null');
+// src/hooks/useUserRole.js - FIXED
+export default function useUserRole({ user } = {}) {
+  // User can come from prop or from window context
+  const actualUser = user || 
+                     window.shellContext?.user || 
+                     window.shellAuth?.user || 
+                     JSON.parse(localStorage.getItem('user') || 'null');
   
-  // Debug
-  if (!user) {
-    console.warn('useUserRole: No user found in context');
-    return 'guest'; // Return a default role
+  if (!actualUser) {
+    console.warn('useUserRole: No user found');
+    return null; // Return null instead of 'guest' to trigger loading state
   }
   
-  console.log('useUserRole: User found:', user.email, 'Role:', user.role);
+  console.log('useUserRole: User found:', actualUser.email, 'Role:', actualUser.role);
   
-  // Return the user's role
-  return user.role || user.userRole || 'guest';
+  return actualUser.role || actualUser.userRole || 'user';
 }
