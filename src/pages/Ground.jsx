@@ -1,8 +1,8 @@
-// src/pages/customers/Ground.jsx (SIMPLIFIED)
+// src/pages/Ground.jsx (FIXED)
 import React, { useReducer } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { groundQuoteReducer, initialState } from '../reducers/groundQuoteReducer';
-import { createGroundQuote } from '../services/quoteApi';
+import quoteApi from '../services/quoteApi'; // Import the full API object
 import ServiceTypeSelector from '../components/ground/ServiceTypeSelector';
 import GroundFormBase from '../components/ground/GroundFormBase';
 import GroundQuoteResults from '../components/ground/QuoteResults';
@@ -21,27 +21,54 @@ const Ground = ({ isDarkMode }) => {
     dispatch({ type: 'SUBMIT_QUOTE' });
     
     try {
-          // Use your actual API
-          const result = await createGroundQuote(
-          state.formData,     // <- Changed from completeFormData
-          state.serviceType   // <- Changed from serviceType
+      // Use the same API method as the working file
+      const result = await quoteApi.createGroundQuoteRequest(
+        state.formData,
+        state.serviceType
+      );
+      
+      if (result?.success) {
+        dispatch({ 
+          type: 'QUOTE_CREATED', 
+          payload: {
+            requestId: result.requestId,
+            requestNumber: result.requestNumber
+          }
+        });
+        
+        // Save to localStorage like the working version
+        localStorage.setItem(
+          `quote_formdata_${result.requestId}`,
+          JSON.stringify(state.formData)
         );
         
-        if (result?.success) {
-          dispatch({ 
-            type: 'QUOTE_CREATED', 
-            payload: {
-              requestId: result.requestId,
-              requestNumber: result.requestNumber
-            }
-          });
+        const completeQuoteData = {
+          requestId: result.requestId,
+          requestNumber: result.requestNumber,
+          serviceType: state.serviceType,
+          formData: state.formData,
+          status: 'pending',
+          createdAt: new Date().toISOString()
+        };
+        
+        localStorage.setItem(
+          `quote_complete_${result.requestId}`,
+          JSON.stringify(completeQuoteData)
+        );
         
         // Navigate for FTL/Expedited
-          if (state.serviceType !== 'ltl') {
+        if (state.serviceType !== 'ltl') {
+          alert(`✅ ${state.serviceType.toUpperCase()} Quote Request Sent!\n\n` +
+                `Request #${result.requestNumber}\n\n` +
+                `Carriers have been notified and have 30 minutes to respond.\n` +
+                `You'll be notified when quotes are ready.`);
           navigate('/app/quotes/history');
         }
+      } else {
+        throw new Error(result?.error || 'Unexpected response from server');
       }
     } catch (error) {
+      console.error('Quote submission error:', error);
       dispatch({ type: 'SET_ERROR', payload: error.message });
     }
   };
@@ -57,11 +84,11 @@ const Ground = ({ isDarkMode }) => {
           serviceType={state.serviceType}
           formData={state.formData}
           setFormData={(updater) => {
-  const newData = typeof updater === 'function' 
-    ? updater(state.formData) 
-    : updater;
-  dispatch({ type: 'UPDATE_FORM', payload: newData });
-}}
+            const newData = typeof updater === 'function' 
+              ? updater(state.formData) 
+              : updater;
+            dispatch({ type: 'UPDATE_FORM', payload: newData });
+          }}
           onSubmit={handleFormSubmit}
           onCancel={() => dispatch({ type: 'RESET' })}
           loading={state.loading}
@@ -71,18 +98,20 @@ const Ground = ({ isDarkMode }) => {
           {state.serviceType === 'ftl' && (
             <FTLOptions 
               formData={state.formData}
-              onChange={(field, value) => 
-                dispatch({ type: 'UPDATE_FORM', payload: { [field]: value } })
-              }
+              onChange={(field, value) => {
+                const newFormData = { ...state.formData, [field]: value };
+                dispatch({ type: 'UPDATE_FORM', payload: newFormData });
+              }}
               isDarkMode={isDarkMode}
             />
           )}
           {state.serviceType === 'expedited' && (
             <ExpeditedOptions
               formData={state.formData}
-              onChange={(field, value) => 
-                dispatch({ type: 'UPDATE_FORM', payload: { [field]: value } })
-              }
+              onChange={(field, value) => {
+                const newFormData = { ...state.formData, [field]: value };
+                dispatch({ type: 'UPDATE_FORM', payload: newFormData });
+              }}
               isDarkMode={isDarkMode}
             />
           )}
