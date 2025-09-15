@@ -1,5 +1,5 @@
-// src/components/ground/GroundFormBase.jsx - FIXED VERSION
-import React, { useState, useEffect, useCallback } from 'react';
+// src/components/ground/GroundFormBase.jsx - SIMPLIFIED VERSION
+import React, { useState, useEffect } from 'react';
 import { Calendar, Building2, X, AlertCircle, Info } from 'lucide-react';
 import LocationSection from './LocationSection';
 import CommodityList from './CommodityList';
@@ -69,55 +69,6 @@ const GroundFormBase = ({
     
     setShowAddressBook(null);
   };
-
-  // Create stable callbacks for location updates
-  const handleOriginZipChange = useCallback((value) => {
-    console.log('handleOriginZipChange called with:', value);
-    setFormData(prev => ({
-      ...prev,
-      originZip: value
-    }));
-  }, [setFormData]);
-
-  const handleOriginCityChange = useCallback((value) => {
-    console.log('handleOriginCityChange called with:', value);
-    setFormData(prev => ({
-      ...prev,
-      originCity: value
-    }));
-  }, [setFormData]);
-
-  const handleOriginStateChange = useCallback((value) => {
-    console.log('handleOriginStateChange called with:', value);
-    setFormData(prev => ({
-      ...prev,
-      originState: value
-    }));
-  }, [setFormData]);
-
-  const handleDestZipChange = useCallback((value) => {
-    console.log('handleDestZipChange called with:', value);
-    setFormData(prev => ({
-      ...prev,
-      destZip: value
-    }));
-  }, [setFormData]);
-
-  const handleDestCityChange = useCallback((value) => {
-    console.log('handleDestCityChange called with:', value);
-    setFormData(prev => ({
-      ...prev,
-      destCity: value
-    }));
-  }, [setFormData]);
-
-  const handleDestStateChange = useCallback((value) => {
-    console.log('handleDestStateChange called with:', value);
-    setFormData(prev => ({
-      ...prev,
-      destState: value
-    }));
-  }, [setFormData]);
 
   const handleCommodityChange = (index, field, value) => {
     setFormData((prev) => {
@@ -336,9 +287,9 @@ const GroundFormBase = ({
               zip={formData.originZip}
               city={formData.originCity}
               state={formData.originState}
-              onZipChange={handleOriginZipChange}
-              onCityChange={handleOriginCityChange}
-              onStateChange={handleOriginStateChange}
+              onZipChange={(value) => setFormData(prev => ({ ...prev, originZip: value }))}
+              onCityChange={(value) => setFormData(prev => ({ ...prev, originCity: value }))}
+              onStateChange={(value) => setFormData(prev => ({ ...prev, originState: value }))}
               isDarkMode={isDarkMode}
               loading={zipLoading.origin}
               onSetLoading={(loading) =>
@@ -368,9 +319,9 @@ const GroundFormBase = ({
               zip={formData.destZip}
               city={formData.destCity}
               state={formData.destState}
-              onZipChange={handleDestZipChange}
-              onCityChange={handleDestCityChange}
-              onStateChange={handleDestStateChange}
+              onZipChange={(value) => setFormData(prev => ({ ...prev, destZip: value }))}
+              onCityChange={(value) => setFormData(prev => ({ ...prev, destCity: value }))}
+              onStateChange={(value) => setFormData(prev => ({ ...prev, destState: value }))}
               isDarkMode={isDarkMode}
               loading={zipLoading.dest}
               onSetLoading={(loading) =>
