@@ -1,9 +1,9 @@
-// src/services/quoteApi.js - FIXED
-import api from './api';
+// src/services/quoteApi.js - Updated version (uses axios)
+import axios from 'axios';
 import { logQuoteFlow } from '../utils/debugLogger';
 
-// Main function
-const createGroundQuoteRequest = async (formData, serviceType) => {
+// Creates a ground quote request
+export const createGroundQuote = async (formData, serviceType) => {
   try {
     logQuoteFlow('REQUEST_CREATE', {
       serviceType,
@@ -12,11 +12,8 @@ const createGroundQuoteRequest = async (formData, serviceType) => {
       commodityCount: formData.commodities?.length
     });
 
-    // Debug: Check if auth is present
-    console.log('Auth token at request time:', localStorage.getItem('auth_token'));
-
-    // Use the centralized api instance
-    const { data } = await api.post('/ground-quotes/create', {
+    // Axios will attach Authorization via interceptor/defaults
+    const { data } = await axios.post('/api/ground-quotes/create', {
       formData,
       serviceType
     });
@@ -44,28 +41,9 @@ const createGroundQuoteRequest = async (formData, serviceType) => {
     return data;
   } catch (error) {
     logQuoteFlow('REQUEST_ERROR', { 
-      error: error?.response?.data?.message || error.message,
-      status: error?.response?.status
+      error: error?.response?.data?.message || error.message 
     });
-    
-    // Better error messages
-    if (error?.response?.status === 401) {
-      throw new Error('Authentication required. Please log in again.');
-    } else if (error?.response?.status === 403) {
-      throw new Error('You do not have permission to create quotes.');
-    }
-    
+    // Re-throw so callers can handle UI errors
     throw error;
   }
 };
-
-// Export with both names for compatibility
-export const createGroundQuote = createGroundQuoteRequest;
-
-// Export as default object (this is what the working file expects)
-const quoteApi = {
-  createGroundQuoteRequest,
-  createGroundQuote
-};
-
-export default quoteApi;
