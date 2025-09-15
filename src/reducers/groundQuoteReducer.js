@@ -12,6 +12,8 @@ export const initialState = {
     destCity: '',
     destState: '',
     pickupDate: new Date(Date.now() + 86400000).toISOString().split('T')[0], // Fixed: removed double colon
+    // Additional stops (required by API)
+    additionalStops: [],
     // Commodities
     commodities: [
       {
