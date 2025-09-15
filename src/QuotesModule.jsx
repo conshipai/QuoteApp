@@ -10,7 +10,7 @@ import { useShellAuth } from './hooks/useShellAuth';
 // Lazy load pages
 const QuoteDashboard = lazy(() => import('./pages/QuoteDashboard'));
 const AirImport = lazy(() => import('./pages/shared/AirImport'));
-const Ground = lazy(() => import('./pages/customers/Ground'));
+const Ground = lazy(() => import('./pages/Ground'));
 const BookingsManagement = lazy(() => import('./pages/BookingsManagement'));
 const QuoteHistory = lazy(() => import('./pages/QuoteHistory'));
 const AddressBookPage = lazy(() => import('./pages/AddressBookPage'));
