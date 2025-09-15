@@ -2,7 +2,7 @@
 import React, { useReducer } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { groundQuoteReducer, initialState } from '../reducers/groundQuoteReducer';
-import quoteApi from '../services/quoteApi'; // Import default object
+import quoteApi from '../services/quoteApi';
 import ServiceTypeSelector from '../components/ground/ServiceTypeSelector';
 import GroundFormBase from '../components/ground/GroundFormBase';
 import GroundQuoteResults from '../components/ground/QuoteResults';
@@ -17,21 +17,20 @@ const Ground = ({ isDarkMode }) => {
     dispatch({ type: 'SELECT_SERVICE', payload: serviceType });
   };
 
-      const handleFormSubmit = async () => {
-      dispatch({ type: 'SUBMIT_QUOTE' });
+  const handleFormSubmit = async () => {
+    dispatch({ type: 'SUBMIT_QUOTE' });
+    
+    try {
+      // This should work if shellAxios is being used
+      const token = window.shellAuth?.token || localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No authentication token found. Please log in.');
+      }
       
-      try {
-        // This should work if shellAxios is being used
-        const token = window.shellAuth?.token || localStorage.getItem('auth_token');
-        if (!token) {
-          throw new Error('No authentication token found. Please log in.');
-        }
-        
-        // This will now work because quoteApi is properly exported
-        const result = await quoteApi.createGroundQuoteRequest(
-          state.formData,
-          state.serviceType
-        );
+      const result = await quoteApi.createGroundQuoteRequest(
+        state.formData,
+        state.serviceType
+      );
       
       if (result?.success) {
         dispatch({ 
@@ -46,6 +45,8 @@ const Ground = ({ isDarkMode }) => {
         if (state.serviceType !== 'ltl') {
           navigate('/app/quotes/history');
         }
+      } else {
+        throw new Error(result?.error || 'Failed to create quote');
       }
     } catch (error) {
       console.error('Quote submission error:', error);
@@ -60,7 +61,18 @@ const Ground = ({ isDarkMode }) => {
     }
   };
 
-  // Rest of your component...
+  // Enhanced setFormData that handles both values and updater functions
+  const setFormData = (updaterOrValue) => {
+    if (typeof updaterOrValue === 'function') {
+      // If it's an updater function, call it with current state
+      const newData = updaterOrValue(state.formData);
+      dispatch({ type: 'UPDATE_FORM', payload: newData });
+    } else {
+      // If it's a direct value, use it
+      dispatch({ type: 'UPDATE_FORM', payload: updaterOrValue });
+    }
+  };
+
   switch (state.step) {
     case 'service_selection':
       return <ServiceTypeSelector onSelect={handleServiceSelect} isDarkMode={isDarkMode} />;
@@ -70,12 +82,7 @@ const Ground = ({ isDarkMode }) => {
         <GroundFormBase
           serviceType={state.serviceType}
           formData={state.formData}
-          setFormData={(updater) => {
-            const newData = typeof updater === 'function' 
-              ? updater(state.formData) 
-              : updater;
-            dispatch({ type: 'UPDATE_FORM', payload: newData });
-          }}
+          setFormData={setFormData} // Use the enhanced setFormData
           onSubmit={handleFormSubmit}
           onCancel={() => dispatch({ type: 'RESET' })}
           loading={state.loading}
