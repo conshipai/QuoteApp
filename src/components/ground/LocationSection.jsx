@@ -44,7 +44,11 @@ const LocationSection = ({
   };
 
   const fetchZipData = async (zipCode) => {
-    if (!zipCode || zipCode.length !== 5 || !/^\d{5}$/.test(zipCode)) return;
+    console.log('fetchZipData called with:', zipCode);
+    if (!zipCode || zipCode.length !== 5 || !/^\d{5}$/.test(zipCode)) {
+      console.log('Invalid ZIP for fetch:', zipCode);
+      return;
+    }
 
     const setLoadingState = (loading) => {
       setIsLoading(loading);
@@ -55,13 +59,22 @@ const LocationSection = ({
 
     setLoadingState(true);
     try {
+      console.log('Fetching from API for ZIP:', zipCode);
       const response = await fetch(`https://api.zippopotam.us/us/${zipCode}`);
+      console.log('API Response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('API Data received:', data);
+        
         if (data.places && data.places.length > 0) {
           const place = data.places[0];
-          onCityChange(place['place name'] || '');
-          onStateChange(place['state abbreviation'] || '');
+          const cityName = place['place name'] || '';
+          const stateName = place['state abbreviation'] || '';
+          
+          console.log('Setting city:', cityName, 'state:', stateName);
+          onCityChange(cityName);
+          onStateChange(stateName);
         }
       } else if (response.status === 404) {
         console.log(`Invalid ZIP code: ${zipCode}`);
@@ -91,12 +104,17 @@ const LocationSection = ({
     // Only allow digits
     const digitsOnly = inputValue.replace(/\D/g, '').slice(0, 5);
     console.log('ZIP digits only:', digitsOnly); // Debug log
+    console.log('Calling onZipChange with:', digitsOnly); // Debug parent call
     
     // Update local state immediately for responsive UI
     setLocalZip(digitsOnly);
     
-    // Update parent state
-    onZipChange(digitsOnly);
+    // Update parent state - ensure it's called
+    if (typeof onZipChange === 'function') {
+      onZipChange(digitsOnly);
+    } else {
+      console.error('onZipChange is not a function!');
+    }
 
     // Clear city/state when typing
     if (digitsOnly.length < 5) {
@@ -104,6 +122,7 @@ const LocationSection = ({
       onStateChange('');
     } else if (digitsOnly.length === 5) {
       // Fetch city/state when complete
+      console.log('Fetching data for ZIP:', digitsOnly);
       fetchZipData(digitsOnly);
     }
   };
@@ -132,7 +151,7 @@ const LocationSection = ({
       <div className="space-y-4">
         <div>
           <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-            ZIP Code * (Debug: localZip={localZip}, zip={zip})
+            ZIP Code *
           </label>
           <div className="relative">
             <input
