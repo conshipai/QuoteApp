@@ -25,8 +25,8 @@ const Ground = ({ isDarkMode }) => {
     try {
       // Use your actual API
       const result = await quoteApi.createGroundQuote(
-        state.formData,
-        state.serviceType
+        completeFormData,
+        serviceType
       );
       
       if (result?.success) {
