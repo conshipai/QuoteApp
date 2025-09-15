@@ -8,6 +8,7 @@ const createGroundQuote = async (formData, serviceType) => {
     // Log the request for debugging
     console.log('Creating ground quote:', { serviceType, formData });
     
+    // Ensure additionalStops exists in formData
     const requestData = {
       serviceType,
       originZip: formData.originZip,
@@ -18,7 +19,7 @@ const createGroundQuote = async (formData, serviceType) => {
       destState: formData.destState,
       pickupDate: formData.pickupDate,
       commodities: formData.commodities || [],
-      additionalStops: formData.additionalStops || [], // Add this field that API expects
+      additionalStops: formData.additionalStops || [], // Ensure this is always included
       
       // Include accessorials
       liftgatePickup: formData.liftgatePickup || false,
@@ -55,6 +56,7 @@ const createGroundQuote = async (formData, serviceType) => {
       })
     };
 
+    console.log('Sending request data to API:', requestData);
     const { data } = await axios.post('/ground-quotes/create', requestData);
     
     console.log('Quote created successfully:', data);
