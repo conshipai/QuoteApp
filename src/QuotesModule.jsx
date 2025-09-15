@@ -1,8 +1,11 @@
-// QuotesModule.jsx - TEST WITHOUT NAVLINK
-import React from 'react';
+// QuotesModule.jsx - ADD REAL DASHBOARD
+import React, { Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
 
-// Simplified QuoteLayout without NavLink for testing
+// Try loading the real dashboard
+const QuoteDashboard = lazy(() => import('./pages/QuoteDashboard'));
+
+// Keep simple layout for now
 const SimpleLayout = ({ children, userRole, isDarkMode }) => (
   <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
     <div className="flex">
@@ -21,20 +24,15 @@ const QuotesModule = ({ shellContext, basename }) => {
   const { user, isDarkMode = false } = shellContext || {};
   const userRole = user?.role || 'guest';
 
-  const TestDashboard = () => (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">Dashboard Works!</h1>
-    </div>
-  );
-
   return (
     <SimpleLayout userRole={userRole} isDarkMode={isDarkMode}>
-      <Routes>
-        <Route index element={<TestDashboard />} />
-        <Route path="ground" element={<div>Ground Page</div>} />
-        <Route path="history" element={<div>History Page</div>} />
-        <Route path="*" element={<div>404 - Not Found</div>} />
-      </Routes>
+      <Suspense fallback={<div className="p-6">Loading dashboard...</div>}>
+        <Routes>
+          <Route index element={<QuoteDashboard isDarkMode={isDarkMode} userRole={userRole} />} />
+          <Route path="ground" element={<div>Ground Page</div>} />
+          <Route path="*" element={<div>404 - Not Found</div>} />
+        </Routes>
+      </Suspense>
     </SimpleLayout>
   );
 };
