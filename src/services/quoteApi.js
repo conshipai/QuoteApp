@@ -18,6 +18,7 @@ const createGroundQuote = async (formData, serviceType) => {
       destState: formData.destState,
       pickupDate: formData.pickupDate,
       commodities: formData.commodities || [],
+      additionalStops: formData.additionalStops || [], // Add this field that API expects
       
       // Include accessorials
       liftgatePickup: formData.liftgatePickup || false,
