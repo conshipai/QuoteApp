@@ -2,62 +2,66 @@
 const API_URL = process.env.REACT_APP_API_URL || 'https://api.gcc.conship.ai';
 
 class CacheService {
-  // Save to cache (replaces localStorage.setItem)
-  async setItem(key, value, type = 'formdata') {
+  async setItem(key, value) {
     try {
-      // Determine type from key if not provided
+      // Determine type from key
+      let type = 'formdata';
       if (key.includes('formdata')) type = 'formdata';
       else if (key.includes('complete')) type = 'complete';
       else if (key.includes('ground_quotes')) type = 'ground_quotes';
       else if (key.includes('booking')) type = 'booking';
       
-      // Extract reference ID from key
       const referenceId = key.split('_').pop();
       
       const response = await fetch(`${API_URL}/api/cache/set`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
         },
         body: JSON.stringify({
-          key,
-          type,
+          key: key,
+          type: type,
           data: value,
-          referenceId
+          referenceId: referenceId
         })
       });
       
-      const result = await response.json();
-      return result;
+      if (!response.ok) throw new Error('Cache save failed');
+      return await response.json();
     } catch (error) {
-      console.error('Cache set error:', error);
-      // Fallback to localStorage
+      console.error('Cache set error, falling back to localStorage:', error);
       localStorage.setItem(key, JSON.stringify(value));
     }
   }
   
-  // Get from cache (replaces localStorage.getItem)
   async getItem(key) {
     try {
-      const response = await fetch(`${API_URL}/api/cache/get/${key}`);
+      const response = await fetch(`${API_URL}/api/cache/get/${key}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+        }
+      });
+      
+      if (!response.ok) throw new Error('Cache get failed');
       const result = await response.json();
       return result.data;
     } catch (error) {
-      console.error('Cache get error:', error);
-      // Fallback to localStorage
+      console.error('Cache get error, falling back to localStorage:', error);
       const item = localStorage.getItem(key);
       return item ? JSON.parse(item) : null;
     }
   }
   
-  // Remove from cache (replaces localStorage.removeItem)
   async removeItem(key) {
     try {
       await fetch(`${API_URL}/api/cache/remove/${key}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+        }
       });
-      // Also remove from localStorage
-      localStorage.removeItem(key);
+      localStorage.removeItem(key); // Also clear localStorage
     } catch (error) {
       console.error('Cache remove error:', error);
       localStorage.removeItem(key);
@@ -65,4 +69,5 @@ class CacheService {
   }
 }
 
-export default new CacheService();
+const cacheServiceInstance = new CacheService();
+export default cacheServiceInstance;
