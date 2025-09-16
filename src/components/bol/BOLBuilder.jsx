@@ -1,7 +1,10 @@
-// src/components/bol/BOLBuilder.jsx (or similar)
+// src/components/bol/BOLBuilder.jsx
 import React, { useState } from 'react';
 import { FileText, Download, Loader } from 'lucide-react';
 import bolApi from '../../services/bolApi';
+
+// Use the same API URL pattern as your other services
+const API_URL = 'https://api.gcc.conship.ai';
 
 const BOLBuilder = ({ booking, isDarkMode }) => {
   const [loading, setLoading] = useState(false);
@@ -19,7 +22,7 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
       if (result.success) {
         setBolData(result);
         // Open PDF in new tab
-        const pdfUrl = `${process.env.REACT_APP_API_URL || 'https://api.gcc.conship.ai'}${result.fileUrl}`;
+        const pdfUrl = `${API_URL}${result.fileUrl}`;
         window.open(pdfUrl, '_blank');
       } else {
         setError(result.error || 'Failed to generate BOL');
@@ -34,7 +37,7 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
 
   const handleDownloadBOL = () => {
     if (bolData?.fileUrl) {
-      const pdfUrl = `${process.env.REACT_APP_API_URL || 'https://api.gcc.conship.ai'}${bolData.fileUrl}`;
+      const pdfUrl = `${API_URL}${bolData.fileUrl}`;
       window.open(pdfUrl, '_blank');
     }
   };
@@ -55,9 +58,11 @@ const BOLBuilder = ({ booking, isDarkMode }) => {
             <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
               Carrier: {booking.carrier || 'TBD'}
             </p>
-            <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              Route: {booking.shipmentData?.formData?.originCity} → {booking.shipmentData?.formData?.destCity}
-            </p>
+            {booking.shipmentData?.formData && (
+              <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                Route: {booking.shipmentData.formData.originCity} → {booking.shipmentData.formData.destCity}
+              </p>
+            )}
           </div>
 
           {/* Error Display */}
