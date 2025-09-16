@@ -303,78 +303,93 @@ const GroundQuoteResults = ({
     
     let isMounted = true;
 
-    const fetchResults = async () => {
-      try {
-        logQuoteFlow('QUOTE_FETCH_ATTEMPT', {
-          requestId,
-          currentStatus: status
-        });
-
-        const result = await quoteApi.getGroundQuoteResults(requestId);
-        console.log('=== QUOTE API RESPONSE ===');
-        console.log('Full result:', result);
-        console.log('Status:', result.status);
-        console.log('Status type:', typeof result.status);
-        console.log('Quotes array:', result.quotes);
-        console.log('Is quotes an array?', Array.isArray(result.quotes));
-        console.log('========================');
-        if (!isMounted) return;
-
-       if (result.success) {
-  // Log status change
-  if (result.status && result.status !== status) {
-    logQuoteFlow('QUOTE_STATUS_CHANGE', {
+const fetchResults = async () => {
+  try {
+    logQuoteFlow('QUOTE_FETCH_ATTEMPT', {
       requestId,
-      oldStatus: status,
-      newStatus: result.status,
-      quoteCount: result.quotes?.length || 0
+      currentStatus: status
     });
-  }
 
-  if (result.requestNumber) setRequestNumber(result.requestNumber);
-  if (result.serviceType) setServiceType(result.serviceType);
-  if (result.formData) setFormData(result.formData);
+    const result = await quoteApi.getGroundQuoteResults(requestId);
+    
+    if (!isMounted) return;
 
-  const backendStatus = (result.status || 'quote_processing').toUpperCase();
-  setStatus(backendStatus);
+    console.log('=== QUOTE API RESPONSE ===');
+    console.log('Full result:', result);
+    console.log('Status:', result.status);
+    console.log('Quotes array:', result.quotes);
+    console.log('========================');
 
-  if (result.status === 'quote_ready' && Array.isArray(result.quotes)) {
-    const mappedQuotes = result.quotes.map((q, index) => ({
-  quoteId: q.quoteId,
-  service_details: {
-    carrier: q.carrier,
-    service: q.service,
-    guaranteed: q.guaranteed
-  },
-  raw_cost: q.rawCost ?? q.price ?? 0,
-  final_price: q.price ?? 0,
-  markup_percentage: q.markup ?? 0,
-  transit_days: q.transitDays ?? q.transit_days ?? 0,
-  additional_fees: q.additionalFees || [],
-  fuel_surcharge: 0,
-  ranking: index === 0 ? 'recommended' : index === 1 ? 'fastest' : index === 2 ? 'cheapest' : null
-    }));
+    if (result.success) {
+      if (result.requestNumber) setRequestNumber(result.requestNumber);
+      if (result.serviceType) setServiceType(result.serviceType);
+      if (result.formData) setFormData(result.formData);
 
-    setQuotes(mappedQuotes);
-    setLoading(false);
-  } else if (result.status === 'quote_expired') {
-    setError(result.error || 'Unable to retrieve quotes.');
-    setLoading(false);
-  }
-}else {
-          setError(result.error || 'Unknown error occurred');
-          setLoading(false);
-        }
-      } catch (e) {
-        logQuoteFlow('QUOTE_FETCH_ERROR', {
-          requestId,
-          error: e.message
-        });
-        if (!isMounted) return;
-        setError('Failed to retrieve quotes. Please try again.');
+      // Normalize the status
+      const normalizedStatus = (result.status || 'processing')
+        .toLowerCase()
+        .replace(/_/g, '-'); // Convert underscores to hyphens
+      
+      console.log('Normalized status:', normalizedStatus);
+
+      // Map backend statuses to frontend statuses
+      let frontendStatus = 'PROCESSING';
+      if (normalizedStatus === 'quote-ready' || 
+          normalizedStatus === 'quoted' || 
+          normalizedStatus === 'completed') {
+        frontendStatus = 'QUOTE_READY';
+      } else if (normalizedStatus === 'quote-processing' || 
+                 normalizedStatus === 'processing' || 
+                 normalizedStatus === 'pending') {
+        frontendStatus = 'PROCESSING';
+      } else if (normalizedStatus === 'failed' || 
+                 normalizedStatus === 'expired' || 
+                 normalizedStatus === 'quote-expired') {
+        frontendStatus = 'FAILED';
+      }
+
+      setStatus(frontendStatus);
+
+      // Check if we have quotes
+      if (Array.isArray(result.quotes) && result.quotes.length > 0) {
+        const mappedQuotes = result.quotes.map((q, index) => ({
+          quoteId: q.quoteId || q._id || `quote_${index}`,
+          service_details: {
+            carrier: q.carrier || q.carrierName || 'Unknown Carrier',
+            service: q.service || 'Standard',
+            guaranteed: q.guaranteed || false
+          },
+          raw_cost: q.rawCost ?? q.cost ?? q.price ?? 0,
+          final_price: q.price ?? q.finalPrice ?? 0,
+          markup_percentage: q.markup ?? 0,
+          transit_days: q.transitDays ?? q.transit_days ?? 0,
+          additional_fees: q.additionalFees || [],
+          fuel_surcharge: q.fuelSurcharge || 0,
+          ranking: index === 0 ? 'recommended' : index === 1 ? 'fastest' : index === 2 ? 'cheapest' : null
+        }));
+
+        setQuotes(mappedQuotes);
+        setLoading(false);
+        setStatus('QUOTE_READY'); // Force status to ready when we have quotes
+      } else if (frontendStatus === 'FAILED') {
+        setError(result.error || 'Unable to retrieve quotes.');
         setLoading(false);
       }
-    };
+      // If still processing and no quotes, keep polling
+    } else {
+      setError(result.error || 'Unknown error occurred');
+      setLoading(false);
+    }
+  } catch (e) {
+    logQuoteFlow('QUOTE_FETCH_ERROR', {
+      requestId,
+      error: e.message
+    });
+    if (!isMounted) return;
+    setError('Failed to retrieve quotes. Please try again.');
+    setLoading(false);
+  }
+};
 
           const interval = setInterval(() => {
         if (status === 'QUOTE_PROCESSING' || status === 'QUOTE_REQUESTED') {
