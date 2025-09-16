@@ -12,6 +12,7 @@ import bookingApi from '../../services/bookingApi';
 import BookingConfirmation from './BookingConfirmation';
 import BOLBuilder from '../bol/BOLBuilder';
 import { logQuoteFlow } from '../../utils/debugLogger';
+import { ShipmentLifecycle } from '../../constants/shipmentLifecycle';
 
 // DocumentUpload component (unchanged)
 const DocumentUpload = ({ requestId, isDarkMode }) => {
@@ -199,7 +200,7 @@ const GroundQuoteResults = ({
   const [formData, setFormData] = useState(formDataProp || location.state?.formData || {});
 
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState('PROCESSING'); // PROCESSING | PENDING | QUOTE_READY
+  const [status, setStatus] = useState(ShipmentLifecycle.QUOTE_PROCESSING); // PROCESSING | PENDING | QUOTE_READY
   const [quotes, setQuotes] = useState([]);
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [error, setError] = useState(null);
@@ -319,7 +320,7 @@ const GroundQuoteResults = ({
           if (result.serviceType) setServiceType(result.serviceType);
           if (result.formData) setFormData(result.formData);
 
-          const resultStatus = result.status || 'processing';
+          const resultStatus = result.status || ShipmentLifecycle.QUOTE_PROCESSING;
           const normalizedStatus = String(resultStatus).toLowerCase().replace(/_/g, '-');
 
           console.log('Normalized status:', normalizedStatus);
