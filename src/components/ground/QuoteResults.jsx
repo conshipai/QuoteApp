@@ -13,6 +13,7 @@ import BookingConfirmation from './BookingConfirmation';
 import BOLBuilder from '../bol/BOLBuilder';
 import { logQuoteFlow } from '../../utils/debugLogger';
 import { ShipmentLifecycle } from '../../constants/shipmentLifecycle';
+import cacheService from '../../services/cacheService';
 
 // DocumentUpload component (unchanged)
 const DocumentUpload = ({ requestId, isDarkMode }) => {
@@ -253,18 +254,32 @@ const GroundQuoteResults = ({
 
   // Load cached data
   useEffect(() => {
+  const loadCachedData = async () => {
     if (requestId && (!formData || Object.keys(formData).length === 0)) {
-      const completeData = localStorage.getItem(`quote_complete_${requestId}`);
+      const completeData = await cacheService.getItem(`quote_complete_${requestId}`);
       if (completeData) {
         try {
-          const parsed = JSON.parse(completeData);
-          if (parsed.formData) setFormData(parsed.formData);
-          if (parsed.serviceType) setServiceType(parsed.serviceType);
-          if (parsed.requestNumber) setRequestNumber(parsed.requestNumber);
+          if (completeData.formData) setFormData(completeData.formData);
+          if (completeData.serviceType) setServiceType(completeData.serviceType);
+          if (completeData.requestNumber) setRequestNumber(completeData.requestNumber);
         } catch (e) {
           console.error('Error parsing saved data:', e);
         }
       }
+    }
+  };
+  loadCachedData();
+}, [requestId, formData]);
+      const completeData = await cacheService.getItem(`quote_complete_${requestId}`);
+if (completeData) {
+  try {
+    if (completeData.formData) setFormData(completeData.formData);
+    if (completeData.serviceType) setServiceType(completeData.serviceType);
+    if (completeData.requestNumber) setRequestNumber(completeData.requestNumber);
+  } catch (e) {
+    console.error('Error parsing saved data:', e);
+  }
+}
     }
   }, [requestId, formData]);
 
