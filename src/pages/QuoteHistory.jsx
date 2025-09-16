@@ -596,7 +596,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
               <div>
                 <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Pending</p>
                 <p className={`text-2xl font-bold text-yellow-500`}>
-                  {quotes.filter(q => q.status === 'pending').length}
+                  {quotes.filter(q => q.status === 'quote_processing').length}
                 </p>
               </div>
               <Clock className="w-8 h-8 text-yellow-500" />
@@ -651,9 +651,9 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
             >
               <option value="all">All Status</option>
               <option value="booked">Booked</option>
-              <option value="quoted">Quoted</option>
-              <option value="pending">Pending</option>
-              <option value="failed">Failed</option>
+              <option value="quote_ready">Ready</option>
+              <option value="quote_processing">Processing</option>
+              <option value="quote_expired">Expired</option>
             </select>
 
             <select
@@ -734,11 +734,11 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
                         ) : (
                           <span
                             className={`text-xs px-2 py-0.5 rounded ${
-                              quote.status === 'quoted'
+                              quote.status === 'quote_ready'
                                 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                                : quote.status === 'pending'
+                                : quote.status === 'quote_processing'
                                 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                                : quote.status === 'failed'
+                                : quote.status === 'quote_expired'
                                 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                                 : 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'
                             }`}
