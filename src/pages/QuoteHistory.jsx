@@ -86,32 +86,22 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
           // Sort by date (newest first)
           quotesData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
           
-          // Save complete data for each quote
-          await Promise.all(quotesData.map(async (quote) => {
-  const requestId = quote.requestId;
-  const completeData = {
-    requestId,
-    requestNumber: quote.requestNumber,
-    mode: quote.mode,
-    serviceType: quote.serviceType || 'ltl',
-    formData: quote.formData || {},
-    status: quote.status,
-    createdAt: quote.createdAt
-  };
-  await cacheService.setItem(`quote_complete_${requestId}`, completeData);
-}));
-            const requestId = quote.requestId;
-            const completeData = {
-              requestId,
-              requestNumber: quote.requestNumber,
-              mode: quote.mode,
-              serviceType: quote.serviceType || 'ltl',
-              formData: quote.formData || {},
-              status: quote.status,
-              createdAt: quote.createdAt
-            };
-           await cacheService.setItem(`quote_complete_${requestId}`, completeData);
-          });
+          // Save complete data for each quote (FIXED)
+          await Promise.all(
+            quotesData.map(async (q) => {
+              const requestId = q.requestId;
+              const completeData = {
+                requestId,
+                requestNumber: q.requestNumber,
+                mode: q.mode,
+                serviceType: q.serviceType || 'ltl',
+                formData: q.formData || {},
+                status: q.status,
+                createdAt: q.createdAt
+              };
+              await cacheService.setItem(`quote_complete_${requestId}`, completeData);
+            })
+          );
           
           setQuotes(quotesData);
           console.log(`Loaded ${quotesData.length} quotes`);
@@ -245,7 +235,8 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
     return (quote.serviceType === 'ftl' || quote.serviceType === 'expedited') && 
            !quote.isBooked &&
           (quote.status === ShipmentLifecycle.QUOTE_PROCESSING || quote.status === 'pending_carrier_response');
-}; 
+  }; 
+
   // 1) ENHANCED ManualBookingModal Component with all fields
   const ManualBookingModal = ({ quote, onClose, onConfirm }) => {
     // Pre-populate with existing quote data
@@ -503,7 +494,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
             destinationZip: destZip,
             ...payload.shipmentData.formData
           };
-         await cacheService.setItem(`booking_${result.booking.bookingId}`, bookingDataForBOL);
+          await cacheService.setItem(`booking_${result.booking.bookingId}`, bookingDataForBOL);
           
           // Navigate to booking confirmation
           navigate(`/app/quotes/bookings/${result.booking.bookingId}`);
