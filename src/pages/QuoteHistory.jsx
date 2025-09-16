@@ -8,6 +8,7 @@ import {
   Plus, Save
 } from 'lucide-react';
 import bookingApi from '../services/bookingApi';
+import { ShipmentLifecycle } from '../constants/shipmentLifecycle';
 
 const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
   const navigate = useNavigate();
