@@ -320,49 +320,48 @@ const GroundQuoteResults = ({
         console.log('========================');
         if (!isMounted) return;
 
-        if (result.success) {
-          // Log status change
-          if (result.status && result.status !== status) {
-            logQuoteFlow('QUOTE_STATUS_CHANGE', {
-              requestId,
-              oldStatus: status,
-              newStatus: result.status,
-              quoteCount: result.quotes?.length || 0
-            });
-          }
+       if (result.success) {
+  // Log status change
+  if (result.status && result.status !== status) {
+    logQuoteFlow('QUOTE_STATUS_CHANGE', {
+      requestId,
+      oldStatus: status,
+      newStatus: result.status,
+      quoteCount: result.quotes?.length || 0
+    });
+  }
 
-          if (result.requestNumber) setRequestNumber(result.requestNumber);
-          if (result.serviceType) setServiceType(result.serviceType);
-          if (result.formData) setFormData(result.formData);
+  if (result.requestNumber) setRequestNumber(result.requestNumber);
+  if (result.serviceType) setServiceType(result.serviceType);
+  if (result.formData) setFormData(result.formData);
 
-          const backendStatus = (result.status || 'processing').toUpperCase();
-          setStatus(backendStatus);
+  const backendStatus = (result.status || 'quote_processing').toUpperCase();
+  setStatus(backendStatus);
 
-          if (result.status === 'quote_ready' && Array.isArray(result.quotes)) {
-            const mappedQuotes = result.quotes.map((q, index) => ({
-              quoteId: q.quoteId,
-              service_details: {
-                carrier: q.carrier,
-                service: q.service,
-                guaranteed: q.guaranteed
-              },
-              raw_cost: q.rawCost ?? q.price ?? 0,
-              final_price: q.price ?? 0,
-              markup_percentage: q.markup ?? 0,
-              transit_days: q.transitDays ?? q.transit_days ?? 0,
-              additional_fees: q.additionalFees || [],
-              fuel_surcharge: 0,
-              // Add mock ranking for demo
-              ranking: index === 0 ? 'recommended' : index === 1 ? 'fastest' : index === 2 ? 'cheapest' : null
-            }));
+  if (result.status === 'quote_ready' && Array.isArray(result.quotes)) {
+    const mappedQuotes = result.quotes.map((q, index) => ({
+  quoteId: q.quoteId,
+  service_details: {
+    carrier: q.carrier,
+    service: q.service,
+    guaranteed: q.guaranteed
+  },
+  raw_cost: q.rawCost ?? q.price ?? 0,
+  final_price: q.price ?? 0,
+  markup_percentage: q.markup ?? 0,
+  transit_days: q.transitDays ?? q.transit_days ?? 0,
+  additional_fees: q.additionalFees || [],
+  fuel_surcharge: 0,
+  ranking: index === 0 ? 'recommended' : index === 1 ? 'fastest' : index === 2 ? 'cheapest' : null
+    }));
 
-            setQuotes(mappedQuotes);
-            setLoading(false);
-          } else if (result.status === 'quote_expired') {
-            setError(result.error || 'Unable to retrieve quotes.');
-            setLoading(false);
-          }
-        } else {
+    setQuotes(mappedQuotes);
+    setLoading(false);
+  } else if (result.status === 'quote_expired') {
+    setError(result.error || 'Unable to retrieve quotes.');
+    setLoading(false);
+  }
+}else {
           setError(result.error || 'Unknown error occurred');
           setLoading(false);
         }
@@ -377,11 +376,11 @@ const GroundQuoteResults = ({
       }
     };
 
-    const interval = setInterval(() => {
-      if (status === 'PROCESSING' || status === 'PENDING') {
-        fetchResults();
-      }
-    }, 1000);
+          const interval = setInterval(() => {
+        if (status === 'QUOTE_PROCESSING' || status === 'QUOTE_REQUESTED') {
+          fetchResults();
+        }
+      }, 1000);
 
     fetchResults();
 
