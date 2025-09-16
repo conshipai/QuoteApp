@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import bookingApi from '../services/bookingApi';
 import { ShipmentLifecycle } from '../constants/shipmentLifecycle';
+import cacheService from '../services/cacheService';
 
 const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
   const navigate = useNavigate();
@@ -86,7 +87,19 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
           quotesData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
           
           // Save complete data for each quote
-          quotesData.forEach(quote => {
+          await Promise.all(quotesData.map(async (quote) => {
+  const requestId = quote.requestId;
+  const completeData = {
+    requestId,
+    requestNumber: quote.requestNumber,
+    mode: quote.mode,
+    serviceType: quote.serviceType || 'ltl',
+    formData: quote.formData || {},
+    status: quote.status,
+    createdAt: quote.createdAt
+  };
+  await cacheService.setItem(`quote_complete_${requestId}`, completeData);
+}));
             const requestId = quote.requestId;
             const completeData = {
               requestId,
@@ -97,7 +110,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
               status: quote.status,
               createdAt: quote.createdAt
             };
-            localStorage.setItem(`quote_complete_${requestId}`, JSON.stringify(completeData));
+           await cacheService.setItem(`quote_complete_${requestId}`, completeData);
           });
           
           setQuotes(quotesData);
@@ -490,7 +503,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
             destinationZip: destZip,
             ...payload.shipmentData.formData
           };
-          localStorage.setItem(`booking_${result.booking.bookingId}`, JSON.stringify(bookingDataForBOL));
+         await cacheService.setItem(`booking_${result.booking.bookingId}`, bookingDataForBOL);
           
           // Navigate to booking confirmation
           navigate(`/app/quotes/bookings/${result.booking.bookingId}`);
