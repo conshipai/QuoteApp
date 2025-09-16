@@ -232,7 +232,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
     return (quote.serviceType === 'ftl' || quote.serviceType === 'expedited') && 
            !quote.isBooked &&
           (quote.status === ShipmentLifecycle.QUOTE_PROCESSING || quote.status === 'pending_carrier_response');
-
+}; 
   // 1) ENHANCED ManualBookingModal Component with all fields
   const ManualBookingModal = ({ quote, onClose, onConfirm }) => {
     // Pre-populate with existing quote data
