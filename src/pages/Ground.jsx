@@ -8,6 +8,7 @@ import GroundQuoteResults from '../components/ground/QuoteResults';
 import FTLOptions from '../components/ground/FTLOptions';
 import ExpeditedOptions from '../components/ground/ExpeditedOptions';
 import { calculateDensity } from '../components/ground/constants';
+import { ShipmentLifecycle } from '../constants/shipmentLifecycle';
 
 const Ground = ({ isDarkMode }) => {
   const navigate = useNavigate();
@@ -222,7 +223,7 @@ const Ground = ({ isDarkMode }) => {
           requestNumber: result.requestNumber,
           serviceType: serviceType,
           formData: completeFormData,
-          status: 'pending',
+          status: ShipmentLifecycle.QUOTE_PROCESSING,
           createdAt: new Date().toISOString()
         };
         
