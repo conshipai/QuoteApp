@@ -9,6 +9,7 @@ import FTLOptions from '../components/ground/FTLOptions';
 import ExpeditedOptions from '../components/ground/ExpeditedOptions';
 import { calculateDensity } from '../components/ground/constants';
 import { ShipmentLifecycle } from '../constants/shipmentLifecycle';
+import cacheService from '../services/cacheService';
 
 const Ground = ({ isDarkMode }) => {
   const navigate = useNavigate();
@@ -201,37 +202,41 @@ const Ground = ({ isDarkMode }) => {
 
       console.log('API Response:', result);
 
-      if (result?.success && result?.requestId) {
-        console.log('Quote created successfully!');
-        
-        // Save to localStorage
-        localStorage.setItem(
-          `quote_formdata_${result.requestId}`,
-          JSON.stringify(completeFormData)
-        );
-        if (result.quotes && serviceType === 'ltl') {
-  localStorage.setItem(`ground_quotes_${result.requestId}`, JSON.stringify({
-    status: 'quote_ready',
-    quotes: result.quotes,
+if (result?.success && result?.requestId) {
+  console.log('Quote created successfully!');
+  
+  // Save to cache API (not localStorage)
+  await cacheService.setItem(
+    `quote_formdata_${result.requestId}`,
+    completeFormData
+  );
+  
+  if (result.quotes && serviceType === 'ltl') {
+    await cacheService.setItem(`ground_quotes_${result.requestId}`, {
+      status: 'quote_ready',
+      quotes: result.quotes,
+      requestNumber: result.requestNumber,
+      formData: completeFormData,
+      serviceType: serviceType
+    });
+  }
+  
+  const completeQuoteData = {
+    requestId: result.requestId,
     requestNumber: result.requestNumber,
+    serviceType: serviceType,
     formData: completeFormData,
-    serviceType: serviceType
-  }));
-}
-        const completeQuoteData = {
-          requestId: result.requestId,
-          requestNumber: result.requestNumber,
-          serviceType: serviceType,
-          formData: completeFormData,
-          status: ShipmentLifecycle.QUOTE_PROCESSING,
-          createdAt: new Date().toISOString()
-        };
-        
-        localStorage.setItem(
-          `quote_complete_${result.requestId}`,
-          JSON.stringify(completeQuoteData)
-        );
-
+    status: ShipmentLifecycle.QUOTE_PROCESSING,
+    createdAt: new Date().toISOString()
+  };
+  
+  await cacheService.setItem(
+    `quote_complete_${result.requestId}`,
+    completeQuoteData
+  );
+  
+  // Handle navigation based on service type
+  // ... rest of the code stays the same
         // Handle navigation based on service type
         if (serviceType === 'ftl' || serviceType === 'expedited') {
           alert(`✅ ${serviceType.toUpperCase()} Quote Request Sent!\n\n` +
