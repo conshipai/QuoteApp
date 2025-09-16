@@ -100,41 +100,52 @@ const createGroundQuote = async (formData, serviceType) => {
 
 const getGroundQuoteResults = async (requestId) => {
   try {
-    // First check localStorage for LTL quotes
+    console.log('Fetching results for requestId:', requestId);
+    
+    // First check localStorage for any cached data
     const storedData = localStorage.getItem(`ground_quotes_${requestId}`);
     if (storedData) {
       const parsed = JSON.parse(storedData);
-      console.log('Retrieved quotes from localStorage:', parsed);
+      console.log('Found cached quotes:', parsed);
       return {
         success: true,
         ...parsed
       };
     }
     
-    // For FTL/Expedited, try to fetch from the server
-    // This endpoint might not exist yet for your backend
-    console.log('Attempting to fetch from server for requestId:', requestId);
-    
-    // Try the quotes/details endpoint which exists in your backend
+    // Try the correct endpoint URL (fixed order)
     const { data } = await axios.get(`/ground-quotes/results/${requestId}`);
     
-    return {
-      success: true,
-      status: data.status || 'processing',
-      requestNumber: data.requestNumber,
-      serviceType: data.serviceType,
-      formData: data.formData,
-      quotes: data.quotes || [],
-      error: data.error
-    };
+    console.log('Backend response:', data);
+    
+    // Handle the response properly
+    if (data.success) {
+      return {
+        success: true,
+        status: data.status || 'quote_processing',
+        requestNumber: data.requestNumber,
+        serviceType: data.serviceType,
+        formData: data.formData,
+        quotes: data.quotes || [],
+        error: data.error
+      };
+    } else {
+      return {
+        success: true, // Keep it true to continue polling
+        status: 'quote_processing',
+        quotes: [],
+        error: null
+      };
+    }
   } catch (error) {
     console.error('Error fetching quote results:', error);
     
-    // If it's a 404, return a processing status
+    // If it's a 404, the quote might still be processing
     if (error.response?.status === 404) {
+      console.log('Quote not found, still processing...');
       return {
         success: true,
-        status: 'processing',
+        status: 'quote_processing',
         quotes: [],
         error: null
       };
