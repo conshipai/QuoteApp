@@ -1,6 +1,7 @@
 // src/components/debug/QuoteStatusDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, Trash2, Eye, CheckCircle, AlertCircle } from 'lucide-react';
+import { ShipmentLifecycle } from '../../constants/shipmentLifecycle';
 
 const QuoteStatusDashboard = ({ isDarkMode }) => {
   const [quoteMap, setQuoteMap] = useState({});
@@ -138,11 +139,11 @@ const QuoteStatusDashboard = ({ isDarkMode }) => {
                       <td className="p-2 font-mono text-xs">{quote.requestId}</td>
                       <td className="p-2">
                         <span className={`inline-flex items-center gap-1 ${
-                          quote.status === 'quoted' 
+                          quote.status === ShipmentLifecycle.QUOTE_READY 
                             ? 'text-green-600 dark:text-green-400' 
                             : 'text-yellow-600 dark:text-yellow-400'
                         }`}>
-                          {quote.status === 'quoted' ? <CheckCircle className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                          {quote.status === ShipmentLifecycle.QUOTE_READY ? <CheckCircle className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
                           {quote.status}
                         </span>
                       </td>
