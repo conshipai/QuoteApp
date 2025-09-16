@@ -208,7 +208,15 @@ const Ground = ({ isDarkMode }) => {
           `quote_formdata_${result.requestId}`,
           JSON.stringify(completeFormData)
         );
-        
+        if (result.quotes && serviceType === 'ltl') {
+  localStorage.setItem(`ground_quotes_${result.requestId}`, JSON.stringify({
+    status: 'quote_ready',
+    quotes: result.quotes,
+    requestNumber: result.requestNumber,
+    formData: completeFormData,
+    serviceType: serviceType
+  }));
+}
         const completeQuoteData = {
           requestId: result.requestId,
           requestNumber: result.requestNumber,
