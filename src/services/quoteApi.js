@@ -116,7 +116,7 @@ const getGroundQuoteResults = async (requestId) => {
     console.log('Attempting to fetch from server for requestId:', requestId);
     
     // Try the quotes/details endpoint which exists in your backend
-    const { data } = await axios.get(`/quotes/details/${requestId}`);
+    const { data } = await axios.get(`/ground-quotes/results/${requestId}`);
     
     return {
       success: true,
