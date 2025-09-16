@@ -53,7 +53,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
             requestId: quote._id,
             requestNumber: quote.requestNumber,
             mode: quote.mode || 'ground',
-            status: quote.status || 'quoted',
+            status: quote.status || ShipmentLifecycle.QUOTE_READY,
             createdAt: quote.createdAt,
             isBooked: quote.isBooked || false,
             bookingId: quote.bookingId,
@@ -231,8 +231,7 @@ const QuoteHistory = ({ isDarkMode = false, userRole = 'user' }) => {
   const canManualBook = (quote) => {
     return (quote.serviceType === 'ftl' || quote.serviceType === 'expedited') && 
            !quote.isBooked &&
-           (quote.status === 'pending' || quote.status === 'pending_carrier_response');
-  };
+          (quote.status === ShipmentLifecycle.QUOTE_PROCESSING || quote.status === 'pending_carrier_response');
 
   // 1) ENHANCED ManualBookingModal Component with all fields
   const ManualBookingModal = ({ quote, onClose, onConfirm }) => {
