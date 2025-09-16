@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import API_BASE from '../config/api';
+import { ShipmentLifecycle } from '../constants/shipmentLifecycle';
 
 const CostsManagement = ({ isDarkMode, userRole }) => {
   const navigate = useNavigate();
@@ -244,7 +245,7 @@ const CostsManagement = ({ isDarkMode, userRole }) => {
               <div>
                 <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Completed Today</p>
                 <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {requests.filter(r => r.status === 'quoted').length}
+                  {requests.filter(r => r.status === ShipmentLifecycle.QUOTE_READY).length}
                 </p>
               </div>
               <Check className="w-8 h-8 text-green-500" />
@@ -375,7 +376,7 @@ const CostsManagement = ({ isDarkMode, userRole }) => {
                                 <h5 className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                   {cost.carrierName}
                                 </h5>
-                                {cost.status === 'quoted' && (
+                                {cost.status === ShipmentLifecycle.QUOTE_READY && (
                                   <span className="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700">
                                     SENT TO CUSTOMER
                                   </span>
@@ -394,7 +395,7 @@ const CostsManagement = ({ isDarkMode, userRole }) => {
                             </div>
 
                             <div className="flex gap-2">
-                              {cost.status !== 'quoted' && (
+                              {cost.status !== ShipmentLifecycle.QUOTE_READY && (
                                 <button
                                   onClick={() => openMarkupModal(request, cost)}
                                   className={`px-4 py-2 rounded flex items-center gap-2 ${
