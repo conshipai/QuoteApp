@@ -332,7 +332,7 @@ const GroundQuoteResults = ({
           const backendStatus = (result.status || 'processing').toUpperCase();
           setStatus(backendStatus);
 
-          if (result.status === 'quoted' && Array.isArray(result.quotes)) {
+          if (result.status === 'quote_ready' && Array.isArray(result.quotes)) {
             const mappedQuotes = result.quotes.map((q, index) => ({
               quoteId: q.quoteId,
               service_details: {
@@ -352,7 +352,7 @@ const GroundQuoteResults = ({
 
             setQuotes(mappedQuotes);
             setLoading(false);
-          } else if (result.status === 'failed') {
+          } else if (result.status === 'quote_expired') {
             setError(result.error || 'Unable to retrieve quotes.');
             setLoading(false);
           }
