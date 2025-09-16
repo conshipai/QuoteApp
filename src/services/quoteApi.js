@@ -95,7 +95,7 @@ const createGroundQuote = async (formData, serviceType) => {
 
 const getGroundQuoteResults = async (requestId) => {
   try {
-    const { data } = await axios.get(`/ground-quotes/results/${requestId}`);
+    const { data } = await axios.get(`/ground-quotes/${requestId}/results`);
     
     // Map the response to expected format
     return {
