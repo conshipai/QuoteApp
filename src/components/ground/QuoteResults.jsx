@@ -15,7 +15,7 @@ import { logQuoteFlow } from '../../utils/debugLogger';
 import { ShipmentLifecycle } from '../../constants/shipmentLifecycle';
 import cacheService from '../../services/cacheService';
 
-// DocumentUpload component (unchanged)
+// DocumentUpload component (unchanged except minor class fix)
 const DocumentUpload = ({ requestId, isDarkMode }) => {
   const [documents, setDocuments] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -101,7 +101,7 @@ const DocumentUpload = ({ requestId, isDarkMode }) => {
     <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className={`w-full p-4 flex items-center justify-between ${isDarkMode ? 'hover:bg-gray-750' : 'hover:bg-gray-50'}`}
+        className={`w-full p-4 flex items-center justify-between ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}
       >
         <div className="flex items-center gap-2">
           <FileText className={`w-5 h-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
@@ -219,7 +219,7 @@ const GroundQuoteResults = ({
     console.log('URL Param requestId:', requestIdParam);
     console.log('Final requestId used:', requestId);
     console.log('================================');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Structured init log
@@ -252,35 +252,23 @@ const GroundQuoteResults = ({
     }
   }, [quotes, requestId, requestNumber]);
 
-  // Load cached data
+  // Load cached data (FIXED single effect)
   useEffect(() => {
-  const loadCachedData = async () => {
-    if (requestId && (!formData || Object.keys(formData).length === 0)) {
-      const completeData = await cacheService.getItem(`quote_complete_${requestId}`);
-      if (completeData) {
-        try {
-          if (completeData.formData) setFormData(completeData.formData);
-          if (completeData.serviceType) setServiceType(completeData.serviceType);
-          if (completeData.requestNumber) setRequestNumber(completeData.requestNumber);
-        } catch (e) {
-          console.error('Error parsing saved data:', e);
+    const loadCachedData = async () => {
+      if (requestId && (!formData || Object.keys(formData).length === 0)) {
+        const completeData = await cacheService.getItem(`quote_complete_${requestId}`);
+        if (completeData) {
+          try {
+            if (completeData.formData) setFormData(completeData.formData);
+            if (completeData.serviceType) setServiceType(completeData.serviceType);
+            if (completeData.requestNumber) setRequestNumber(completeData.requestNumber);
+          } catch (e) {
+            console.error('Error parsing saved data:', e);
+          }
         }
       }
-    }
-  };
-  loadCachedData();
-}, [requestId, formData]);
-      const completeData = await cacheService.getItem(`quote_complete_${requestId}`);
-if (completeData) {
-  try {
-    if (completeData.formData) setFormData(completeData.formData);
-    if (completeData.serviceType) setServiceType(completeData.serviceType);
-    if (completeData.requestNumber) setRequestNumber(completeData.requestNumber);
-  } catch (e) {
-    console.error('Error parsing saved data:', e);
-  }
-}
-    }
+    };
+    loadCachedData();
   }, [requestId, formData]);
 
   // If already booked, redirect
