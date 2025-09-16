@@ -1,6 +1,7 @@
 // src/hooks/useQuotePolling.js
 import { useState, useEffect } from 'react';
 import quoteApi from '../services/quoteApi';
+import { ShipmentLifecycle } from '../constants/shipmentLifecycle';
 export const useQuotePolling = (requestId, enabled) => {
   const [quotes, setQuotes] = useState([]);
   const [status, setStatus] = useState('polling');
@@ -12,12 +13,12 @@ export const useQuotePolling = (requestId, enabled) => {
       try {
         const response = await api.get(`/ground-quotes/results/${requestId}`);
         
-        if (response.data.status === 'quoted') {
+        if (response.data.status === ShipmentLifecycle.QUOTE_READY) {
           setQuotes(response.data.quotes);
           setStatus('complete');
           clearInterval(pollInterval);
-        } else if (response.data.status === 'failed') {
-          setStatus('failed');
+        } else if (response.data.status === ShipmentLifecycle.QUOTE_EXPIRED) {
+          setStatus(ShipmentLifecycle.QUOTE_EXPIRED);
           clearInterval(pollInterval);
         }
       } catch (error) {
