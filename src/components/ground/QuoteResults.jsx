@@ -311,7 +311,13 @@ const GroundQuoteResults = ({
         });
 
         const result = await quoteApi.getGroundQuoteResults(requestId);
-        
+        console.log('=== QUOTE API RESPONSE ===');
+        console.log('Full result:', result);
+        console.log('Status:', result.status);
+        console.log('Status type:', typeof result.status);
+        console.log('Quotes array:', result.quotes);
+        console.log('Is quotes an array?', Array.isArray(result.quotes));
+        console.log('========================');
         if (!isMounted) return;
 
         if (result.success) {
