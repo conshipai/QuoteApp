@@ -1,14 +1,10 @@
 // src/services/quoteApi.js
 const axios = window.shellAxios; // Use authenticated axios from Shell
 
-const API_BASE = ''; // Empty because baseURL is already set in shellAxios
-
 const createGroundQuote = async (formData, serviceType) => {
   try {
-    // Log the request for debugging
     console.log('Creating ground quote:', { serviceType, formData });
     
-    // Ensure additionalStops exists in formData
     const requestData = {
       serviceType,
       originZip: formData.originZip,
@@ -19,7 +15,7 @@ const createGroundQuote = async (formData, serviceType) => {
       destState: formData.destState,
       pickupDate: formData.pickupDate,
       commodities: formData.commodities || [],
-      additionalStops: formData.additionalStops || [], // Ensure this is always included
+      additionalStops: formData.additionalStops || [],
       
       // Include accessorials
       liftgatePickup: formData.liftgatePickup || false,
@@ -61,30 +57,39 @@ const createGroundQuote = async (formData, serviceType) => {
     
     console.log('Quote created successfully:', data);
     
+    // For LTL, save the quotes if they're returned immediately
+    if (serviceType === 'ltl' && data.quotes) {
+      // Store the quotes in localStorage for retrieval
+      localStorage.setItem(`ground_quotes_${data.requestId}`, JSON.stringify({
+        status: 'quote_ready',
+        quotes: data.quotes,
+        requestNumber: data.requestNumber,
+        formData: requestData,
+        serviceType: serviceType
+      }));
+    }
+    
     return {
       success: true,
       requestId: data.requestId,
       requestNumber: data.requestNumber,
-      status: data.status
+      status: data.status,
+      quotes: data.quotes // Include quotes if returned
     };
   } catch (error) {
     console.error('Error creating ground quote:', error);
     
-    // Handle different error types
     if (error.response) {
-      // Server responded with error
       return {
         success: false,
         error: error.response.data?.message || error.response.data?.error || 'Server error occurred'
       };
     } else if (error.request) {
-      // Request made but no response
       return {
         success: false,
         error: 'No response from server. Please check your connection.'
       };
     } else {
-      // Something else happened
       return {
         success: false,
         error: error.message || 'An unexpected error occurred'
@@ -95,12 +100,27 @@ const createGroundQuote = async (formData, serviceType) => {
 
 const getGroundQuoteResults = async (requestId) => {
   try {
-    const { data } = await axios.get(`/ground-quotes/${requestId}/results`);
+    // First check localStorage for LTL quotes
+    const storedData = localStorage.getItem(`ground_quotes_${requestId}`);
+    if (storedData) {
+      const parsed = JSON.parse(storedData);
+      console.log('Retrieved quotes from localStorage:', parsed);
+      return {
+        success: true,
+        ...parsed
+      };
+    }
     
-    // Map the response to expected format
+    // For FTL/Expedited, try to fetch from the server
+    // This endpoint might not exist yet for your backend
+    console.log('Attempting to fetch from server for requestId:', requestId);
+    
+    // Try the quotes/details endpoint which exists in your backend
+    const { data } = await axios.get(`/quotes/details/${requestId}`);
+    
     return {
       success: true,
-      status: data.status,
+      status: data.status || 'processing',
       requestNumber: data.requestNumber,
       serviceType: data.serviceType,
       formData: data.formData,
@@ -109,6 +129,17 @@ const getGroundQuoteResults = async (requestId) => {
     };
   } catch (error) {
     console.error('Error fetching quote results:', error);
+    
+    // If it's a 404, return a processing status
+    if (error.response?.status === 404) {
+      return {
+        success: true,
+        status: 'processing',
+        quotes: [],
+        error: null
+      };
+    }
+    
     return {
       success: false,
       error: error.response?.data?.message || error.message || 'Failed to fetch quote results'
@@ -116,14 +147,12 @@ const getGroundQuoteResults = async (requestId) => {
   }
 };
 
-// Add default export (required for the refactored Ground.jsx)
 const quoteApi = {
   createGroundQuote,
-  createGroundQuoteRequest: createGroundQuote, // Alias for compatibility
+  createGroundQuoteRequest: createGroundQuote,
   getGroundQuoteResults
 };
 
 export default quoteApi;
 
-// Also keep named exports for backward compatibility
 export { createGroundQuote, getGroundQuoteResults };
