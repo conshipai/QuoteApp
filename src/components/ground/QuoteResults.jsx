@@ -320,67 +320,48 @@ const fetchResults = async () => {
     console.log('Quotes array:', result.quotes);
     console.log('========================');
 
-    if (result.success) {
-      if (result.requestNumber) setRequestNumber(result.requestNumber);
-      if (result.serviceType) setServiceType(result.serviceType);
-      if (result.formData) setFormData(result.formData);
+if (result.success) {
+  if (result.requestNumber) setRequestNumber(result.requestNumber);
+  if (result.serviceType) setServiceType(result.serviceType);
+  if (result.formData) setFormData(result.formData);
 
-      // Normalize the status
-      const normalizedStatus = (result.status || 'processing')
-        .toLowerCase()
-        .replace(/_/g, '-'); // Convert underscores to hyphens
-      
-      console.log('Normalized status:', normalizedStatus);
+  const resultStatus = result.status || 'processing';
+  const normalizedStatus = resultStatus.toLowerCase().replace(/_/g, '-');
+  
+  console.log('Normalized status:', normalizedStatus);
+  console.log('Number of quotes:', result.quotes?.length || 0);
 
-      // Map backend statuses to frontend statuses
-      let frontendStatus = 'PROCESSING';
-      if (normalizedStatus === 'quote-ready' || 
-          normalizedStatus === 'quoted' || 
-          normalizedStatus === 'completed') {
-        frontendStatus = 'QUOTE_READY';
-      } else if (normalizedStatus === 'quote-processing' || 
-                 normalizedStatus === 'processing' || 
-                 normalizedStatus === 'pending') {
-        frontendStatus = 'PROCESSING';
-      } else if (normalizedStatus === 'failed' || 
-                 normalizedStatus === 'expired' || 
-                 normalizedStatus === 'quote-expired') {
-        frontendStatus = 'FAILED';
-      }
+  // If we have quotes, display them regardless of status
+  if (Array.isArray(result.quotes) && result.quotes.length > 0) {
+    console.log('Found quotes! Displaying them now.');
+    
+    const mappedQuotes = result.quotes.map((q, index) => ({
+      quoteId: q.quoteId || q._id || `quote_${index}`,
+      service_details: {
+        carrier: q.carrier || q.carrierName || 'Unknown Carrier',
+        service: q.service || 'Standard',
+        guaranteed: q.guaranteed || false
+      },
+      raw_cost: q.raw_cost || q.rawCost || q.cost || q.price || 0,
+      final_price: q.final_price || q.price || q.finalPrice || 0,
+      markup_percentage: q.markup || 0,
+      transit_days: q.transitDays || q.transit_days || 0,
+      additional_fees: q.additionalFees || [],
+      fuel_surcharge: q.fuelSurcharge || 0,
+      ranking: index === 0 ? 'recommended' : index === 1 ? 'fastest' : index === 2 ? 'cheapest' : null
+    }));
 
-      setStatus(frontendStatus);
-
-      // Check if we have quotes
-      if (Array.isArray(result.quotes) && result.quotes.length > 0) {
-        const mappedQuotes = result.quotes.map((q, index) => ({
-          quoteId: q.quoteId || q._id || `quote_${index}`,
-          service_details: {
-            carrier: q.carrier || q.carrierName || 'Unknown Carrier',
-            service: q.service || 'Standard',
-            guaranteed: q.guaranteed || false
-          },
-          raw_cost: q.rawCost ?? q.cost ?? q.price ?? 0,
-          final_price: q.price ?? q.finalPrice ?? 0,
-          markup_percentage: q.markup ?? 0,
-          transit_days: q.transitDays ?? q.transit_days ?? 0,
-          additional_fees: q.additionalFees || [],
-          fuel_surcharge: q.fuelSurcharge || 0,
-          ranking: index === 0 ? 'recommended' : index === 1 ? 'fastest' : index === 2 ? 'cheapest' : null
-        }));
-
-        setQuotes(mappedQuotes);
-        setLoading(false);
-        setStatus('QUOTE_READY'); // Force status to ready when we have quotes
-      } else if (frontendStatus === 'FAILED') {
-        setError(result.error || 'Unable to retrieve quotes.');
-        setLoading(false);
-      }
-      // If still processing and no quotes, keep polling
-    } else {
-      setError(result.error || 'Unknown error occurred');
-      setLoading(false);
-    }
-  } catch (e) {
+    setQuotes(mappedQuotes);
+    setLoading(false);
+    setStatus('QUOTE_READY'); // Force status to ready when we have quotes
+  } else if (normalizedStatus === 'quote-processing' || normalizedStatus === 'processing' || normalizedStatus === 'pending') {
+    // Keep polling but update status
+    setStatus('PROCESSING');
+  } else if (normalizedStatus === 'failed' || normalizedStatus === 'expired' || normalizedStatus === 'quote-expired') {
+    setError(result.error || 'Unable to retrieve quotes.');
+    setLoading(false);
+  }
+}catch (e) {
     logQuoteFlow('QUOTE_FETCH_ERROR', {
       requestId,
       error: e.message
