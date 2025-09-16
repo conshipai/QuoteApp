@@ -1,6 +1,6 @@
 // src/services/quoteApi.js
 const axios = window.shellAxios; // Use authenticated axios from Shell
-
+import { ShipmentLifecycle } from '../constants/shipmentLifecycle';
 const createGroundQuote = async (formData, serviceType) => {
   try {
     console.log('Creating ground quote:', { serviceType, formData });
@@ -61,7 +61,7 @@ const createGroundQuote = async (formData, serviceType) => {
     if (serviceType === 'ltl' && data.quotes) {
       // Store the quotes in localStorage for retrieval
       localStorage.setItem(`ground_quotes_${data.requestId}`, JSON.stringify({
-        status: 'quote_ready',
+        status: ShipmentLifecycle.QUOTE_READY,
         quotes: data.quotes,
         requestNumber: data.requestNumber,
         formData: requestData,
@@ -122,7 +122,7 @@ const getGroundQuoteResults = async (requestId) => {
     if (data.success) {
       return {
         success: true,
-        status: data.status || 'quote_processing',
+        status: data.status || ShipmentLifecycle.QUOTE_PROCESSING,
         requestNumber: data.requestNumber,
         serviceType: data.serviceType,
         formData: data.formData,
@@ -132,7 +132,7 @@ const getGroundQuoteResults = async (requestId) => {
     } else {
       return {
         success: true, // Keep it true to continue polling
-        status: 'quote_processing',
+        status: ShipmentLifecycle.QUOTE_PROCESSING,
         quotes: [],
         error: null
       };
@@ -145,7 +145,7 @@ const getGroundQuoteResults = async (requestId) => {
       console.log('Quote not found, still processing...');
       return {
         success: true,
-        status: 'quote_processing',
+        status: ShipmentLifecycle.QUOTE_PROCESSING,
         quotes: [],
         error: null
       };
