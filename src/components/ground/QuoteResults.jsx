@@ -13,7 +13,7 @@ import BookingConfirmation from './BookingConfirmation';
 import BOLBuilder from '../bol/BOLBuilder';
 import { logQuoteFlow } from '../../utils/debugLogger';
 
-// DocumentUpload component remains the same
+// DocumentUpload component (unchanged)
 const DocumentUpload = ({ requestId, isDarkMode }) => {
   const [documents, setDocuments] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -32,7 +32,7 @@ const DocumentUpload = ({ requestId, isDarkMode }) => {
   const handleFileUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    
+
     if (!docType) {
       alert('Please select a document type first');
       event.target.value = '';
@@ -61,9 +61,7 @@ const DocumentUpload = ({ requestId, isDarkMode }) => {
 
       const response = await fetch(`${API_BASE}/storage/upload`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
-        },
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
         body: formData
       });
 
@@ -73,7 +71,7 @@ const DocumentUpload = ({ requestId, isDarkMode }) => {
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
         setDocuments(prev => [...prev, {
           id: data.key || `doc_${Date.now()}`,
@@ -84,7 +82,7 @@ const DocumentUpload = ({ requestId, isDarkMode }) => {
           key: data.key,
           uploadedAt: new Date().toISOString()
         }]);
-        
+
         alert('Document uploaded successfully!');
         setDocType('');
         event.target.value = '';
@@ -101,9 +99,7 @@ const DocumentUpload = ({ requestId, isDarkMode }) => {
     <div className={`rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className={`w-full p-4 flex items-center justify-between ${
-          isDarkMode ? 'hover:bg-gray-750' : 'hover:bg-gray-50'
-        }`}
+        className={`w-full p-4 flex items-center justify-between ${isDarkMode ? 'hover:bg-gray-750' : 'hover:bg-gray-50'}`}
       >
         <div className="flex items-center gap-2">
           <FileText className={`w-5 h-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
@@ -121,24 +117,20 @@ const DocumentUpload = ({ requestId, isDarkMode }) => {
               value={docType}
               onChange={(e) => setDocType(e.target.value)}
               className={`px-3 py-2 rounded border ${
-                isDarkMode 
-                  ? 'bg-gray-700 border-gray-600 text-white' 
-                  : 'bg-white border-gray-300 text-gray-900'
+                isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
               }`}
             >
               <option value="">Select document type...</option>
               {documentTypes.map(type => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
+                <option key={type.value} value={type.value}>{type.label}</option>
               ))}
             </select>
 
-            <label className={`px-4 py-2 rounded cursor-pointer flex items-center gap-2 ${
-              isDarkMode 
-                ? 'bg-conship-orange text-white hover:bg-orange-600' 
-                : 'bg-conship-purple text-white hover:bg-purple-700'
-            } ${!docType || uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+            <label
+              className={`px-4 py-2 rounded cursor-pointer flex items-center gap-2 ${
+                isDarkMode ? 'bg-conship-orange text-white hover:bg-orange-600' : 'bg-conship-purple text-white hover:bg-purple-700'
+              } ${!docType || uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
               <Upload className="w-4 h-4" />
               {uploading ? 'Uploading...' : 'Upload'}
               <input
@@ -153,27 +145,22 @@ const DocumentUpload = ({ requestId, isDarkMode }) => {
 
           <div className="space-y-2">
             {documents.length === 0 ? (
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                No documents uploaded yet
-              </p>
+              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>No documents uploaded yet</p>
             ) : (
               documents.map(doc => (
                 <div
                   key={doc.id}
                   className={`flex items-center justify-between p-3 rounded border ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600' 
-                      : 'bg-gray-50 border-gray-200'
+                    isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <FileText className="w-5 h-5" />
                     <div>
-                      <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {doc.name}
-                      </p>
+                      <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{doc.name}</p>
                       <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        {documentTypes.find(t => t.value === doc.type)?.label || doc.type}
+                        {(['dangerous_goods_declaration','sds_sheet','battery_certification','packing_list','commercial_invoice','other']
+                          .includes(doc.type)) ? documentTypes.find(t => t.value === doc.type)?.label : doc.type}
                       </p>
                     </div>
                   </div>
@@ -193,37 +180,47 @@ const DocumentUpload = ({ requestId, isDarkMode }) => {
   );
 };
 
-// Main QuoteResults Component with Improved Layout and Enhanced Logging
-const GroundQuoteResults = ({ 
-  requestId: requestIdProp, 
-  requestNumber: requestNumberProp, 
-  serviceType: serviceTypeProp, 
-  formData: formDataProp = {}, 
-  onBack, 
-  isDarkMode 
+// Main Component
+const GroundQuoteResults = ({
+  requestId: requestIdProp,
+  requestNumber: requestNumberProp,
+  serviceType: serviceTypeProp,
+  formData: formDataProp = {},
+  onBack,
+  isDarkMode
 }) => {
   const navigate = useNavigate();
   const { requestId: requestIdParam } = useParams();
   const location = useLocation();
-  
+
   const requestId = requestIdProp || requestIdParam || location.state?.requestId;
   const [requestNumber, setRequestNumber] = useState(requestNumberProp || location.state?.requestNumber || 'N/A');
   const [serviceType, setServiceType] = useState(serviceTypeProp || location.state?.serviceType || 'ltl');
   const [formData, setFormData] = useState(formDataProp || location.state?.formData || {});
 
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState('PROCESSING');
+  const [status, setStatus] = useState('PROCESSING'); // PROCESSING | PENDING | QUOTE_READY
   const [quotes, setQuotes] = useState([]);
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [error, setError] = useState(null);
   const [sortBy, setSortBy] = useState('price'); // price, transit, recommended
-  
-  // Booking flow state
+
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingData, setBookingData] = useState(null);
   const [showBOL, setShowBOL] = useState(false);
 
-  // Log component initialization
+  // === Fix 2: Early mount debug ===
+  useEffect(() => {
+    console.log('=== QUOTE RESULTS MOUNT DEBUG ===');
+    console.log('Props:', { requestIdProp, requestNumberProp, serviceTypeProp, formDataProp });
+    console.log('Location state:', location.state);
+    console.log('URL Param requestId:', requestIdParam);
+    console.log('Final requestId used:', requestId);
+    console.log('================================');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Structured init log
   useEffect(() => {
     logQuoteFlow('QUOTE_RESULTS_INIT', {
       requestId,
@@ -232,7 +229,7 @@ const GroundQuoteResults = ({
       hasFormData: !!formData && Object.keys(formData).length > 0,
       source: requestIdProp ? 'prop' : requestIdParam ? 'param' : 'location.state'
     });
-  }, [requestId]);
+  }, [requestId, requestIdProp, requestIdParam, requestNumber, serviceType, formData]);
 
   // Log when quotes are displayed
   useEffect(() => {
@@ -253,7 +250,7 @@ const GroundQuoteResults = ({
     }
   }, [quotes, requestId, requestNumber]);
 
-  // Load data from localStorage if available
+  // Load cached data
   useEffect(() => {
     if (requestId && (!formData || Object.keys(formData).length === 0)) {
       const completeData = localStorage.getItem(`quote_complete_${requestId}`);
@@ -268,12 +265,12 @@ const GroundQuoteResults = ({
         }
       }
     }
-  }, [requestId]);
+  }, [requestId, formData]);
 
-  // Check if already booked
+  // If already booked, redirect
   useEffect(() => {
     if (!requestId) return;
-    
+
     const checkBookingStatus = async () => {
       try {
         const resp = await fetch(`${API_BASE}/bookings/by-request/${requestId}`, {
@@ -289,123 +286,132 @@ const GroundQuoteResults = ({
         console.error('Error checking booking status:', err);
       }
     };
-    
+
     checkBookingStatus();
   }, [requestId, navigate]);
 
-  // Poll for quotes with enhanced logging
+  // === Fix 1 & Fix 3: Polling with initial delay (LTL), normalized status, and correct conditions ===
   useEffect(() => {
     if (!requestId) {
       setError('No request ID provided. Please go back and create a new quote.');
       setLoading(false);
       return;
     }
-    
+
     let isMounted = true;
+    let pollCount = 0;
 
-const fetchResults = async () => {
-  try {
-    logQuoteFlow('QUOTE_FETCH_ATTEMPT', {
-      requestId,
-      currentStatus: status
-    });
+    const fetchResults = async () => {
+      try {
+        logQuoteFlow('QUOTE_FETCH_ATTEMPT', { requestId, currentStatus: status });
 
-    const result = await quoteApi.getGroundQuoteResults(requestId);
-    
-    if (!isMounted) return;
+        const result = await quoteApi.getGroundQuoteResults(requestId);
+        if (!isMounted) return;
 
-    console.log('=== QUOTE API RESPONSE ===');
-    console.log('Full result:', result);
-    console.log('Status:', result.status);
-    console.log('Quotes array:', result.quotes);
-    console.log('========================');
+        console.log('=== QUOTE API RESPONSE ===');
+        console.log('Full result:', result);
+        console.log('Status:', result?.status);
+        console.log('Quotes array:', result?.quotes);
+        console.log('========================');
 
-if (result.success) {
-  if (result.requestNumber) setRequestNumber(result.requestNumber);
-  if (result.serviceType) setServiceType(result.serviceType);
-  if (result.formData) setFormData(result.formData);
+        if (result?.success) {
+          if (result.requestNumber) setRequestNumber(result.requestNumber);
+          if (result.serviceType) setServiceType(result.serviceType);
+          if (result.formData) setFormData(result.formData);
 
-  const resultStatus = result.status || 'processing';
-  const normalizedStatus = resultStatus.toLowerCase().replace(/_/g, '-');
-  
-  console.log('Normalized status:', normalizedStatus);
-  console.log('Number of quotes:', result.quotes?.length || 0);
+          const resultStatus = result.status || 'processing';
+          const normalizedStatus = String(resultStatus).toLowerCase().replace(/_/g, '-');
 
-  // If we have quotes, display them regardless of status
-  if (Array.isArray(result.quotes) && result.quotes.length > 0) {
-    console.log('Found quotes! Displaying them now.');
-    
-    const mappedQuotes = result.quotes.map((q, index) => ({
-      quoteId: q.quoteId || q._id || `quote_${index}`,
-      service_details: {
-        carrier: q.carrier || q.carrierName || 'Unknown Carrier',
-        service: q.service || 'Standard',
-        guaranteed: q.guaranteed || false
-      },
-      raw_cost: q.raw_cost || q.rawCost || q.cost || q.price || 0,
-      final_price: q.final_price || q.price || q.finalPrice || 0,
-      markup_percentage: q.markup || 0,
-      transit_days: q.transitDays || q.transit_days || 0,
-      additional_fees: q.additionalFees || [],
-      fuel_surcharge: q.fuelSurcharge || 0,
-      ranking: index === 0 ? 'recommended' : index === 1 ? 'fastest' : index === 2 ? 'cheapest' : null
-    }));
+          console.log('Normalized status:', normalizedStatus);
+          console.log('Number of quotes:', Array.isArray(result.quotes) ? result.quotes.length : 0);
 
-    setQuotes(mappedQuotes);
-    setLoading(false);
-    setStatus('QUOTE_READY'); // Force status to ready when we have quotes
-  } else if (normalizedStatus === 'quote-processing' || normalizedStatus === 'processing' || normalizedStatus === 'pending') {
-    // Keep polling but update status
-    setStatus('PROCESSING');
-  } else if (normalizedStatus === 'failed' || normalizedStatus === 'expired' || normalizedStatus === 'quote-expired') {
-    setError(result.error || 'Unable to retrieve quotes.');
-    setLoading(false);
-  }
-}catch (e) {
-    logQuoteFlow('QUOTE_FETCH_ERROR', {
-      requestId,
-      error: e.message
-    });
-    if (!isMounted) return;
-    setError('Failed to retrieve quotes. Please try again.');
-    setLoading(false);
-  }
-};
+          // If we have quotes, display them regardless of status
+          if (Array.isArray(result.quotes) && result.quotes.length > 0) {
+            console.log('Found quotes! Displaying them now.');
 
-          const interval = setInterval(() => {
-        if (status === 'QUOTE_PROCESSING' || status === 'QUOTE_REQUESTED') {
-          fetchResults();
+            const mappedQuotes = result.quotes.map((q, index) => ({
+              quoteId: q.quoteId || q._id || `quote_${index}`,
+              service_details: {
+                carrier: q.carrier || q.carrierName || 'Unknown Carrier',
+                service: q.service || 'Standard',
+                guaranteed: q.guaranteed || false
+              },
+              raw_cost: q.raw_cost || q.rawCost || q.cost || q.price || 0,
+              final_price: q.final_price || q.price || q.finalPrice || 0,
+              markup_percentage: q.markup || 0,
+              transit_days: q.transitDays || q.transit_days || 0,
+              additional_fees: q.additionalFees || [],
+              fuel_surcharge: q.fuelSurcharge || 0,
+              ranking: index === 0 ? 'recommended' : index === 1 ? 'fastest' : index === 2 ? 'cheapest' : null
+            }));
+
+            setQuotes(mappedQuotes);
+            setLoading(false);
+            setStatus('QUOTE_READY'); // Force ready when we have quotes
+          } else if (['quote-processing', 'processing', 'pending'].includes(normalizedStatus)) {
+            // Keep polling but update status
+            setStatus(normalizedStatus === 'pending' ? 'PENDING' : 'PROCESSING');
+          } else if (['failed', 'expired', 'quote-expired'].includes(normalizedStatus)) {
+            setError(result.error || 'Unable to retrieve quotes.');
+            setLoading(false);
+          } else {
+            // Unknown status - keep polling conservatively
+            setStatus('PROCESSING');
+          }
+        } else if (result && result.error) {
+          setError(result.error || 'Unable to retrieve quotes.');
+          setLoading(false);
         }
-      }, 1000);
+      } catch (e) {
+        logQuoteFlow('QUOTE_FETCH_ERROR', { requestId, error: e.message });
+        if (!isMounted) return;
+        setError('Failed to retrieve quotes. Please try again.');
+        setLoading(false);
+      } finally {
+        pollCount += 1;
+      }
+    };
 
-    fetchResults();
+    // Initial fetch with optional delay for LTL
+    if (String(serviceType).toLowerCase() === 'ltl') {
+      setTimeout(() => { if (isMounted) fetchResults(); }, 1000); // 1s delay
+    } else {
+      fetchResults();
+    }
+
+    // Poll every 2s while processing or pending
+    const interval = setInterval(() => {
+      if (!isMounted) return;
+      if (status === 'PROCESSING' || status === 'PENDING') {
+        fetchResults();
+      }
+    }, 2000);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [requestId, status]);
+  }, [requestId, status, serviceType]);
 
-  // Handle quote selection with logging
   const handleQuoteSelection = (index) => {
-    setSelectedQuote(index);
-    const selected = quotes[index];
+    const safeIndex = Number.isInteger(index) ? index : null;
+    const selected = (safeIndex !== null) ? quotes[safeIndex] : null;
+    setSelectedQuote(safeIndex);
     logQuoteFlow('QUOTE_SELECTED', {
       requestId,
-      selectedIndex: index,
+      selectedIndex: safeIndex,
       quoteId: selected?.quoteId,
       carrier: selected?.service_details?.carrier,
       price: selected?.final_price
     });
   };
 
-  // Sort quotes
   const sortedQuotes = [...quotes].sort((a, b) => {
-    switch(sortBy) {
+    switch (sortBy) {
       case 'price':
-        return a.final_price - b.final_price;
+        return (a.final_price ?? 0) - (b.final_price ?? 0);
       case 'transit':
-        return a.transit_days - b.transit_days;
+        return (a.transit_days ?? 0) - (b.transit_days ?? 0);
       case 'recommended':
         if (a.ranking === 'recommended') return -1;
         if (b.ranking === 'recommended') return 1;
@@ -415,12 +421,14 @@ if (result.success) {
     }
   });
 
-  // Handle booking with enhanced logging
   const handleBookShipment = async () => {
     if (selectedQuote === null) return;
-    
     const selected = quotes[selectedQuote];
-    
+    if (!selected) {
+      alert('Please select a quote.');
+      return;
+    }
+
     logQuoteFlow('BOOKING_START', {
       requestId,
       requestNumber,
@@ -430,17 +438,14 @@ if (result.success) {
         price: selected.final_price
       }
     });
-    
+
     setBookingLoading(true);
 
     try {
       const bookingPayload = {
         quoteData: selected,
         requestId: requestId,
-        shipmentData: {
-          formData: formData,
-          serviceType: serviceType
-        }
+        shipmentData: { formData, serviceType }
       };
 
       const result = await bookingApi.createBooking(bookingPayload);
@@ -453,17 +458,11 @@ if (result.success) {
         });
         setBookingData(result.booking);
       } else {
-        logQuoteFlow('BOOKING_FAILED', {
-          requestId,
-          error: result.error
-        });
+        logQuoteFlow('BOOKING_FAILED', { requestId, error: result.error });
         alert('Booking failed: ' + (result.error || 'Unknown error'));
       }
     } catch (err) {
-      logQuoteFlow('BOOKING_ERROR', {
-        requestId,
-        error: err.message
-      });
+      logQuoteFlow('BOOKING_ERROR', { requestId, error: err.message });
       console.error('Booking error:', err);
       alert('Failed to create booking');
     } finally {
@@ -472,14 +471,11 @@ if (result.success) {
   };
 
   const handleBack = () => {
-    if (onBack) {
-      onBack();
-    } else {
-      navigate(`/app/quotes/ground/${serviceType || 'ltl'}`);
-    }
+    if (onBack) onBack();
+    else navigate(`/app/quotes/ground/${serviceType || 'ltl'}`);
   };
 
-  // Handle different states
+  // Render states
   if (bookingData && !showBOL) {
     return <BookingConfirmation booking={bookingData} onCreateBOL={() => setShowBOL(true)} isDarkMode={isDarkMode} />;
   }
@@ -488,7 +484,7 @@ if (result.success) {
     return <BOLBuilder booking={bookingData} isDarkMode={isDarkMode} />;
   }
 
-  if (loading && status === 'PROCESSING') {
+  if (loading && (status === 'PROCESSING' || status === 'PENDING')) {
     return (
       <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
         <div className="max-w-4xl mx-auto p-6">
@@ -497,7 +493,7 @@ if (result.success) {
               className="animate-spin h-12 w-12 border-4 border-t-transparent rounded-full mx-auto mb-4"
               style={{ borderColor: isDarkMode ? '#f97316' : '#7c3aed', borderTopColor: 'transparent' }}
             />
-            <h2 className="text-2xl font-bold mb-2">Getting {serviceType.toUpperCase()} Quotes...</h2>
+            <h2 className="text-2xl font-bold mb-2">Getting {String(serviceType).toUpperCase()} Quotes...</h2>
             <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Request #{requestNumber}</p>
           </div>
         </div>
@@ -528,8 +524,8 @@ if (result.success) {
   }
 
   const commodities = Array.isArray(formData.commodities) ? formData.commodities : [];
-  const totalUnits = commodities.reduce((sum, c) => sum + parseInt(c.quantity || 0, 10), 0);
-  const totalWeight = commodities.reduce((sum, c) => sum + parseInt(c.weight || 0, 10), 0);
+  const totalUnits = commodities.reduce((sum, c) => sum + parseInt(c?.quantity || 0, 10), 0);
+  const totalWeight = commodities.reduce((sum, c) => sum + parseInt(c?.weight || 0, 10), 0);
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
@@ -539,7 +535,7 @@ if (result.success) {
           <div className="flex items-center justify-between mb-2">
             <div>
               <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {serviceType.toUpperCase()} Quote Results
+                {String(serviceType).toUpperCase()} Quote Results
               </h1>
               <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 Request #{requestNumber}
@@ -583,12 +579,12 @@ if (result.success) {
           </div>
         </div>
 
-        {/* Documents Section */}
+        {/* Documents */}
         <div className="mb-6">
           <DocumentUpload requestId={requestId} isDarkMode={isDarkMode} />
         </div>
 
-        {/* Sorting Options */}
+        {/* Sorting */}
         {quotes.length > 0 && (
           <div className="mb-4 flex items-center justify-between">
             <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -600,9 +596,7 @@ if (result.success) {
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 className={`px-3 py-1 text-sm rounded border ${
-                  isDarkMode 
-                    ? 'bg-gray-700 border-gray-600 text-white' 
-                    : 'bg-white border-gray-300 text-gray-900'
+                  isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
                 }`}
               >
                 <option value="recommended">Recommended</option>
@@ -613,7 +607,7 @@ if (result.success) {
           </div>
         )}
 
-        {/* Quotes List - Vertical Layout */}
+        {/* Quotes */}
         {quotes.length === 0 && !loading ? (
           <div className={`text-center py-12 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
             <p className="mb-4">No quotes available yet. Please check back in a moment.</p>
@@ -623,30 +617,22 @@ if (result.success) {
             {sortedQuotes.map((quote, index) => {
               const originalIndex = quotes.indexOf(quote);
               const isSelected = selectedQuote === originalIndex;
-              
+
               return (
                 <div
                   key={quote.quoteId || index}
                   onClick={() => handleQuoteSelection(originalIndex)}
                   className={`rounded-lg border-2 p-4 cursor-pointer transition-all ${
                     isSelected
-                      ? isDarkMode 
-                        ? 'bg-gray-800 border-conship-orange shadow-lg' 
-                        : 'bg-purple-50 border-conship-purple shadow-lg'
-                      : isDarkMode 
-                        ? 'bg-gray-800 border-gray-700 hover:border-gray-600' 
-                        : 'bg-white border-gray-200 hover:border-gray-300'
+                      ? (isDarkMode ? 'bg-gray-800 border-conship-orange shadow-lg' : 'bg-purple-50 border-conship-purple shadow-lg')
+                      : (isDarkMode ? 'bg-gray-800 border-gray-700 hover:border-gray-600' : 'bg-white border-gray-200 hover:border-gray-300')
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    {/* Left: Carrier Info */}
+                    {/* Left: Carrier */}
                     <div className="flex items-center gap-4">
-                      <div className={`p-3 rounded-lg ${
-                        isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
-                      }`}>
-                        <Truck className={`w-6 h-6 ${
-                          isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                        }`} />
+                      <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                        <Truck className={`w-6 h-6 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`} />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
@@ -675,7 +661,7 @@ if (result.success) {
                         <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                           {quote?.service_details?.service || 'Service'}
                           {quote?.service_details?.guaranteed && (
-                            <span className="ml-2 text-xs text-green-600 dark:text-green-400 flex items-center gap-1 inline-flex">
+                            <span className="ml-2 text-xs text-green-600 dark:text-green-400 inline-flex items-center gap-1">
                               <ShieldCheck className="w-3 h-3" />
                               Guaranteed
                             </span>
@@ -684,12 +670,10 @@ if (result.success) {
                       </div>
                     </div>
 
-                    {/* Center: Service Details */}
+                    {/* Center: Details */}
                     <div className="flex items-center gap-8">
                       <div className="text-center">
-                        <div className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                          Transit Time
-                        </div>
+                        <div className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Transit Time</div>
                         <div className="flex items-center gap-1 mt-1">
                           <Clock className="w-4 h-4" />
                           <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -697,12 +681,10 @@ if (result.success) {
                           </span>
                         </div>
                       </div>
-                      
+
                       {Array.isArray(quote?.additional_fees) && quote.additional_fees.length > 0 && (
                         <div className="text-center">
-                          <div className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                            Additional Fees
-                          </div>
+                          <div className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Additional Fees</div>
                           <div className={`mt-1 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                             {quote.additional_fees.length} fees
                           </div>
@@ -712,31 +694,23 @@ if (result.success) {
 
                     {/* Right: Price */}
                     <div className="text-right">
-                      <div className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                        Total Price
-                      </div>
+                      <div className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Total Price</div>
                       <div className={`text-2xl font-bold mt-1 ${
-                        isSelected 
-                          ? isDarkMode ? 'text-conship-orange' : 'text-conship-purple'
-                          : isDarkMode ? 'text-white' : 'text-gray-900'
+                        isSelected ? (isDarkMode ? 'text-conship-orange' : 'text-conship-purple') :
+                        (isDarkMode ? 'text-white' : 'text-gray-900')
                       }`}>
                         ${Number(quote?.final_price ?? 0).toFixed(2)}
                       </div>
                     </div>
                   </div>
 
-                  {/* Selection Indicator */}
                   {isSelected && (
                     <div className={`mt-3 pt-3 border-t flex items-center justify-between ${
                       isDarkMode ? 'border-gray-700' : 'border-gray-200'
                     }`}>
                       <div className="flex items-center gap-2">
-                        <Check className={`w-5 h-5 ${
-                          isDarkMode ? 'text-conship-orange' : 'text-conship-purple'
-                        }`} />
-                        <span className={`text-sm font-medium ${
-                          isDarkMode ? 'text-conship-orange' : 'text-conship-purple'
-                        }`}>
+                        <Check className={`w-5 h-5 ${isDarkMode ? 'text-conship-orange' : 'text-conship-purple'}`} />
+                        <span className={`text-sm font-medium ${isDarkMode ? 'text-conship-orange' : 'text-conship-purple'}`}>
                           Selected
                         </span>
                       </div>
@@ -748,13 +722,14 @@ if (result.success) {
           </div>
         )}
 
-        {/* Action Buttons */}
+        {/* Actions */}
         {quotes.length > 0 && (
           <div className="mt-8 flex justify-end gap-3">
             <button
               onClick={() => {
                 if (selectedQuote === null) return;
                 const selected = quotes[selectedQuote];
+                if (!selected) return;
                 console.log('Saving quote:', selected);
                 alert('Quote saved!');
               }}
@@ -762,9 +737,7 @@ if (result.success) {
               className={`px-6 py-2 rounded font-medium ${
                 selectedQuote === null
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : isDarkMode 
-                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  : (isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300')
               }`}
             >
               Save Quote
@@ -776,9 +749,7 @@ if (result.success) {
               className={`px-6 py-2 rounded font-medium ${
                 (selectedQuote === null || bookingLoading)
                   ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                  : (isDarkMode
-                    ? 'bg-conship-orange text-white hover:bg-orange-600'
-                    : 'bg-conship-purple text-white hover:bg-purple-700')
+                  : (isDarkMode ? 'bg-conship-orange text-white hover:bg-orange-600' : 'bg-conship-purple text-white hover:bg-purple-700')
               }`}
             >
               {bookingLoading ? 'Booking...' : 'Book Shipment'}
