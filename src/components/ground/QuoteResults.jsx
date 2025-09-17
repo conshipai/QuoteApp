@@ -14,6 +14,8 @@ import BOLBuilder from '../bol/BOLBuilder';
 import { logQuoteFlow } from '../../utils/debugLogger';
 import { ShipmentLifecycle } from '../../constants/shipmentLifecycle';
 import cacheService from '../../services/cacheService';
+// (Already present in your file) Keep this single import:
+import BookingRequestForm from '../bookings/BookingRequestForm';
 
 // DocumentUpload component (unchanged except minor class fix)
 const DocumentUpload = ({ requestId, isDarkMode }) => {
@@ -210,6 +212,10 @@ const GroundQuoteResults = ({
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingData, setBookingData] = useState(null);
   const [showBOL, setShowBOL] = useState(false);
+
+  // NEW: Booking form state (per your instructions)
+  const [showBookingForm, setShowBookingForm] = useState(false);
+  const [selectedQuoteForBooking, setSelectedQuoteForBooking] = useState(null);
 
   // === Fix 2: Early mount debug ===
   useEffect(() => {
@@ -425,6 +431,7 @@ const GroundQuoteResults = ({
     }
   });
 
+  // REPLACED: Open the BookingRequestForm instead of creating booking immediately
   const handleBookShipment = async () => {
     if (selectedQuote === null) return;
     const selected = quotes[selectedQuote];
@@ -433,7 +440,7 @@ const GroundQuoteResults = ({
       return;
     }
 
-    logQuoteFlow('BOOKING_START', {
+    logQuoteFlow('BOOKING_FORM_OPEN', {
       requestId,
       requestNumber,
       selectedQuote: {
@@ -443,35 +450,8 @@ const GroundQuoteResults = ({
       }
     });
 
-    setBookingLoading(true);
-
-    try {
-      const bookingPayload = {
-        quoteData: selected,
-        requestId: requestId,
-        shipmentData: { formData, serviceType }
-      };
-
-      const result = await bookingApi.createBooking(bookingPayload);
-
-      if (result.success) {
-        logQuoteFlow('BOOKING_SUCCESS', {
-          requestId,
-          bookingId: result.booking?.bookingId,
-          confirmationNumber: result.booking?.confirmationNumber
-        });
-        setBookingData(result.booking);
-      } else {
-        logQuoteFlow('BOOKING_FAILED', { requestId, error: result.error });
-        alert('Booking failed: ' + (result.error || 'Unknown error'));
-      }
-    } catch (err) {
-      logQuoteFlow('BOOKING_ERROR', { requestId, error: err.message });
-      console.error('Booking error:', err);
-      alert('Failed to create booking');
-    } finally {
-      setBookingLoading(false);
-    }
+    setSelectedQuoteForBooking(selected);
+    setShowBookingForm(true);
   };
 
   const handleBack = () => {
@@ -759,6 +739,39 @@ const GroundQuoteResults = ({
               {bookingLoading ? 'Booking...' : 'Book Shipment'}
             </button>
           </div>
+        )}
+
+        {/* Booking Request Form (NEW) */}
+        {showBookingForm && selectedQuoteForBooking && (
+          <BookingRequestForm
+            quote={{
+              requestId: requestId,
+              requestNumber: requestNumber,
+              ...selectedQuoteForBooking
+            }}
+            formData={formData}
+            onSuccess={(booking) => {
+              logQuoteFlow('BOOKING_SUCCESS', {
+                requestId,
+                bookingId: booking.id,
+                requestNumber: booking.requestNumber
+              });
+
+              alert(`✅ Booking request created!\nRequest #: ${booking.requestNumber}\n\nOur team will process your booking and send the BOL and shipping labels shortly.`);
+
+              setShowBookingForm(false);
+              setSelectedQuoteForBooking(null);
+
+              // Navigate to bookings page
+              navigate('/app/quotes/bookings');
+            }}
+            onCancel={() => {
+              setShowBookingForm(false);
+              setSelectedQuoteForBooking(null);
+              logQuoteFlow('BOOKING_CANCELLED', { requestId });
+            }}
+            isDarkMode={isDarkMode}
+          />
         )}
       </div>
     </div>
