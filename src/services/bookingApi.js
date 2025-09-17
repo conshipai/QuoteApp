@@ -1,26 +1,63 @@
 // src/services/bookingApi.js
 import api from './api';
 
+const API_BASE = process.env.REACT_APP_API_BASE || 'https://api.gcc.conship.ai';
+
 class BookingAPI {
+  // Updated createBooking method
   async createBooking(bookingData) {
     try {
-      const { data } = await api.post('/bookings', bookingData);
-      
-      if (!data.success) {
-        throw new Error(data?.error || 'Failed to create booking');
-      }
+      // Check if this is using the new booking request format
+      if (bookingData.quoteId || bookingData.pickup) {
+        // New booking request system
+        const response = await fetch(`${API_BASE}/booking-requests/create-request`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          },
+          body: JSON.stringify(bookingData)
+        });
 
-      return data;
+        const result = await response.json();
+
+        if (result.success) {
+          return {
+            success: true,
+            booking: {
+              bookingId: result.bookingRequest.id,
+              requestNumber: result.bookingRequest.requestNumber,
+              status: result.bookingRequest.status,
+              ...result.bookingRequest
+            }
+          };
+        } else {
+          throw new Error(result.error || 'Failed to create booking');
+        }
+      } else {
+        // Fall back to old system for backward compatibility
+        const response = await fetch(`${API_BASE}/bookings`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          },
+          body: JSON.stringify(bookingData)
+        });
+
+        return await response.json();
+      }
     } catch (error) {
       console.error('Error creating booking:', error);
       throw error;
     }
   }
 
+  // Existing methods
   async getAllBookings() {
     try {
       const { data } = await api.get('/bookings');
-      
+
       if (!data.success) {
         throw new Error(data?.error || 'Failed to fetch bookings');
       }
@@ -35,7 +72,7 @@ class BookingAPI {
   async getBooking(bookingId) {
     try {
       const { data } = await api.get(`/bookings/${bookingId}`);
-      
+
       if (!data.success) {
         throw new Error(data?.error || 'Booking not found');
       }
@@ -50,7 +87,7 @@ class BookingAPI {
   async getBookingByRequest(requestId) {
     try {
       const { data } = await api.get(`/bookings/by-request/${requestId}`);
-      
+
       if (!data.success) {
         throw new Error(data?.error || 'Booking not found');
       }
@@ -65,7 +102,7 @@ class BookingAPI {
   async updateBooking(bookingId, updateData) {
     try {
       const { data } = await api.put(`/bookings/${bookingId}`, updateData);
-      
+
       if (!data.success) {
         throw new Error(data?.error || 'Failed to update booking');
       }
@@ -80,7 +117,7 @@ class BookingAPI {
   async deleteBooking(bookingId) {
     try {
       const { data } = await api.delete(`/bookings/${bookingId}`);
-      
+
       if (!data.success) {
         throw new Error(data?.error || 'Failed to delete booking');
       }
