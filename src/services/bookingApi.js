@@ -1,7 +1,7 @@
 // src/services/bookingApi.js
 import api from './api';
 
-const API_BASE = process.env.REACT_APP_API_BASE || 'https://api.gcc.conship.ai';
+const API_BASE = 'https://api.gcc.conship.ai/api';
 
 class BookingAPI {
   // Updated createBooking method
