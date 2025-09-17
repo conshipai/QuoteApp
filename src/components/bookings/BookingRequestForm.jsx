@@ -16,13 +16,30 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
   const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [searchTerm, setSearchTerm] = useState({ pickup: '', delivery: '' });
   const [showSaveAddress, setShowSaveAddress] = useState({ pickup: false, delivery: false });
-  const [addressBookError, setAddressBookError] = useState(null);
   
   const modalRef = useRef(null);
   const formRef = useRef(null);
   
-  // Initialize booking data
+  // Scroll to top when modal opens
+  useEffect(() => {
+    if (modalRef.current) {
+      modalRef.current.scrollTop = 0;
+    }
+    if (formRef.current) {
+      formRef.current.scrollTop = 0;
+    }
+    document.body.style.overflow = 'hidden';
+    
+    // Load address book
+    fetchAddressBook();
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+  
   const [bookingData, setBookingData] = useState({
+    // Pickup Information
     pickup: {
       company: formData?.originCompany || '',
       address: formData?.originAddress || '',
@@ -38,6 +55,8 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
       readyDate: formData?.pickupDate || new Date().toISOString().split('T')[0],
       readyTime: '09:00'
     },
+    
+    // Delivery Information
     delivery: {
       company: formData?.destCompany || '',
       address: formData?.destAddress || '',
@@ -54,6 +73,8 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
       requiredTime: '',
       guaranteed: false
     },
+    
+    // Additional Services
     services: {
       insurance: false,
       insuranceValue: '',
@@ -64,60 +85,27 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
       appointmentRequired: false,
       residential: formData?.residentialDelivery || false
     },
+    
+    // Special Instructions
     specialInstructions: formData?.specialInstructions || ''
   });
 
-  // Scroll to top and load addresses on mount
-  useEffect(() => {
-    if (modalRef.current) {
-      modalRef.current.scrollTop = 0;
-    }
-    document.body.style.overflow = 'hidden';
-    
-    // Load address book on component mount
-    fetchAddressBook();
-    
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, []);
-  
-  // Fetch address book with better error handling
+  // Fetch address book
   const fetchAddressBook = async () => {
     setLoadingAddresses(true);
-    setAddressBookError(null);
-    
     try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        console.warn('No auth token found');
-        setAddressBookError('Please log in to access address book');
-        return;
-      }
-
-      const response = await fetch(`${API_BASE}/addressbook/companies`, {
+      const response = await fetch(`${API_BASE}/address-book/companies`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
       });
       
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      
       const data = await response.json();
-      console.log('Address book loaded:', data);
-      
-      if (data.success && Array.isArray(data.companies)) {
-        setAddressBook(data.companies);
-      } else {
-        setAddressBook([]);
+      if (data.success) {
+        setAddressBook(data.companies || []);
       }
     } catch (error) {
       console.error('Error loading address book:', error);
-      setAddressBookError('Failed to load address book');
-      setAddressBook([]);
     } finally {
       setLoadingAddresses(false);
     }
@@ -129,12 +117,11 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
     const addressType = type === 'pickup' ? 'shipper' : 'consignee';
     
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_BASE}/addressbook/companies`, {
+      const response = await fetch(`${API_BASE}/address-book/companies`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({
           name: addressData.company,
@@ -155,10 +142,8 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
       const data = await response.json();
       if (data.success) {
         alert(`${type === 'pickup' ? 'Pickup' : 'Delivery'} location saved to address book!`);
-        await fetchAddressBook(); // Refresh address book
+        fetchAddressBook(); // Refresh address book
         setShowSaveAddress({ ...showSaveAddress, [type]: false });
-      } else {
-        alert('Failed to save address: ' + (data.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error saving to address book:', error);
@@ -168,28 +153,25 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
 
   // Select address from address book
   const selectFromAddressBook = (type, company) => {
-    console.log('Selecting address:', type, company);
-    
-    setBookingData(prev => ({
-      ...prev,
+    setBookingData({
+      ...bookingData,
       [type]: {
-        ...prev[type],
-        company: company.name || '',
+        ...bookingData[type],
+        company: company.name,
         address: company.address || '',
         address2: company.address2 || '',
         city: company.city || '',
         state: company.state || '',
         zip: company.zip || '',
-        contactName: company.contact || prev[type].contactName,
-        contactPhone: company.phone || prev[type].contactPhone,
-        contactEmail: company.email || prev[type].contactEmail
+        contactName: company.contact || bookingData[type].contactName,
+        contactPhone: company.phone || bookingData[type].contactPhone,
+        contactEmail: company.email || bookingData[type].contactEmail
       }
-    }));
-    
+    });
     setShowAddressBook({ ...showAddressBook, [type]: false });
   };
 
-  // Handle file upload
+  // Handle file upload with real S3 upload
   const handleFileUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -223,7 +205,7 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
       const data = await response.json();
       
       if (data.success) {
-        setDocuments(prev => [...prev, {
+        const fileInfo = {
           id: `doc_${Date.now()}`,
           name: file.name,
           type: file.type,
@@ -231,7 +213,9 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
           url: data.fileUrl,
           key: data.key,
           uploaded: true
-        }]);
+        };
+        
+        setDocuments(prev => [...prev, fileInfo]);
         console.log('Document uploaded:', data.fileUrl);
       } else {
         throw new Error(data.error || 'Upload failed');
@@ -245,7 +229,6 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
     }
   };
 
-  // Submit booking to database
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -294,8 +277,6 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
         }))
       };
       
-      console.log('Submitting booking:', requestData);
-      
       const response = await fetch(`${API_BASE}/booking-requests/create-request`, {
         method: 'POST',
         headers: {
@@ -306,12 +287,8 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
       });
       
       const result = await response.json();
-      console.log('Booking response:', result);
       
       if (result.success) {
-        // YES - This saves to the database!
-        // The booking is now stored and can be retrieved later
-        console.log('Booking saved to database with ID:', result.bookingRequest?.id);
         onSuccess(result.bookingRequest);
       } else {
         alert('Failed to create booking: ' + (result.error || 'Unknown error'));
@@ -324,16 +301,19 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
     }
   };
 
-  // Filter address book
+  // Filter address book based on search and type
   const getFilteredAddresses = (type) => {
     const term = searchTerm[type].toLowerCase();
     const addressType = type === 'pickup' ? 'shipper' : 'consignee';
     
+    // Filter by type and search term
     return addressBook.filter(company => {
+      // Check if it's the right type or has no type specified
       const hasCorrectType = !company.types || company.types.length === 0 || 
                              company.types.includes(addressType) || 
                              company.types.includes('third_party');
       
+      // Check search term
       const matchesSearch = !term || 
                            company.name?.toLowerCase().includes(term) ||
                            company.city?.toLowerCase().includes(term) ||
@@ -343,9 +323,31 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
     });
   };
 
-  // Address Book Modal Component with fixed z-index
+  // Get type badges for address
+  const getTypeBadges = (company) => {
+    if (!company.types || company.types.length === 0) return null;
+    
+    const typeColors = {
+      shipper: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+      consignee: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+      third_party: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+      broker: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+    };
+    
+    return (
+      <div className="flex gap-1">
+        {company.types.map(type => (
+          <span key={type} className={`text-xs px-2 py-0.5 rounded ${typeColors[type] || 'bg-gray-100'}`}>
+            {type.replace('_', ' ')}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
+  // Address Book Modal Component
   const AddressBookModal = ({ type, onClose }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]" style={{ zIndex: 9999 }}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
       <div className={`w-full max-w-2xl ${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 max-h-[80vh] overflow-y-auto`}>
         <div className="flex items-center justify-between mb-4">
           <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -370,27 +372,20 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
           />
         </div>
         
-        {/* Error Message */}
-        {addressBookError && (
-          <div className={`mb-4 p-3 rounded ${isDarkMode ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-700'}`}>
-            {addressBookError}
-          </div>
-        )}
-        
         {/* Address List */}
         <div className="space-y-2">
           {loadingAddresses ? (
             <p className="text-center py-4">Loading addresses...</p>
           ) : getFilteredAddresses(type).length === 0 ? (
             <p className={`text-center py-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              {addressBook.length === 0 ? 'No saved addresses. Add one below!' : 'No addresses found matching your search.'}
+              No addresses found
             </p>
           ) : (
             getFilteredAddresses(type).map(company => (
               <div
-                key={company._id || company.id}
+                key={company._id}
                 onClick={() => selectFromAddressBook(type, company)}
-                className={`p-3 rounded cursor-pointer border transition-colors ${
+                className={`p-3 rounded cursor-pointer border ${
                   isDarkMode 
                     ? 'border-gray-700 hover:bg-gray-700' 
                     : 'border-gray-200 hover:bg-gray-50'
@@ -405,6 +400,7 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
                       {company.isDefault && (
                         <Star className="w-4 h-4 text-yellow-500" />
                       )}
+                      {getTypeBadges(company)}
                     </div>
                     <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                       {company.address}
@@ -417,6 +413,12 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
                       <p className={`text-sm mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                         Contact: {company.contact} 
                         {company.phone && ` • ${company.phone}`}
+                        {company.email && ` • ${company.email}`}
+                      </p>
+                    )}
+                    {company.notes && (
+                      <p className={`text-xs mt-1 italic ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                        {company.notes}
                       </p>
                     )}
                   </div>
@@ -450,7 +452,10 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50">
-      <div ref={modalRef} className="w-full h-full overflow-y-auto">
+      <div 
+        ref={modalRef}
+        className="w-full h-full overflow-y-auto"
+      >
         <div className="min-h-full flex items-start justify-center p-4 py-8">
           <div className={`max-w-5xl w-full ${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg`}>
             {/* Header */}
@@ -464,15 +469,19 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
                     Quote #{quote.requestNumber} • {quote.service_details?.carrier || 'Carrier'} • ${quote.final_price || quote.price}
                   </p>
                 </div>
-                <button onClick={onCancel} className={`p-2 rounded ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
+                <button 
+                  onClick={onCancel} 
+                  className={`p-2 rounded ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            {/* Form Body */}
+            {/* Form Body - Single Page */}
             <form ref={formRef} onSubmit={handleSubmit} className="p-6 space-y-6">
-              {/* Origin & Destination Grid */}
+              
+              {/* Pickup & Delivery Section - Side by Side */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Pickup Information */}
                 <div className={`p-4 rounded-lg border ${isDarkMode ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-50'}`}>
@@ -483,10 +492,7 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
                     </h3>
                     <button
                       type="button"
-                      onClick={() => {
-                        console.log('Opening address book for pickup');
-                        setShowAddressBook({ ...showAddressBook, pickup: true });
-                      }}
+                      onClick={() => setShowAddressBook({ ...showAddressBook, pickup: true })}
                       className={`px-3 py-1 text-sm rounded flex items-center gap-1 ${
                         isDarkMode 
                           ? 'bg-gray-700 hover:bg-gray-600 text-white' 
@@ -498,7 +504,6 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
                     </button>
                   </div>
                   
-                  {/* Pickup form fields */}
                   <div className="space-y-3">
                     <div>
                       <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -516,12 +521,190 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
                       />
                     </div>
                     
-                    {/* Add all other pickup fields here (address, city, state, zip, contact, etc.) */}
-                    {/* ... keeping it shorter for brevity, but include all fields from original */}
+                    <div>
+                      <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Street Address *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={bookingData.pickup.address}
+                        onChange={(e) => setBookingData({
+                          ...bookingData,
+                          pickup: { ...bookingData.pickup, address: e.target.value }
+                        })}
+                        className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Address Line 2
+                      </label>
+                      <input
+                        type="text"
+                        value={bookingData.pickup.address2}
+                        onChange={(e) => setBookingData({
+                          ...bookingData,
+                          pickup: { ...bookingData.pickup, address2: e.target.value }
+                        })}
+                        placeholder="Suite, Building, Floor, etc."
+                        className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                          City *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={bookingData.pickup.city}
+                          onChange={(e) => setBookingData({
+                            ...bookingData,
+                            pickup: { ...bookingData.pickup, city: e.target.value }
+                          })}
+                          className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                            State *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            maxLength="2"
+                            value={bookingData.pickup.state}
+                            onChange={(e) => setBookingData({
+                              ...bookingData,
+                              pickup: { ...bookingData.pickup, state: e.target.value.toUpperCase() }
+                            })}
+                            className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                          />
+                        </div>
+                        <div>
+                          <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                            ZIP *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={bookingData.pickup.zip}
+                            onChange={(e) => setBookingData({
+                              ...bookingData,
+                              pickup: { ...bookingData.pickup, zip: e.target.value }
+                            })}
+                            className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Contact Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={bookingData.pickup.contactName}
+                        onChange={(e) => setBookingData({
+                          ...bookingData,
+                          pickup: { ...bookingData.pickup, contactName: e.target.value }
+                        })}
+                        className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                        placeholder="John Doe"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Phone *
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        value={bookingData.pickup.contactPhone}
+                        onChange={(e) => setBookingData({
+                          ...bookingData,
+                          pickup: { ...bookingData.pickup, contactPhone: e.target.value }
+                        })}
+                        className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                        placeholder="(555) 123-4567"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={bookingData.pickup.contactEmail}
+                        onChange={(e) => setBookingData({
+                          ...bookingData,
+                          pickup: { ...bookingData.pickup, contactEmail: e.target.value }
+                        })}
+                        className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                        placeholder="john@example.com"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                          Ready Date *
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={bookingData.pickup.readyDate}
+                          onChange={(e) => setBookingData({
+                            ...bookingData,
+                            pickup: { ...bookingData.pickup, readyDate: e.target.value }
+                          })}
+                          min={new Date().toISOString().split('T')[0]}
+                          className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                        />
+                      </div>
+                      <div>
+                        <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                          Time
+                        </label>
+                        <input
+                          type="time"
+                          value={bookingData.pickup.readyTime}
+                          onChange={(e) => setBookingData({
+                            ...bookingData,
+                            pickup: { ...bookingData.pickup, readyTime: e.target.value }
+                          })}
+                          className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                        />
+                      </div>
+                    </div>
+                    
+                    {showSaveAddress.pickup && (
+                      <button
+                        type="button"
+                        onClick={() => saveToAddressBook('pickup')}
+                        className={`w-full py-2 rounded flex items-center justify-center gap-2 ${
+                          isDarkMode 
+                            ? 'bg-green-600 hover:bg-green-700 text-white' 
+                            : 'bg-green-600 hover:bg-green-700 text-white'
+                        }`}
+                      >
+                        <Plus className="w-4 h-4" />
+                        Save to Address Book
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                {/* Delivery Information */}
+                {/* Delivery Information - Same structure as pickup */}
                 <div className={`p-4 rounded-lg border ${isDarkMode ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-50'}`}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className={`text-lg font-semibold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -530,10 +713,7 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
                     </h3>
                     <button
                       type="button"
-                      onClick={() => {
-                        console.log('Opening address book for delivery');
-                        setShowAddressBook({ ...showAddressBook, delivery: true });
-                      }}
+                      onClick={() => setShowAddressBook({ ...showAddressBook, delivery: true })}
                       className={`px-3 py-1 text-sm rounded flex items-center gap-1 ${
                         isDarkMode 
                           ? 'bg-gray-700 hover:bg-gray-600 text-white' 
@@ -545,8 +725,9 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
                     </button>
                   </div>
                   
-                  {/* Delivery form fields */}
+                  {/* Similar fields as pickup - I'll keep it shorter for space */}
                   <div className="space-y-3">
+                    {/* Company, Address, City, State, ZIP fields - same as pickup */}
                     <div>
                       <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                         Company Name *
@@ -563,8 +744,355 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
                       />
                     </div>
                     
-                    {/* Add all other delivery fields here */}
-                    {/* ... keeping it shorter for brevity */}
+                    <div>
+                      <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Street Address *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={bookingData.delivery.address}
+                        onChange={(e) => setBookingData({
+                          ...bookingData,
+                          delivery: { ...bookingData.delivery, address: e.target.value }
+                        })}
+                        className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Address Line 2
+                      </label>
+                      <input
+                        type="text"
+                        value={bookingData.delivery.address2}
+                        onChange={(e) => setBookingData({
+                          ...bookingData,
+                          delivery: { ...bookingData.delivery, address2: e.target.value }
+                        })}
+                        placeholder="Suite, Building, Floor, etc."
+                        className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                      />
+                    </div>
+                    
+                    {/* City, State, ZIP - same grid structure */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                          City *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={bookingData.delivery.city}
+                          onChange={(e) => setBookingData({
+                            ...bookingData,
+                            delivery: { ...bookingData.delivery, city: e.target.value }
+                          })}
+                          className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                            State *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            maxLength="2"
+                            value={bookingData.delivery.state}
+                            onChange={(e) => setBookingData({
+                              ...bookingData,
+                              delivery: { ...bookingData.delivery, state: e.target.value.toUpperCase() }
+                            })}
+                            className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                          />
+                        </div>
+                        <div>
+                          <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                            ZIP *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={bookingData.delivery.zip}
+                            onChange={(e) => setBookingData({
+                              ...bookingData,
+                              delivery: { ...bookingData.delivery, zip: e.target.value }
+                            })}
+                            className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Contact fields */}
+                    <div>
+                      <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Contact Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={bookingData.delivery.contactName}
+                        onChange={(e) => setBookingData({
+                          ...bookingData,
+                          delivery: { ...bookingData.delivery, contactName: e.target.value }
+                        })}
+                        className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                        placeholder="Jane Smith"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Phone *
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        value={bookingData.delivery.contactPhone}
+                        onChange={(e) => setBookingData({
+                          ...bookingData,
+                          delivery: { ...bookingData.delivery, contactPhone: e.target.value }
+                        })}
+                        className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                        placeholder="(555) 987-6543"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={bookingData.delivery.contactEmail}
+                        onChange={(e) => setBookingData({
+                          ...bookingData,
+                          delivery: { ...bookingData.delivery, contactEmail: e.target.value }
+                        })}
+                        className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                        placeholder="jane@example.com"
+                      />
+                    </div>
+                    
+                    <label className={`flex items-center gap-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      <input
+                        type="checkbox"
+                        checked={bookingData.delivery.guaranteed}
+                        onChange={(e) => setBookingData({
+                          ...bookingData,
+                          delivery: { ...bookingData.delivery, guaranteed: e.target.checked }
+                        })}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm">Guaranteed Delivery (additional charges apply)</span>
+                    </label>
+                    
+                    {showSaveAddress.delivery && (
+                      <button
+                        type="button"
+                        onClick={() => saveToAddressBook('delivery')}
+                        className={`w-full py-2 rounded flex items-center justify-center gap-2 ${
+                          isDarkMode 
+                            ? 'bg-green-600 hover:bg-green-700 text-white' 
+                            : 'bg-green-600 hover:bg-green-700 text-white'
+                        }`}
+                      >
+                        <Plus className="w-4 h-4" />
+                        Save to Address Book
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Services & Documents - Keep the same as before */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Services section - same as before */}
+                <div className={`p-4 rounded-lg border ${isDarkMode ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-50'}`}>
+                  <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    <Shield className="w-5 h-5 text-purple-500" />
+                    Additional Services
+                  </h3>
+                  
+                  {/* All service checkboxes - same as before */}
+                  <div className="space-y-3">
+                    <label className={`flex items-center gap-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      <input
+                        type="checkbox"
+                        checked={bookingData.services.insurance}
+                        onChange={(e) => setBookingData({
+                          ...bookingData,
+                          services: { ...bookingData.services, insurance: e.target.checked }
+                        })}
+                        className="w-4 h-4"
+                      />
+                      <span>Cargo Insurance</span>
+                    </label>
+                    
+                    {bookingData.services.insurance && (
+                      <input
+                        type="number"
+                        placeholder="Declared value ($)"
+                        value={bookingData.services.insuranceValue}
+                        onChange={(e) => setBookingData({
+                          ...bookingData,
+                          services: { ...bookingData.services, insuranceValue: e.target.value }
+                        })}
+                        className={`ml-7 px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                      />
+                    )}
+                    
+                    {/* Other service checkboxes */}
+                    <label className={`flex items-center gap-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      <input
+                        type="checkbox"
+                        checked={bookingData.services.liftgatePickup}
+                        onChange={(e) => setBookingData({
+                          ...bookingData,
+                          services: { ...bookingData.services, liftgatePickup: e.target.checked }
+                        })}
+                        className="w-4 h-4"
+                      />
+                      <span>Liftgate at Pickup</span>
+                    </label>
+                    
+                    <label className={`flex items-center gap-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      <input
+                        type="checkbox"
+                        checked={bookingData.services.liftgateDelivery}
+                        onChange={(e) => setBookingData({
+                          ...bookingData,
+                          services: { ...bookingData.services, liftgateDelivery: e.target.checked }
+                        })}
+                        className="w-4 h-4"
+                      />
+                      <span>Liftgate at Delivery</span>
+                    </label>
+                    
+                    <label className={`flex items-center gap-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      <input
+                        type="checkbox"
+                        checked={bookingData.services.insideDelivery}
+                        onChange={(e) => setBookingData({
+                          ...bookingData,
+                          services: { ...bookingData.services, insideDelivery: e.target.checked }
+                        })}
+                        className="w-4 h-4"
+                      />
+                      <span>Inside Delivery</span>
+                    </label>
+                    
+                    <label className={`flex items-center gap-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      <input
+                        type="checkbox"
+                        checked={bookingData.services.appointmentRequired}
+                        onChange={(e) => setBookingData({
+                          ...bookingData,
+                          services: { ...bookingData.services, appointmentRequired: e.target.checked }
+                        })}
+                        className="w-4 h-4"
+                      />
+                      <span>Appointment Required</span>
+                    </label>
+                    
+                    <label className={`flex items-center gap-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      <input
+                        type="checkbox"
+                        checked={bookingData.services.residential}
+                        onChange={(e) => setBookingData({
+                          ...bookingData,
+                          services: { ...bookingData.services, residential: e.target.checked }
+                        })}
+                        className="w-4 h-4"
+                      />
+                      <span>Residential Delivery</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Documents section - same as before */}
+                <div className={`p-4 rounded-lg border ${isDarkMode ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-50'}`}>
+                  <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    <FileText className="w-5 h-5 text-orange-500" />
+                    Documents
+                  </h3>
+                  
+                  <div className="space-y-3">
+                    <label className={`flex items-center justify-center gap-2 px-4 py-3 rounded cursor-pointer border-2 border-dashed ${
+                      isDarkMode ? 'border-gray-600 hover:border-gray-500' : 'border-gray-300 hover:border-gray-400'
+                    } ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                      <Upload className="w-5 h-5" />
+                      <span>{uploading ? 'Uploading...' : 'Upload Document (PDF, JPG, PNG)'}</span>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={handleFileUpload}
+                        disabled={uploading}
+                      />
+                    </label>
+                    
+                    {documents.map(doc => (
+                      <div key={doc.id} className={`flex items-center justify-between p-2 rounded ${
+                        isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
+                      }`}>
+                        <div className="flex items-center gap-2 flex-1">
+                          {doc.uploaded && <Check className="w-4 h-4 text-green-500" />}
+                          <span className="text-sm truncate flex-1">{doc.name}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setDocuments(prev => prev.filter(d => d.id !== doc.id))}
+                          className="ml-2 text-red-500 hover:text-red-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    
+                    {documents.length === 0 && (
+                      <p className={`text-sm text-center ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                        No documents uploaded yet
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Rest of the form remains the same */}
+              {/* Special Instructions */}
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Special Instructions
+                </label>
+                <textarea
+                  rows="3"
+                  value={bookingData.specialInstructions}
+                  onChange={(e) => setBookingData({ ...bookingData, specialInstructions: e.target.value })}
+                  placeholder="Any special handling instructions, delivery requirements, or notes..."
+                  className={`w-full px-3 py-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                />
+              </div>
+
+              {/* Notice */}
+              <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-50'} border ${isDarkMode ? 'border-blue-800' : 'border-blue-200'}`}>
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm">
+                    <p className={`font-medium ${isDarkMode ? 'text-blue-400' : 'text-blue-900'}`}>
+                      What Happens Next?
+                    </p>
+                    <ul className={`mt-2 space-y-1 ${isDarkMode ? 'text-blue-300' : 'text-blue-700'}`}>
+                      <li>• Your booking will be confirmed within 15-30 minutes</li>
+                      <li>• BOL and shipping labels will be sent to your email</li>
+                      <li>• Track shipment status in your dashboard</li>
+                      <li>• All uploaded documents are securely stored</li>
+                    </ul>
                   </div>
                 </div>
               </div>
@@ -600,7 +1128,7 @@ const BookingRequestForm = ({ quote, formData, onSuccess, onCancel, isDarkMode }
             </form>
           </div>
           
-          {/* Address Book Modals - Render outside main form */}
+          {/* Address Book Modals */}
           {showAddressBook.pickup && (
             <AddressBookModal 
               type="pickup" 
