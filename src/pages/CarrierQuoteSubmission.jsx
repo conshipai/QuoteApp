@@ -53,7 +53,7 @@ const CarrierQuoteSubmission = () => {
   const fetchRequestDetails = async () => {
     try {
       const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/ground-quotes/carrier/view/${token}`
+        `https://api.gcc.conship.ai/api/ground-quotes/carrier/view/${token}`
       );
       
       if (response.data.success) {
@@ -124,7 +124,7 @@ const CarrierQuoteSubmission = () => {
       };
       
       const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/api/ground-quotes/carrier/submit/${token}`,
+        `https://api.gcc.conship.ai/api/ground-quotes/carrier/submit/${token}`,
         submitData
       );
       
@@ -145,7 +145,7 @@ const CarrierQuoteSubmission = () => {
     
     try {
       await axios.post(
-        `${process.env.REACT_APP_API_URL}/api/ground-quotes/carrier/decline/${token}`,
+        `https://api.gcc.conship.ai/api/ground-quotes/carrier/decline/${token}`,
         { reason: 'Unable to service this lane' }
       );
       setSubmitted(true);
