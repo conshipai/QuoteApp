@@ -1,5 +1,5 @@
 // src/services/cacheService.js
-const API_URL = process.env.REACT_APP_API_URL || 'https://api.gcc.conship.ai';
+const API_URL = 'https://api.gcc.conship.ai';
 
 class CacheService {
   async setItem(key, value) {
