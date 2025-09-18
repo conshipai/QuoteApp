@@ -1,216 +1,11 @@
 // src/pages/BookingsManagement.jsx
 import React, { useState, useEffect } from 'react';
 import {
-  Package, FileText, Download, Eye, Filter, Search,
-  Calendar, Truck, Plane, Ship, Clock, CheckCircle,
-  AlertCircle, ChevronDown, ChevronRight, ExternalLink, X, Plus, Upload
+  Package, Truck, Plane, Ship, ChevronDown, ChevronRight, Search, DollarSign
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import API_BASE from '../config/api';
 import bookingApi from '../services/bookingApi';
-import bolApi from '../services/bolApi';
-import BOLBuilder from '../components/bol/BOLBuilder';
-
-/* ─────────────────────────────────────────────────────────────
-   DocumentUpload — Cloudflare R2 (via your backend)
-   - POST ${API_BASE}/api/storage/upload  (multipart)
-   - GET  ${API_BASE}/api/storage/signed-url/{key}
-   Allowed: PDF, JPG, PNG; Max: 20MB
-   ───────────────────────────────────────────────────────────── */
-const DocumentUpload = ({ requestId, isDarkMode }) => {
-  const [documents, setDocuments] = useState([]);
-  const [uploading, setUploading] = useState(false);
-  const [docType, setDocType] = useState('');
-
-  // Backend expects these exact keys
-  const documentTypes = [
-    { value: 'dangerous_goods_declaration', label: 'Dangerous Goods Declaration' },
-    { value: 'sds_sheet', label: 'Safety Data Sheet (SDS)' },
-    { value: 'battery_certification', label: 'Battery Certification' },
-    { value: 'packing_list', label: 'Packing List' },
-    { value: 'commercial_invoice', label: 'Commercial Invoice' },
-    { value: 'air_waybill', label: 'Air Waybill' },
-    { value: 'bol', label: 'Bill of Lading' },
-    { value: 'other', label: 'Other' }
-  ];
-
-  const MAX_BYTES = 20 * 1024 * 1024;
-  const VALID_MIME = ['application/pdf', 'image/jpeg', 'image/png'];
-
-  const handleFileUpload = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!docType) {
-      alert('Please choose a document type first.');
-      event.target.value = '';
-      return;
-    }
-    if (!VALID_MIME.includes(file.type)) {
-      alert('Only PDF, JPG, and PNG files are allowed');
-      event.target.value = '';
-      return;
-    }
-    if (file.size > MAX_BYTES) {
-      alert('File size must be less than 20MB');
-      event.target.value = '';
-      return;
-    }
-    if (!requestId) {
-      alert('Missing requestId. Cannot upload.');
-      event.target.value = '';
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('requestId', requestId);
-      formData.append('documentType', docType);
-
-      const resp = await fetch(`${API_BASE}/api/storage/upload`, {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err?.error || `Upload failed (${resp.status})`);
-      }
-
-      const data = await resp.json();
-      if (data?.success) {
-        setDocuments(prev => [
-          ...prev,
-          {
-            id: data.key || `doc_${Date.now()}`,
-            name: file.name,
-            type: docType,
-            size: file.size,
-            uploadedAt: new Date().toISOString(),
-            url: data.fileUrl || null,
-            key: data.key || null
-          }
-        ]);
-        alert('File uploaded successfully!');
-      } else {
-        throw new Error('Unexpected upload response');
-      }
-    } catch (error) {
-      console.error('Upload failed:', error);
-      alert('Upload failed: ' + error.message);
-    } finally {
-      setUploading(false);
-      setDocType('');
-      event.target.value = '';
-    }
-  };
-
-  const handleDownload = async (doc) => {
-    try {
-      // If we already have a public URL, just open it
-      if (doc.url) {
-        window.open(doc.url, '_blank', 'noopener,noreferrer');
-        return;
-      }
-      // Otherwise, request a signed URL if we have the key
-      if (doc.key) {
-        const s = await fetch(`${API_BASE}/api/storage/signed-url/${encodeURIComponent(doc.key)}`);
-        if (!s.ok) throw new Error(`Failed to get signed URL (${s.status})`);
-        const { success, url } = await s.json();
-        if (success && url) {
-          window.open(url, '_blank', 'noopener,noreferrer');
-          return;
-        }
-      }
-      alert('Unable to download this file.');
-    } catch (e) {
-      console.error('Download error:', e);
-      alert('Unable to download this file.');
-    }
-  };
-
-  const handleDelete = (docId) => {
-    // No delete API in docs; remove from UI only
-    if (!confirm('Remove this document from the list? (This does not delete from storage)')) return;
-    setDocuments(prev => prev.filter(d => d.id !== docId));
-  };
-
-  return (
-    <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
-      <h3 className={`text-lg font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Documents</h3>
-
-      <div className="mb-4 flex items-center gap-3">
-        <select
-          value={docType}
-          onChange={(e) => setDocType(e.target.value)}
-          className={`px-3 py-2 rounded border ${
-            isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
-          }`}
-        >
-          <option value="">Select document type...</option>
-          {documentTypes.map(t => (
-            <option key={t.value} value={t.value}>{t.label}</option>
-          ))}
-        </select>
-
-        <label className={`${isDarkMode ? 'bg-conship-orange hover:bg-orange-600' : 'bg-conship-purple hover:bg-purple-700'} text-white px-4 py-2 rounded inline-flex items-center gap-2 cursor-pointer`}>
-          <Upload className="w-4 h-4" />
-          {uploading ? 'Uploading...' : 'Upload Document'}
-          <input
-            type="file"
-            className="hidden"
-            accept=".pdf,.jpg,.jpeg,.png"
-            onChange={handleFileUpload}
-            disabled={uploading || !docType}
-          />
-        </label>
-      </div>
-
-      <div className="space-y-2">
-        {documents.length === 0 ? (
-          <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>No documents uploaded yet</p>
-        ) : (
-          documents.map(doc => (
-            <div
-              key={doc.id}
-              className={`flex items-center justify-between p-3 rounded border ${
-                isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <FileText className={`w-5 h-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
-                <div>
-                  <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{doc.name}</p>
-                  <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    {documentTypes.find(t => t.value === doc.type)?.label || doc.type} • {(doc.size / 1024).toFixed(1)} KB • {new Date(doc.uploadedAt).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleDownload(doc)}
-                  className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-                  title="Download"
-                >
-                  <Download className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleDelete(doc.id)}
-                  className="p-2 rounded hover:bg-red-100 text-red-500"
-                  title="Remove from list"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-};
+import API_BASE from '../config/api';
 
 const BookingsManagement = ({ isDarkMode }) => {
   const navigate = useNavigate();
@@ -220,9 +15,6 @@ const BookingsManagement = ({ isDarkMode }) => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedBooking, setExpandedBooking] = useState(null);
-  const [viewingBOL, setViewingBOL] = useState(null);
-  const [bolLoading, setBolLoading] = useState(false);
-  const [creatingBOL, setCreatingBOL] = useState(null);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
   useEffect(() => {
@@ -234,17 +26,7 @@ const BookingsManagement = ({ isDarkMode }) => {
     try {
       const result = await bookingApi.getAllBookings();
       if (result.success) {
-        const bookingsWithBOLStatus = await Promise.all(
-          result.bookings.map(async (booking) => {
-            const bolResult = await bolApi.getBOLByBooking(booking.bookingId);
-            return {
-              ...booking,
-              hasBOL: bolResult.success && bolResult.bol,
-              bolNumber: bolResult.bol?.bolNumber
-            };
-          })
-        );
-        setBookings(bookingsWithBOLStatus);
+        setBookings(result.bookings || []);
       }
     } catch (error) {
       console.error('Error loading bookings:', error);
@@ -252,57 +34,48 @@ const BookingsManagement = ({ isDarkMode }) => {
     setLoading(false);
   };
 
-  const viewBOL = async (bookingId) => {
-    setBolLoading(true);
+  const handleApprove = async (bookingId) => {
+    if (!confirm('Approve this booking and convert to shipment?')) return;
     try {
-      const result = await bolApi.getBOLByBooking(bookingId);
-      if (result.success && result.bol) {
-        setViewingBOL(result.bol);
+      const response = await fetch(`${API_BASE}/booking-requests/${bookingId}/approve`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const result = await response.json();
+      if (result.success) {
+        alert('Booking approved and converted to shipment!');
+        loadBookings();
       } else {
-        alert('No BOL found for this booking. Please create one first.');
+        throw new Error(result.error || 'Approval failed');
       }
     } catch (error) {
-      alert('Error loading BOL: ' + error.message);
-    }
-    setBolLoading(false);
-  };
-
-  const downloadBOL = async (bookingId) => {
-    const result = await bolApi.getBOLByBooking(bookingId);
-    if (result.success && result.bol) {
-      const printWindow = window.open('', '_blank');
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>BOL ${result.bol.bolNumber}</title>
-          <style>
-            @media print { body { margin: 0; } .no-print { display: none; } }
-            body { font-family: Arial, sans-serif; }
-          </style>
-        </head>
-        <body>
-          ${result.bol.htmlContent}
-          <script>
-            window.onload = function() {
-              window.print();
-              setTimeout(function() { window.close(); }, 500);
-            }
-          </script>
-        </body>
-        </html>
-      `);
-      printWindow.document.close();
+      alert('Error: ' + error.message);
     }
   };
 
-  const handleCreateBOL = (booking) => {
-    setCreatingBOL(booking);
-  };
-
-  const handleBOLCreated = () => {
-    setCreatingBOL(null);
-    loadBookings();
+  const handleReject = async (bookingId) => {
+    if (!confirm('Reject this booking request?')) return;
+    try {
+      const response = await fetch(`${API_BASE}/booking-requests/${bookingId}/reject`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const result = await response.json();
+      if (result.success) {
+        alert('Booking request rejected');
+        loadBookings();
+      } else {
+        throw new Error(result.error || 'Rejection failed');
+      }
+    } catch (error) {
+      alert('Error: ' + error.message);
+    }
   };
 
   const getModeIcon = (mode) => {
@@ -330,18 +103,16 @@ const BookingsManagement = ({ isDarkMode }) => {
         return 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/30';
       default:
         return 'text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-900/30';
-  }
-};
-
+    }
+  };
 
   const filteredBookings = bookings.filter(booking => {
     const matchesMode = filterMode === 'all' || booking.mode === filterMode;
     const matchesStatus = filterStatus === 'all' || booking.status === filterStatus;
     const matchesSearch =
-      booking.confirmationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.carrier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.pickupNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (booking.bolNumber && booking.bolNumber.toLowerCase().includes(searchTerm.toLowerCase()));
+      (booking.confirmationNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (booking.carrier || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (booking.pickupNumber || '').toLowerCase().includes(searchTerm.toLowerCase());
 
     let matchesDate = true;
     if (dateRange.start) {
@@ -353,30 +124,6 @@ const BookingsManagement = ({ isDarkMode }) => {
 
     return matchesMode && matchesStatus && matchesSearch && matchesDate;
   });
-
-  // If creating BOL, show the BOL Builder
-  if (creatingBOL) {
-    return (
-      <div>
-        <div className={`p-4 border-b ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <button
-            onClick={() => setCreatingBOL(null)}
-            className={`px-4 py-2 rounded flex items-center gap-2 ${
-              isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            ← Back to Bookings
-          </button>
-        </div>
-
-        <BOLBuilder
-          booking={creatingBOL}
-          isDarkMode={isDarkMode}
-          onComplete={handleBOLCreated}
-        />
-      </div>
-    );
-  }
 
   if (loading) {
     return (
@@ -401,7 +148,7 @@ const BookingsManagement = ({ isDarkMode }) => {
             Booking Management
           </h1>
           <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            View and manage all your shipment bookings
+            Review incoming booking requests
           </p>
         </div>
 
@@ -413,7 +160,7 @@ const BookingsManagement = ({ isDarkMode }) => {
               <Search className={`absolute left-3 top-2.5 w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
               <input
                 type="text"
-                placeholder="Search bookings or BOL#..."
+                placeholder="Search bookings..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className={`w-full pl-10 pr-3 py-2 rounded border ${
@@ -502,18 +249,8 @@ const BookingsManagement = ({ isDarkMode }) => {
                           {booking.confirmationNumber}
                         </h3>
                         <span className={`text-xs px-2 py-1 rounded ${getStatusColor(booking.status)}`}>
-                          {booking.status.replace('_', ' ')}
+                          {booking.status}
                         </span>
-                        {booking.hasBOL && (
-                          <span
-                            className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${
-                              isDarkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'
-                            }`}
-                          >
-                            <FileText className="w-3 h-3" />
-                            BOL: {booking.bolNumber}
-                          </span>
-                        )}
                       </div>
                       <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                         {booking.carrier} • Pickup: {booking.pickupNumber}
@@ -524,48 +261,11 @@ const BookingsManagement = ({ isDarkMode }) => {
                   <div className="flex items-center gap-3">
                     <div className="text-right">
                       <div className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        ${booking.price?.toFixed(2)}
+                        ${Number(booking.price || 0).toFixed(2)}
                       </div>
                       <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                         {new Date(booking.createdAt).toLocaleDateString()}
                       </div>
-                    </div>
-
-                    {/* Document Actions */}
-                    <div className="flex gap-2">
-                      {booking.hasBOL ? (
-                        <>
-                          <button
-                            onClick={() => viewBOL(booking.bookingId)}
-                            className={`w-full px-3 py-2 rounded text-sm font-medium bg-blue-600 text-white hover:bg-blue-700`}
-                          >
-                            <Eye className="inline w-4 h-4 mr-2" />
-                            View BOL
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              downloadBOL(booking.bookingId);
-                            }}
-                            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-                            title="Print BOL"
-                          >
-                            <Download className="w-4 h-4" />
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCreateBOL(booking);
-                          }}
-                          className="p-2 rounded flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white"
-                          title="Create BOL"
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span className="text-xs font-medium">Create BOL</span>
-                        </button>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -574,89 +274,90 @@ const BookingsManagement = ({ isDarkMode }) => {
               {/* Expanded Details */}
               {expandedBooking === booking.bookingId && (
                 <div className={`border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'} p-4`}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {/* Shipment Details */}
-                    <div>
-                      <h4 className={`font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        Shipment Details
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Pickup Details */}
+                    <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                      <h4 className={`font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        Pickup Information
                       </h4>
-                      <div className={`space-y-1 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        <div>
-                          Origin: {booking.shipmentData?.formData?.originCity},{' '}
-                          {booking.shipmentData?.formData?.originState}
-                        </div>
-                        <div>
-                          Destination: {booking.shipmentData?.formData?.destCity},{' '}
-                          {booking.shipmentData?.formData?.destState}
-                        </div>
-                        <div>Pickup Date: {booking.shipmentData?.formData?.pickupDate}</div>
-                        <div>Service Type: {booking.shipmentData?.serviceType?.toUpperCase()}</div>
+                      <div className={`space-y-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                        <div>Company: {booking.pickup?.company || 'N/A'}</div>
+                        <div>Address: {booking.pickup?.address || 'N/A'}</div>
+                        <div>Location: {booking.pickup?.city}, {booking.pickup?.state} {booking.pickup?.zip}</div>
+                        <div>Contact: {booking.pickup?.contactName || 'N/A'}</div>
+                        <div>Phone: {booking.pickup?.contactPhone || 'N/A'}</div>
+                        <div>Email: {booking.pickup?.contactEmail || 'N/A'}</div>
+                        <div>Ready Date: {booking.pickup?.readyDate ? new Date(booking.pickup.readyDate).toLocaleDateString() : 'N/A'}</div>
                       </div>
                     </div>
 
-                    {/* Documents + Upload */}
-                    <div className="lg:col-span-2">
-                      <h4 className={`font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        Documents
+                    {/* Delivery Details */}
+                    <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                      <h4 className={`font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        Delivery Information
                       </h4>
-                      <div className="space-y-2 mb-4">
-                        {booking.hasBOL ? (
-                          <button
-                            onClick={() => viewBOL(booking.bookingId)}
-                            className={`flex items-center gap-2 text-sm ${
-                              isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'
-                            }`}
-                          >
-                            <FileText className="w-4 h-4" />
-                            Bill of Lading ({booking.bolNumber})
-                          </button>
-                        ) : (
-                          <div className={`text-sm ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                            No BOL created yet
-                          </div>
-                        )}
+                      <div className={`space-y-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                        <div>Company: {booking.delivery?.company || 'N/A'}</div>
+                        <div>Address: {booking.delivery?.address || 'N/A'}</div>
+                        <div>Location: {booking.delivery?.city}, {booking.delivery?.state} {booking.delivery?.zip}</div>
+                        <div>Contact: {booking.delivery?.contactName || 'N/A'}</div>
+                        <div>Phone: {booking.delivery?.contactPhone || 'N/A'}</div>
+                        <div>Email: {booking.delivery?.contactEmail || 'N/A'}</div>
+                        <div>Required Date: {booking.delivery?.requiredDate ? new Date(booking.delivery.requiredDate).toLocaleDateString() : 'TBD'}</div>
                       </div>
-
-                      {/* R2 Uploads (requestId preferred; falls back to bookingId) */}
-                      <DocumentUpload
-                        requestId={booking.requestId || booking.bookingId}
-                        isDarkMode={isDarkMode}
-                      />
                     </div>
 
-                    {/* Actions */}
-                    <div>
-                      <h4 className={`font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        Actions
+                    {/* Cargo Details */}
+                    <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                      <h4 className={`font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        Cargo Information
                       </h4>
-                      <div className="space-y-2">
-                        {booking.hasBOL ? (
-                          <button
-                            onClick={() => viewBOL(booking.bookingId)}
-                            className={`w-full px-3 py-1 rounded text-sm ${
-                              isDarkMode ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-blue-600 text-white hover:bg-blue-700'
-                            }`}
-                          >
-                            View/Print BOL
-                          </button>
-                        ) : (
+                      <div className={`space-y-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                        <div>Total Pieces: {booking.cargo?.totalPieces || 0}</div>
+                        <div>Total Weight: {booking.cargo?.totalWeight || 0} lbs</div>
+                        <div>Description: {booking.cargo?.description || 'General Freight'}</div>
+                      </div>
+                    </div>
+
+                    {/* Pricing & Status */}
+                    <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                      <h4 className={`font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        Pricing & Status
+                      </h4>
+                      <div className={`space-y-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                        <div>
+                          Quote Amount: <strong>${Number(booking.pricing?.total ?? booking.price ?? 0).toFixed(2)}</strong>
+                        </div>
+                        <div>
+                          Status: <span className={`ml-2 px-2 py-1 rounded text-xs ${getStatusColor(booking.status)}`}>{booking.status}</span>
+                        </div>
+                        <div>Request #: {booking.bookingId}</div>
+                        <div>Created: {new Date(booking.createdAt).toLocaleString()}</div>
+                      </div>
+
+                      {booking.status === 'PENDING' && (
+                        <div className="mt-4 space-y-2">
                           <button
                             type="button"
-                            onClick={() => handleCreateBOL(booking)}
-                            className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 ring-1 ring-blue-700/40 shadow-sm"
+                            onClick={() => handleApprove(booking.requestId)}
+                            onClick={() => handleReject(booking.requestId)}
+                            className={`w-full px-4 py-2 rounded text-sm font-medium ${
+                              isDarkMode ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-green-600 text-white hover:bg-green-700'
+                            }`}
                           >
-                            <Plus className="inline w-4 h-4" />
-                            Create BOL
+                            Approve & Convert to Shipment
                           </button>
-                        )}
-                        <button
-                          className={`w-full px-3 py-1 rounded text-sm ${
-                            isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          Track Shipment
-                        </button>
-                      </div>
+                          <button
+                            type="button"
+                            onClick={() => handleReject(booking.requestId || booking._id)}
+                            className={`w-full px-4 py-2 rounded text-sm font-medium ${
+                              isDarkMode ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-red-600 text-white hover:bg-red-700'
+                            }`}
+                          >
+                            Reject Request
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -671,51 +372,6 @@ const BookingsManagement = ({ isDarkMode }) => {
           </div>
         )}
       </div>
-
-      {/* BOL Viewer Modal */}
-      {viewingBOL && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white max-w-6xl w-full max-h-[90vh] overflow-auto rounded-lg">
-            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold">BOL {viewingBOL.bolNumber}</h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    const printWindow = window.open('', '_blank');
-                    printWindow.document.write(`
-                      <!DOCTYPE html>
-                      <html>
-                      <head>
-                        <title>BOL ${viewingBOL.bolNumber}</title>
-                        <style>
-                          @media print { body { margin: 0; } }
-                          body { font-family: Arial, sans-serif; }
-                        </style>
-                      </head>
-                      <body>
-                        ${viewingBOL.htmlContent}
-                        <script>window.print();</script>
-                      </body>
-                      </html>
-                    `);
-                    printWindow.document.close();
-                  }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2"
-                >
-                  <Download className="w-4 h-4" />
-                  Print
-                </button>
-                <button onClick={() => setViewingBOL(null)} className="p-2 rounded hover:bg-gray-200">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-            <div className="p-4">
-              <div dangerouslySetInnerHTML={{ __html: viewingBOL.htmlContent }} />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
