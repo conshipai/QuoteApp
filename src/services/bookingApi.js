@@ -163,18 +163,57 @@ class BookingAPI {
     }
   }
 
-  async deleteBooking(bookingId) {
+  // NEW: Cancel a booking with reason
+  async cancelBooking(bookingId, reason = 'User requested cancellation') {
     try {
-      const { data } = await api.delete(`/bookings/${bookingId}`);
+      const response = await fetch(`${API_BASE}/bookings/${bookingId}/cancel`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        },
+        body: JSON.stringify({ reason })
+      });
 
-      if (!data.success) {
-        throw new Error(data?.error || 'Failed to delete booking');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to cancel booking');
       }
 
       return data;
     } catch (error) {
-      console.error('Error deleting booking:', error);
+      console.error('Error canceling booking:', error);
       throw error;
+    }
+  }
+
+  // Delete booking (uses cancel endpoint for soft delete)
+  async deleteBooking(bookingId) {
+    try {
+      // Try the cancel endpoint first (soft delete)
+      return await this.cancelBooking(bookingId, 'User requested deletion');
+    } catch (error) {
+      // If cancel fails, try the DELETE endpoint as fallback
+      try {
+        const response = await fetch(`${API_BASE}/bookings/${bookingId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data?.error || 'Failed to delete booking');
+        }
+
+        return data;
+      } catch (deleteError) {
+        console.error('Error deleting booking:', deleteError);
+        throw deleteError;
+      }
     }
   }
 }
