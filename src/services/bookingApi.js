@@ -53,18 +53,18 @@ class BookingAPI {
     }
   }
 
-  // Existing methods
+  // Modified to fetch booking requests
   async getAllBookings() {
     try {
-      const { data } = await api.get('/bookings');
+      const response = await fetch(`${API_BASE}/booking-requests/all`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        }
+      });
 
-      if (!data.success) {
-        throw new Error(data?.error || 'Failed to fetch bookings');
-      }
-
-      return data;
+      return await response.json();
     } catch (error) {
-      console.error('Error fetching bookings:', error);
+      console.error('Error fetching booking requests:', error);
       throw error;
     }
   }
