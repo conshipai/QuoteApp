@@ -1,4 +1,4 @@
-// src/pages/BookingsManagement.jsx
+/ src/pages/BookingsManagement.jsx
 import React, { useState, useEffect } from 'react';
 import {
   Package, Truck, Plane, Ship, ChevronDown, ChevronRight, Search, DollarSign
@@ -33,31 +33,9 @@ const BookingsManagement = ({ isDarkMode }) => {
     }
     setLoading(false);
   };
-
-  const handleApprove = async (bookingId) => {
-    if (!confirm('Approve this booking and convert to shipment?')) return;
-    try {
-      const response = await fetch(`${API_BASE}/booking-requests/${bookingId}/approve`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      const result = await response.json();
-      if (result.success) {
-        alert('Booking approved and converted to shipment!');
-        loadBookings();
-      } else {
-        throw new Error(result.error || 'Approval failed');
-      }
-    } catch (error) {
-      alert('Error: ' + error.message);
-    }
-  };
-
-  const handleReject = async (bookingId) => {
-    if (!confirm('Reject this booking request?')) return;
+  
+    const handleReject = async (bookingId) => {
+    if (!confirm('Cancel this booking request?')) return;
     try {
       const response = await fetch(`${API_BASE}/booking-requests/${bookingId}/reject`, {
         method: 'POST',
@@ -68,16 +46,15 @@ const BookingsManagement = ({ isDarkMode }) => {
       });
       const result = await response.json();
       if (result.success) {
-        alert('Booking request rejected');
+        alert('Booking request cancelled');
         loadBookings();
       } else {
-        throw new Error(result.error || 'Rejection failed');
+        throw new Error(result.error || 'Cancellation failed');
       }
     } catch (error) {
       alert('Error: ' + error.message);
     }
   };
-
   const getModeIcon = (mode) => {
     switch (mode) {
       case 'ground':
@@ -273,105 +250,95 @@ const BookingsManagement = ({ isDarkMode }) => {
 
               {/* Expanded Details */}
               {expandedBooking === booking.bookingId && (
-                <div className={`border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'} p-4`}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Pickup Details */}
-                    <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                      <h4 className={`font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        Pickup Information
-                      </h4>
-                      <div className={`space-y-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                        <div>Company: {booking.pickup?.company || 'N/A'}</div>
-                        <div>Address: {booking.pickup?.address || 'N/A'}</div>
-                        <div>Location: {booking.pickup?.city}, {booking.pickup?.state} {booking.pickup?.zip}</div>
-                        <div>Contact: {booking.pickup?.contactName || 'N/A'}</div>
-                        <div>Phone: {booking.pickup?.contactPhone || 'N/A'}</div>
-                        <div>Email: {booking.pickup?.contactEmail || 'N/A'}</div>
-                        <div>Ready Date: {booking.pickup?.readyDate ? new Date(booking.pickup.readyDate).toLocaleDateString() : 'N/A'}</div>
-                      </div>
-                    </div>
+  <div className={`border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'} p-4`}>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Pickup Details */}
+      <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+        <h4 className={`font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+          Pickup Information
+        </h4>
+        <div className={`space-y-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+          <div>Company: {booking.pickup?.company || 'N/A'}</div>
+          <div>Address: {booking.pickup?.address || 'N/A'}</div>
+          <div>Location: {booking.pickup?.city}, {booking.pickup?.state} {booking.pickup?.zip}</div>
+          <div>Contact: {booking.pickup?.contactName || 'N/A'}</div>
+          <div>Phone: {booking.pickup?.contactPhone || 'N/A'}</div>
+          <div>Email: {booking.pickup?.contactEmail || 'N/A'}</div>
+          <div>Ready Date: {booking.pickup?.readyDate ? new Date(booking.pickup.readyDate).toLocaleDateString() : 'N/A'}</div>
+        </div>
+      </div>
 
-                    {/* Delivery Details */}
-                    <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                      <h4 className={`font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        Delivery Information
-                      </h4>
-                      <div className={`space-y-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                        <div>Company: {booking.delivery?.company || 'N/A'}</div>
-                        <div>Address: {booking.delivery?.address || 'N/A'}</div>
-                        <div>Location: {booking.delivery?.city}, {booking.delivery?.state} {booking.delivery?.zip}</div>
-                        <div>Contact: {booking.delivery?.contactName || 'N/A'}</div>
-                        <div>Phone: {booking.delivery?.contactPhone || 'N/A'}</div>
-                        <div>Email: {booking.delivery?.contactEmail || 'N/A'}</div>
-                        <div>Required Date: {booking.delivery?.requiredDate ? new Date(booking.delivery.requiredDate).toLocaleDateString() : 'TBD'}</div>
-                      </div>
-                    </div>
+      {/* Delivery Details */}
+      <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+        <h4 className={`font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+          Delivery Information
+        </h4>
+        <div className={`space-y-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+          <div>Company: {booking.delivery?.company || 'N/A'}</div>
+          <div>Address: {booking.delivery?.address || 'N/A'}</div>
+          <div>Location: {booking.delivery?.city}, {booking.delivery?.state} {booking.delivery?.zip}</div>
+          <div>Contact: {booking.delivery?.contactName || 'N/A'}</div>
+          <div>Phone: {booking.delivery?.contactPhone || 'N/A'}</div>
+          <div>Email: {booking.delivery?.contactEmail || 'N/A'}</div>
+          <div>Required Date: {booking.delivery?.requiredDate ? new Date(booking.delivery.requiredDate).toLocaleDateString() : 'TBD'}</div>
+        </div>
+      </div>
 
-                    {/* Cargo Details */}
-                    <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                      <h4 className={`font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        Cargo Information
-                      </h4>
-                      <div className={`space-y-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                        <div>Total Pieces: {booking.cargo?.totalPieces || 0}</div>
-                        <div>Total Weight: {booking.cargo?.totalWeight || 0} lbs</div>
-                        <div>Description: {booking.cargo?.description || 'General Freight'}</div>
-                      </div>
-                    </div>
+      {/* Cargo Details */}
+      <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+        <h4 className={`font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+          Cargo Information
+        </h4>
+        <div className={`space-y-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+          <div>Total Pieces: {booking.cargo?.totalPieces || 0}</div>
+          <div>Total Weight: {booking.cargo?.totalWeight || 0} lbs</div>
+          <div>Description: {booking.cargo?.description || 'General Freight'}</div>
+        </div>
+      </div>
 
-                    {/* Pricing & Status */}
-                    <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                      <h4 className={`font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        Pricing & Status
-                      </h4>
-                      <div className={`space-y-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                        <div>
-                          Quote Amount: <strong>${Number(booking.pricing?.total ?? booking.price ?? 0).toFixed(2)}</strong>
-                        </div>
-                        <div>
-                          Status: <span className={`ml-2 px-2 py-1 rounded text-xs ${getStatusColor(booking.status)}`}>{booking.status}</span>
-                        </div>
-                        <div>Request #: {booking.bookingId}</div>
-                        <div>Created: {new Date(booking.createdAt).toLocaleString()}</div>
-                      </div>
-
-                      {booking.status === 'PENDING' && (
-                        <div className="mt-4 space-y-2">
-                          <button
-                            type="button"
-                            onClick={() => handleApprove(booking.requestId)}
-                            onClick={() => handleReject(booking.requestId)}
-                            className={`w-full px-4 py-2 rounded text-sm font-medium ${
-                              isDarkMode ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-green-600 text-white hover:bg-green-700'
-                            }`}
-                          >
-                            Approve & Convert to Shipment
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleReject(booking.requestId || booking._id)}
-                            className={`w-full px-4 py-2 rounded text-sm font-medium ${
-                              isDarkMode ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-red-600 text-white hover:bg-red-700'
-                            }`}
-                          >
-                            Reject Request
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+      {/* Pricing & Status */}
+      <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+        <h4 className={`font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+          Pricing & Status
+        </h4>
+        <div className={`space-y-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+          <div>
+            Quote Amount: <strong>${Number(booking.pricing?.total ?? booking.price ?? 0).toFixed(2)}</strong>
+          </div>
+          <div>
+            Status: <span className={`ml-2 px-2 py-1 rounded text-xs ${getStatusColor(booking.status)}`}>{booking.status}</span>
+          </div>
+          <div>Request #: {booking.bookingId}</div>
+          <div>Created: {new Date(booking.createdAt).toLocaleString()}</div>
         </div>
 
-        {filteredBookings.length === 0 && (
-          <div className={`text-center py-12 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-            No bookings found matching your criteria
+       {booking.status === 'PENDING' && (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => handleReject(booking.requestId)}
+                  className={`w-full px-4 py-2 rounded text-sm font-medium ${
+                    isDarkMode ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-red-600 text-white hover:bg-red-700'
+                  }`}
+                >
+                  Cancel Booking Request
+                </button>
+              </div>
+            )}
           </div>
-        )}
+        </div>
+      )}
+    </div>
+    {/* Close the map iteration */}
+    ))}
+    </div>
+
+    {filteredBookings.length === 0 && (
+      <div className={`text-center py-12 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+        No bookings found matching your criteria
       </div>
+    )}
+    </div>
     </div>
   );
 };
