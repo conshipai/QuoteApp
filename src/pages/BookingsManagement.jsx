@@ -1,4 +1,4 @@
-/ src/pages/BookingsManagement.jsx
+// src/pages/BookingsManagement.jsx
 import React, { useState, useEffect } from 'react';
 import {
   Package, Truck, Plane, Ship, ChevronDown, ChevronRight, Search, DollarSign
