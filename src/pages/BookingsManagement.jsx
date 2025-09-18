@@ -322,18 +322,17 @@ const BookingsManagement = ({ isDarkMode }) => {
 
   const getStatusColor = (status) => {
     switch (status) {
+      case 'PENDING':
+        return 'text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900/30';
       case 'CONFIRMED':
         return 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/30';
-      case 'IN_TRANSIT':
-        return 'text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30';
-      case 'DELIVERED':
-        return 'text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-900/30';
       case 'CANCELLED':
         return 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/30';
       default:
-        return 'text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900/30';
-    }
-  };
+        return 'text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-900/30';
+  }
+};
+
 
   const filteredBookings = bookings.filter(booking => {
     const matchesMode = filterMode === 'all' || booking.mode === filterMode;
@@ -446,9 +445,8 @@ const BookingsManagement = ({ isDarkMode }) => {
               }`}
             >
               <option value="all">All Status</option>
-              <option value="CONFIRMED">Confirmed</option>
-              <option value="IN_TRANSIT">In Transit</option>
-              <option value="DELIVERED">Delivered</option>
+              <option value="PENDING">Pending Review</option>
+              <option value="CONFIRMED">Approved</option>
               <option value="CANCELLED">Cancelled</option>
             </select>
 
