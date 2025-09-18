@@ -53,19 +53,68 @@ class BookingAPI {
     }
   }
 
-  // Modified to fetch booking requests
+  // Get all booking requests (not bookings) — transformed for BookingsManagement
   async getAllBookings() {
     try {
-      const response = await fetch(`${API_BASE}/booking-requests/all`, {
+      const response = await fetch(`${API_BASE}/booking-requests`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Content-Type': 'application/json'
         }
       });
 
-      return await response.json();
+      if (!response.ok) throw new Error('Failed to fetch booking requests');
+
+      const data = await response.json();
+
+      if (data.success && Array.isArray(data.bookingRequests)) {
+        return {
+          success: true,
+          bookings: data.bookingRequests.map(req => ({
+            // surface-level fields BookingsManagement expects
+            bookingId: req.requestNumber,
+            confirmationNumber: req.requestNumber,
+            status:
+              req.status === 'pending_review' ? 'PENDING' :
+              req.status === 'approved' ? 'CONFIRMED' :
+              String(req.status || '').toUpperCase(),
+            carrier: 'Pending Assignment',
+            pickupNumber: 'N/A',
+            price: (req.pricing && req.pricing.total) ? req.pricing.total : 0,
+            mode: 'ground',
+            requestId: req._id,
+            createdAt: req.createdAt,
+
+            // Map shipment data to expected shape
+            shipmentData: {
+              formData: {
+                originCity: req.pickup?.city,
+                originState: req.pickup?.state,
+                originCompany: req.pickup?.company,
+                destCity: req.delivery?.city,
+                destState: req.delivery?.state,
+                destCompany: req.delivery?.company,
+                pickupDate: req.pickup?.readyDate,
+                weight: req.cargo?.totalWeight,
+                pieces: req.cargo?.totalPieces
+              },
+              serviceType: 'ltl'
+            },
+
+            // Keep originals for detail views
+            pickup: req.pickup,
+            delivery: req.delivery,
+            cargo: req.cargo,
+            pricing: req.pricing
+          }))
+        };
+      }
+
+      // Fallback: return whatever came back
+      return data;
     } catch (error) {
       console.error('Error fetching booking requests:', error);
-      throw error;
+      return { success: false, bookings: [] };
     }
   }
 
