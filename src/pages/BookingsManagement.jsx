@@ -312,33 +312,33 @@ const BookingsManagement = ({ isDarkMode }) => {
           <div>Created: {new Date(booking.createdAt).toLocaleString()}</div>
         </div>
 
-       {booking.status === 'PENDING' && (
-              <div className="mt-4">
-                <button
-                  type="button"
-                  onClick={() => handleReject(booking.requestId)}
-                  className={`w-full px-4 py-2 rounded text-sm font-medium ${
-                    isDarkMode ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-red-600 text-white hover:bg-red-700'
-                  }`}
-                >
-                  Cancel Booking Request
-                </button>
-              </div>
-            )}
+          {booking.status === 'PENDING' && (
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => handleReject(booking.requestId)}
+              className={`w-full px-4 py-2 rounded text-sm font-medium ${
+                isDarkMode ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-red-600 text-white hover:bg-red-700'
+              }`}
+            >
+              Cancel Booking Request
+            </button>
           </div>
-        </div>
-      )}
-    </div>
-    {/* Close the map iteration */}
-    ))}
-    </div>
-
-    {filteredBookings.length === 0 && (
-      <div className={`text-center py-12 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-        No bookings found matching your criteria
+        )}
       </div>
-    )}
     </div>
+  </div>
+)}
+            </div>
+          ))}
+        </div>
+
+        {filteredBookings.length === 0 && (
+          <div className={`text-center py-12 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+            No bookings found matching your criteria
+          </div>
+        )}
+      </div>
     </div>
   );
 };
