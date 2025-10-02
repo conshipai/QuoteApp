@@ -217,6 +217,8 @@ const GroundQuoteResults = ({
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [selectedQuoteForBooking, setSelectedQuoteForBooking] = useState(null);
 
+  const [hoveredQuoteId, setHoveredQuoteId] = useState(null);
+  
   // === Fix 2: Early mount debug ===
   useEffect(() => {
     console.log('=== QUOTE RESULTS MOUNT DEBUG ===');
@@ -686,7 +688,11 @@ const GroundQuoteResults = ({
                     </div>
 
                     {/* Right: Price */}
-<div className="text-right relative group">
+<div 
+  className="text-right relative group"
+  onMouseEnter={() => setHoveredQuoteId(quote.quoteId)}
+  onMouseLeave={() => setHoveredQuoteId(null)}
+>
   <div className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Total Price</div>
   <div className={`text-2xl font-bold mt-1 cursor-help ${
     isSelected ? (isDarkMode ? 'text-conship-orange' : 'text-conship-purple') :
@@ -696,10 +702,10 @@ const GroundQuoteResults = ({
   </div>
   
   {/* Price Breakdown Tooltip */}
-  {quote?.priceBreakdown && (
-    <div className={`absolute right-0 bottom-full mb-2 hidden group-hover:block z-10 p-3 rounded-lg shadow-lg ${
+  {hoveredQuoteId === quote.quoteId && quote?.priceBreakdown && (
+    <div className={`absolute right-0 bottom-full mb-2 z-10 p-3 rounded-lg shadow-lg ${
       isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
-    }`} style={{ minWidth: '200px' }}>
+    }`} style={{ minWidth: '200px', display: 'block' }}>
       <div className={`text-sm space-y-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
         {quote.priceBreakdown.baseFreight > 0 && (
           <div className="flex justify-between">
