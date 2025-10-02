@@ -14,8 +14,6 @@ import BOLBuilder from '../bol/BOLBuilder';
 import { logQuoteFlow } from '../../utils/debugLogger';
 import { ShipmentLifecycle } from '../../constants/shipmentLifecycle';
 import cacheService from '../../services/cacheService';
-// (Already present in your file) Keep this single import:
-import BookingRequestForm from '../bookings/BookingRequestForm';
 
 // DocumentUpload component (unchanged except minor class fix)
 const DocumentUpload = ({ requestId, isDarkMode }) => {
@@ -213,10 +211,6 @@ const GroundQuoteResults = ({
   const [bookingData, setBookingData] = useState(null);
   const [showBOL, setShowBOL] = useState(false);
 
-  // NEW: Booking form state (per your instructions)
-  const [showBookingForm, setShowBookingForm] = useState(false);
-  const [selectedQuoteForBooking, setSelectedQuoteForBooking] = useState(null);
-
   // === Fix 2: Early mount debug ===
   useEffect(() => {
     console.log('=== QUOTE RESULTS MOUNT DEBUG ===');
@@ -346,10 +340,6 @@ const GroundQuoteResults = ({
                 service: q.service || 'Standard',
                 guaranteed: q.guaranteed || false
               },
-              carrierName: q.carrierName || q.carrier,
-              carrierCode: q.carrierCode,
-              brokerName: q.brokerName,
-              priceBreakdown: q.priceBreakdown,
               raw_cost: q.raw_cost || q.rawCost || q.cost || q.price || 0,
               final_price: q.final_price || q.price || q.finalPrice || 0,
               markup_percentage: q.markup || 0,
@@ -435,7 +425,6 @@ const GroundQuoteResults = ({
     }
   });
 
-  // REPLACED: Open the BookingRequestForm instead of creating booking immediately
   const handleBookShipment = async () => {
     if (selectedQuote === null) return;
     const selected = quotes[selectedQuote];
@@ -444,7 +433,7 @@ const GroundQuoteResults = ({
       return;
     }
 
-    logQuoteFlow('BOOKING_FORM_OPEN', {
+    logQuoteFlow('BOOKING_START', {
       requestId,
       requestNumber,
       selectedQuote: {
@@ -454,8 +443,35 @@ const GroundQuoteResults = ({
       }
     });
 
-    setSelectedQuoteForBooking(selected);
-    setShowBookingForm(true);
+    setBookingLoading(true);
+
+    try {
+      const bookingPayload = {
+        quoteData: selected,
+        requestId: requestId,
+        shipmentData: { formData, serviceType }
+      };
+
+      const result = await bookingApi.createBooking(bookingPayload);
+
+      if (result.success) {
+        logQuoteFlow('BOOKING_SUCCESS', {
+          requestId,
+          bookingId: result.booking?.bookingId,
+          confirmationNumber: result.booking?.confirmationNumber
+        });
+        setBookingData(result.booking);
+      } else {
+        logQuoteFlow('BOOKING_FAILED', { requestId, error: result.error });
+        alert('Booking failed: ' + (result.error || 'Unknown error'));
+      }
+    } catch (err) {
+      logQuoteFlow('BOOKING_ERROR', { requestId, error: err.message });
+      console.error('Booking error:', err);
+      alert('Failed to create booking');
+    } finally {
+      setBookingLoading(false);
+    }
   };
 
   const handleBack = () => {
@@ -625,12 +641,7 @@ const GroundQuoteResults = ({
                       <div>
                         <div className="flex items-center gap-2">
                           <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            {quote?.carrierName || quote?.service_details?.carrier || 'Carrier'}
-                            {quote?.brokerName && quote?.brokerName !== quote?.carrierName && (
-                              <span className={`text-sm font-normal ml-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                (via {quote.brokerName})
-                              </span>
-                            )}
+                            {quote?.service_details?.carrier || 'Carrier'}
                           </h3>
                           {quote.ranking === 'recommended' && (
                             <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 flex items-center gap-1">
@@ -686,57 +697,15 @@ const GroundQuoteResults = ({
                     </div>
 
                     {/* Right: Price */}
-<div className="text-right relative group">
-  <div className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Total Price</div>
-  <div className={`text-2xl font-bold mt-1 cursor-help ${
-    isSelected ? (isDarkMode ? 'text-conship-orange' : 'text-conship-purple') :
-    (isDarkMode ? 'text-white' : 'text-gray-900')
-  }`}>
-    ${Number(quote?.final_price ?? 0).toFixed(2)}
-  </div>
-  
-  {/* Price Breakdown Tooltip */}
-  {quote?.priceBreakdown && (
-    <div className={`absolute right-0 bottom-full mb-2 hidden group-hover:block z-10 p-3 rounded-lg shadow-lg ${
-      isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
-    }`} style={{ minWidth: '200px' }}>
-      <div className={`text-sm space-y-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-        {quote.priceBreakdown.baseFreight > 0 && (
-          <div className="flex justify-between">
-            <span>Base Freight:</span>
-            <span>${quote.priceBreakdown.baseFreight.toFixed(2)}</span>
-          </div>
-        )}
-        {quote.priceBreakdown.discount !== 0 && (
-          <div className="flex justify-between">
-            <span>Discount:</span>
-            <span className="text-green-600 dark:text-green-400">
-              -${Math.abs(quote.priceBreakdown.discount).toFixed(2)}
-            </span>
-          </div>
-        )}
-        {quote.priceBreakdown.fuelSurcharge > 0 && (
-          <div className="flex justify-between">
-            <span>Fuel Surcharge:</span>
-            <span>${quote.priceBreakdown.fuelSurcharge.toFixed(2)}</span>
-          </div>
-        )}
-        {quote.priceBreakdown.accessorials > 0 && (
-          <div className="flex justify-between">
-            <span>Accessorials:</span>
-            <span>${quote.priceBreakdown.accessorials.toFixed(2)}</span>
-          </div>
-        )}
-        <div className={`flex justify-between pt-2 border-t font-semibold ${
-          isDarkMode ? 'border-gray-700' : 'border-gray-300'
-        }`}>
-          <span>Total:</span>
-          <span>${quote.priceBreakdown.total.toFixed(2)}</span>
-        </div>
-      </div>
-    </div>
-  )}
-</div>
+                    <div className="text-right">
+                      <div className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Total Price</div>
+                      <div className={`text-2xl font-bold mt-1 ${
+                        isSelected ? (isDarkMode ? 'text-conship-orange' : 'text-conship-purple') :
+                        (isDarkMode ? 'text-white' : 'text-gray-900')
+                      }`}>
+                        ${Number(quote?.final_price ?? 0).toFixed(2)}
+                      </div>
+                    </div>
                   </div>
 
                   {isSelected && (
@@ -790,39 +759,6 @@ const GroundQuoteResults = ({
               {bookingLoading ? 'Booking...' : 'Book Shipment'}
             </button>
           </div>
-        )}
-
-        {/* Booking Request Form (NEW) */}
-        {showBookingForm && selectedQuoteForBooking && (
-          <BookingRequestForm
-            quote={{
-              requestId: requestId,
-              requestNumber: requestNumber,
-              ...selectedQuoteForBooking
-            }}
-            formData={formData}
-            onSuccess={(booking) => {
-              logQuoteFlow('BOOKING_SUCCESS', {
-                requestId,
-                bookingId: booking.id,
-                requestNumber: booking.requestNumber
-              });
-
-              alert(`✅ Booking request created!\nRequest #: ${booking.requestNumber}\n\nOur team will process your booking and send the BOL and shipping labels shortly.`);
-
-              setShowBookingForm(false);
-              setSelectedQuoteForBooking(null);
-
-              // Navigate to bookings page
-              navigate('/app/quotes/bookings');
-            }}
-            onCancel={() => {
-              setShowBookingForm(false);
-              setSelectedQuoteForBooking(null);
-              logQuoteFlow('BOOKING_CANCELLED', { requestId });
-            }}
-            isDarkMode={isDarkMode}
-          />
         )}
       </div>
     </div>
