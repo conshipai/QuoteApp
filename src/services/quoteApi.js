@@ -1,6 +1,7 @@
 // src/services/quoteApi.js
-const axios = window.shellAxios; // Use authenticated axios from Shell
+import api from './api';
 import { ShipmentLifecycle } from '../constants/shipmentLifecycle';
+
 const createGroundQuote = async (formData, serviceType) => {
   try {
     console.log('Creating ground quote:', { serviceType, formData });
@@ -24,6 +25,10 @@ const createGroundQuote = async (formData, serviceType) => {
       insideDelivery: formData.insideDelivery || false,
       limitedAccessPickup: formData.limitedAccessPickup || false,
       limitedAccessDelivery: formData.limitedAccessDelivery || false,
+      
+      // Include user info for customer carrier accounts if available
+      userId: formData.userId || window.shellContext?.userId,
+      companyId: formData.companyId || window.shellContext?.companyId,
       
       // Service-specific fields
       ...(serviceType === 'ftl' && {
@@ -53,7 +58,7 @@ const createGroundQuote = async (formData, serviceType) => {
     };
 
     console.log('Sending request data to API:', requestData);
-    const { data } = await axios.post('/ground-quotes/create', requestData);
+    const { data } = await api.post('/ground-quotes/create', requestData);
     
     console.log('Quote created successfully:', data);
     
@@ -67,6 +72,9 @@ const createGroundQuote = async (formData, serviceType) => {
         formData: requestData,
         serviceType: serviceType
       }));
+      
+      console.log(`✅ Received ${data.quotes.length} LTL quotes, including:`, 
+        data.quotes.map(q => q.carrier).join(', '));
     }
     
     return {
@@ -107,19 +115,40 @@ const getGroundQuoteResults = async (requestId) => {
     if (storedData) {
       const parsed = JSON.parse(storedData);
       console.log('Found cached quotes:', parsed);
+      
+      // Log carriers found
+      if (parsed.quotes && parsed.quotes.length > 0) {
+        console.log(`📊 Cached quotes from: ${parsed.quotes.map(q => q.carrier).join(', ')}`);
+      }
+      
       return {
         success: true,
         ...parsed
       };
     }
     
-    // Try the correct endpoint URL (fixed order)
-    const { data } = await axios.get(`/ground-quotes/results/${requestId}`);
+    // Fetch from backend
+    const { data } = await api.get(`/ground-quotes/results/${requestId}`);
     
     console.log('Backend response:', data);
     
     // Handle the response properly
     if (data.success) {
+      // Log carriers found
+      if (data.quotes && data.quotes.length > 0) {
+        console.log(`📊 Backend returned quotes from: ${data.quotes.map(q => q.carrier).join(', ')}`);
+        
+        // Check for GlobalTranz specifically
+        const globalTranzQuotes = data.quotes.filter(q => 
+          q.carrier?.toLowerCase().includes('globaltranz') || 
+          q.carrierCode === 'GLOBALTRANZ'
+        );
+        
+        if (globalTranzQuotes.length > 0) {
+          console.log(`✅ GlobalTranz returned ${globalTranzQuotes.length} service options`);
+        }
+      }
+      
       return {
         success: true,
         status: data.status || ShipmentLifecycle.QUOTE_PROCESSING,
@@ -158,12 +187,25 @@ const getGroundQuoteResults = async (requestId) => {
   }
 };
 
+// Debug function to check active carriers
+const getActiveCarriers = async () => {
+  try {
+    const { data } = await api.get('/ground-quotes/active-carriers');
+    console.log('Active carriers on backend:', data.carriers);
+    return data.carriers;
+  } catch (error) {
+    console.error('Error fetching active carriers:', error);
+    return [];
+  }
+};
+
 const quoteApi = {
   createGroundQuote,
   createGroundQuoteRequest: createGroundQuote,
-  getGroundQuoteResults
+  getGroundQuoteResults,
+  getActiveCarriers // Export for debugging
 };
 
 export default quoteApi;
 
-export { createGroundQuote, getGroundQuoteResults };
+export { createGroundQuote, getGroundQuoteResults, getActiveCarriers };
